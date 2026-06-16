@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Chat MVP icon">
+  <rect width="512" height="512" rx="96" fill="#2aabee"/>
+  <path fill="#ffffff" d="M128 226c0-58 54-105 128-105s128 47 128 105-54 105-128 105c-15 0-30-2-43-7l-63 39c-12 7-25-6-18-18l28-49c-20-19-32-43-32-70Z"/>
+  <circle cx="210" cy="226" r="17" fill="#2aabee"/>
+  <circle cx="256" cy="226" r="17" fill="#2aabee"/>
+  <circle cx="302" cy="226" r="17" fill="#2aabee"/>
+</svg>
