@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
 import {
   ArrowLeft,
@@ -13,7 +13,6 @@ import {
   Mail,
   Menu,
   MessageCircle,
-  MoreVertical,
   Paperclip,
   Search,
   SendHorizontal,
@@ -24,7 +23,7 @@ import {
 } from 'lucide-react'
 import './App.css'
 import { useChatApp } from './hooks/useChatApp'
-import type { ContactRequest, Conversation, Message, Profile } from './types'
+import type { ContactRequest, Conversation, Message, Profile, SearchResult } from './types'
 
 type Screen = 'login' | 'list' | 'chat' | 'group' | 'profile'
 const APP_DISPLAY_NAME = '聊天 MVP'
@@ -85,6 +84,7 @@ function App() {
             me={chat.me}
             outgoingContactRequests={chat.outgoingContactRequests}
             query={chat.query}
+            searchResults={chat.searchResults}
             onCreateGroup={async () => {
               await chat.createGroup()
               setScreen('chat')
@@ -94,6 +94,10 @@ function App() {
               setScreen('chat')
             }}
             onOpenProfile={() => setScreen('profile')}
+            onOpenSearchResult={(result) => {
+              chat.setActiveConversationId(result.conversationId)
+              setScreen('chat')
+            }}
             onQueryChange={chat.setQuery}
             onSignOut={handleSignOut}
             onRespondToContactRequest={async (requestId, action) => {
@@ -271,11 +275,13 @@ function ConversationList({
   onCreateGroup,
   onOpenConversation,
   onOpenProfile,
+  onOpenSearchResult,
   onQueryChange,
   onRespondToContactRequest,
   onSendContactRequest,
   onSignOut,
   query,
+  searchResults,
 }: {
   authNotice: string
   conversations: Conversation[]
@@ -286,6 +292,7 @@ function ConversationList({
   onCreateGroup: () => void
   onOpenConversation: (id: string) => void
   onOpenProfile: () => void
+  onOpenSearchResult: (result: SearchResult) => void
   onQueryChange: (query: string) => void
   onRespondToContactRequest: (
     requestId: string,
@@ -294,11 +301,38 @@ function ConversationList({
   onSendContactRequest: (email: string) => Promise<boolean>
   onSignOut: () => void
   query: string
+  searchResults: SearchResult[]
 }) {
+  const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isContactFormOpen, setIsContactFormOpen] = useState(false)
   const [contactEmail, setContactEmail] = useState('')
   const [isAddingContact, setIsAddingContact] = useState(false)
   const [respondingRequestId, setRespondingRequestId] = useState('')
+  const menuRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    if (!isMenuOpen) return
+
+    function handlePointerDown(event: PointerEvent) {
+      if (!menuRef.current?.contains(event.target as Node)) {
+        setIsMenuOpen(false)
+      }
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setIsMenuOpen(false)
+      }
+    }
+
+    document.addEventListener('pointerdown', handlePointerDown)
+    document.addEventListener('keydown', handleKeyDown)
+
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown)
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [isMenuOpen])
 
   async function submitContact(event: FormEvent) {
     event.preventDefault()
@@ -311,18 +345,60 @@ function ConversationList({
     }
   }
 
+  const isSearching = query.trim().length > 0
+
   async function respondToRequest(requestId: string, action: 'accepted' | 'declined') {
     setRespondingRequestId(requestId)
     await onRespondToContactRequest(requestId, action)
     setRespondingRequestId('')
   }
 
+  function handleCreateGroup() {
+    setIsMenuOpen(false)
+    onCreateGroup()
+  }
+
+  function handleOpenContactForm() {
+    setIsMenuOpen(false)
+    setIsContactFormOpen(true)
+  }
+
+  function handleSignOut() {
+    setIsMenuOpen(false)
+    onSignOut()
+  }
+
   return (
     <section className="screen">
       <header className="topbar">
-        <button aria-label="菜单" className="icon-button" type="button">
-          <Menu size={22} />
-        </button>
+        <div className="menu-wrapper" ref={menuRef}>
+          <button
+            aria-expanded={isMenuOpen}
+            aria-haspopup="menu"
+            aria-label={isMenuOpen ? '关闭操作菜单' : '打开操作菜单'}
+            className="icon-button"
+            onClick={() => setIsMenuOpen((isOpen) => !isOpen)}
+            type="button"
+          >
+            <Menu size={22} />
+          </button>
+          {isMenuOpen && (
+            <div aria-label="聊天操作" className="action-menu" role="menu">
+              <button className="menu-item" onClick={handleCreateGroup} role="menuitem" type="button">
+                <Users size={18} />
+                <span>新建群聊</span>
+              </button>
+              <button className="menu-item" onClick={handleOpenContactForm} role="menuitem" type="button">
+                <UserPlus size={18} />
+                <span>发送好友申请</span>
+              </button>
+              <button className="menu-item danger" onClick={handleSignOut} role="menuitem" type="button">
+                <LogOut size={18} />
+                <span>退出登录</span>
+              </button>
+            </div>
+          )}
+        </div>
         <div>
           <p className="eyebrow">消息</p>
           <h1>聊天</h1>
@@ -340,25 +416,6 @@ function ConversationList({
           placeholder="搜索"
           value={query}
         />
-      </div>
-
-      <div className="quick-actions">
-        <button className="quick-action" onClick={onCreateGroup} type="button">
-          <Users size={18} />
-          <span>新建群聊</span>
-        </button>
-        <button
-          className="quick-action"
-          onClick={() => setIsContactFormOpen((isOpen) => !isOpen)}
-          type="button"
-        >
-          <UserPlus size={18} />
-          <span>发送好友申请</span>
-        </button>
-        <button className="quick-action subtle" onClick={onSignOut} type="button">
-          <LogOut size={18} />
-          <span>退出登录</span>
-        </button>
       </div>
 
       {isContactFormOpen && (
@@ -451,44 +508,103 @@ function ConversationList({
         </section>
       )}
 
-      <div className="conversation-list">
-        {conversations.length === 0 ? (
+      {isSearching ? (
+        <SearchResults
+          onOpenResult={onOpenSearchResult}
+          query={query}
+          results={searchResults}
+        />
+      ) : (
+        <div className="conversation-list">
+          {conversations.length === 0 ? (
           <EmptyState
             icon={<MessageCircle size={28} />}
             title="暂无会话"
             body="创建群聊或发送好友申请，等对方同意后开始聊天。"
           />
-        ) : (
-          conversations.map((conversation) => (
-            <button
-              className="conversation-row"
-              key={conversation.id}
-              onClick={() => onOpenConversation(conversation.id)}
-              type="button"
-            >
-              <Avatar
-                profile={
-                  conversation.type === 'direct'
-                    ? getProfile(conversation.memberIds.find((id) => id !== me?.id) ?? '')
-                    : undefined
-                }
-                title={displayConversationTitle(conversation.title)}
-                variant={conversation.type}
-              />
-              <span className="conversation-copy">
-                <span className="row-title">
-                  <span>{displayConversationTitle(conversation.title)}</span>
-                  <time>{formatTime(conversation.updatedAt)}</time>
+          ) : (
+            conversations.map((conversation) => (
+              <button
+                className="conversation-row"
+                key={conversation.id}
+                onClick={() => onOpenConversation(conversation.id)}
+                type="button"
+              >
+                <Avatar
+                  profile={
+                    conversation.type === 'direct'
+                      ? getProfile(conversation.memberIds.find((id) => id !== me?.id) ?? '')
+                      : undefined
+                  }
+                  title={displayConversationTitle(conversation.title)}
+                  variant={conversation.type}
+                />
+                <span className="conversation-copy">
+                  <span className="row-title">
+                    <span>{displayConversationTitle(conversation.title)}</span>
+                    <time>{formatTime(conversation.updatedAt)}</time>
+                  </span>
+                  <span className="row-preview">{conversation.lastMessage || '暂无消息'}</span>
                 </span>
-                <span className="row-preview">{conversation.lastMessage || '暂无消息'}</span>
-              </span>
-              {conversation.unreadCount > 0 && (
-                <span className="unread-badge">{conversation.unreadCount}</span>
-              )}
-            </button>
-          ))
-        )}
+                {conversation.unreadCount > 0 && (
+                  <span className="unread-badge">{conversation.unreadCount}</span>
+                )}
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </section>
+  )
+}
+
+function SearchResults({
+  onOpenResult,
+  query,
+  results,
+}: {
+  onOpenResult: (result: SearchResult) => void
+  query: string
+  results: SearchResult[]
+}) {
+  return (
+    <section className="search-results" aria-label="搜索结果">
+      <div className="request-panel-title">
+        <strong>搜索结果</strong>
+        <span>{results.length}</span>
       </div>
+      {results.length === 0 ? (
+        <EmptyState
+          icon={<Search size={28} />}
+          title="没有搜索结果"
+          body="换个联系人、群名或消息关键词试试。"
+        />
+      ) : (
+        results.map((result) => (
+          <button
+            aria-label={`打开搜索结果：${result.title}`}
+            className="search-result-row"
+            key={result.id}
+            onClick={() => onOpenResult(result)}
+            type="button"
+          >
+            <span className="result-kind">
+              {result.kind === 'conversation' ? <MessageCircle size={17} /> : <Search size={17} />}
+            </span>
+            <span className="result-copy">
+              <strong>{displayConversationTitle(result.title)}</strong>
+              <small>
+                {result.kind === 'message'
+                  ? `${result.senderName} · ${formatTime(result.createdAt)}`
+                  : `${result.senderName} · ${formatTime(result.createdAt)}`}
+              </small>
+              <span className="result-snippet">
+                <HighlightedText query={query} text={result.snippet} />
+              </span>
+            </span>
+          </button>
+        ))
+      )}
     </section>
   )
 }
@@ -515,9 +631,21 @@ function ChatView({
   title: string
 }) {
   const [draft, setDraft] = useState('')
+  const [isMessageSearchOpen, setIsMessageSearchOpen] = useState(false)
+  const [messageSearchQuery, setMessageSearchQuery] = useState('')
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const otherMemberId = conversation.memberIds.find((id) => id !== myUserId)
   const otherProfile = getProfile(otherMemberId ?? '')
+  const messageSearchResults = useMemo(
+    () =>
+      buildConversationMessageResults(
+        messageSearchQuery,
+        conversation,
+        messages,
+        getProfile,
+      ),
+    [conversation, getProfile, messageSearchQuery, messages],
+  )
 
   function submit(event: FormEvent) {
     event.preventDefault()
@@ -542,10 +670,52 @@ function ChatView({
             </small>
           </span>
         </button>
-        <button aria-label="更多" className="icon-button" type="button">
-          <MoreVertical size={22} />
+        <button
+          aria-label={isMessageSearchOpen ? '关闭会话搜索' : '搜索当前会话'}
+          className="icon-button"
+          onClick={() => setIsMessageSearchOpen((isOpen) => !isOpen)}
+          type="button"
+        >
+          <Search size={22} />
         </button>
       </header>
+
+      {isMessageSearchOpen && (
+        <section className="in-chat-search" aria-label="当前会话搜索">
+          <div className="search-box compact">
+            <Search size={18} />
+            <input
+              aria-label="搜索当前会话消息"
+              onChange={(event) => setMessageSearchQuery(event.target.value)}
+              placeholder="搜索当前会话"
+              value={messageSearchQuery}
+            />
+          </div>
+          {messageSearchQuery.trim() && (
+            <div className="inline-results">
+              <strong>{messageSearchResults.length} 条结果</strong>
+              {messageSearchResults.length === 0 ? (
+                <p>没有找到匹配的消息。</p>
+              ) : (
+                messageSearchResults.map((result) => (
+                  <button
+                    aria-label={`当前会话搜索结果：${result.snippet}`}
+                    className="inline-result-row"
+                    key={result.id}
+                    onClick={() => setIsMessageSearchOpen(false)}
+                    type="button"
+                  >
+                    <span>
+                      <HighlightedText query={messageSearchQuery} text={result.snippet} />
+                    </span>
+                    <small>{`${result.senderName} · ${formatTime(result.createdAt)}`}</small>
+                  </button>
+                ))
+              )}
+            </div>
+          )}
+        </section>
+      )}
 
       <div className="message-list" role="log">
         {messages.length === 0 ? (
@@ -616,6 +786,51 @@ function EmptyState({
       <p>{body}</p>
     </div>
   )
+}
+
+function HighlightedText({ query, text }: { query: string; text: string }) {
+  const normalizedQuery = query.trim().toLocaleLowerCase('zh-CN')
+  if (!normalizedQuery) return text
+
+  const normalizedText = text.toLocaleLowerCase('zh-CN')
+  const start = normalizedText.indexOf(normalizedQuery)
+
+  if (start === -1) return text
+
+  const end = start + query.trim().length
+
+  return (
+    <>
+      {text.slice(0, start)}
+      <mark>{text.slice(start, end)}</mark>
+      {text.slice(end)}
+    </>
+  )
+}
+
+function buildConversationMessageResults(
+  query: string,
+  conversation: Conversation,
+  messages: Message[],
+  getProfile: (profileId: string) => Profile | undefined,
+): SearchResult[] {
+  const normalizedQuery = query.trim().toLocaleLowerCase('zh-CN')
+
+  if (!normalizedQuery) return []
+
+  return messages
+    .filter((message) => message.body.toLocaleLowerCase('zh-CN').includes(normalizedQuery))
+    .map((message) => ({
+      id: `current-message-${message.id}`,
+      conversationId: conversation.id,
+      conversationTitle: conversation.title,
+      kind: 'message' as const,
+      title: conversation.title,
+      snippet: message.body,
+      senderName: getProfile(message.senderId)?.displayName ?? '成员',
+      createdAt: message.createdAt,
+    }))
+    .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
 }
 
 function MessageBubble({

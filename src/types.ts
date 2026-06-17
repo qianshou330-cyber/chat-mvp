@@ -72,6 +72,17 @@ export interface Conversation {
   lastMessage: string
 }
 
+export interface SearchResult {
+  id: string
+  conversationId: string
+  conversationTitle: string
+  kind: 'conversation' | 'message'
+  title: string
+  snippet: string
+  senderName: string
+  createdAt: string
+}
+
 export interface ChatState {
   profiles: Profile[]
   contacts: ContactRequest[]

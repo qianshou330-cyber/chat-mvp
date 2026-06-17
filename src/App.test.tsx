@@ -33,7 +33,8 @@ describe('聊天 MVP', () => {
     render(<App />)
 
     fireEvent.click(screen.getByRole('button', { name: '使用 Demo 账号' }))
-    fireEvent.click(await screen.findByRole('button', { name: '发送好友申请' }))
+    fireEvent.click(await screen.findByRole('button', { name: '打开操作菜单' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: '发送好友申请' }))
     fireEvent.change(screen.getByLabelText('对方邮箱'), {
       target: { value: 'zoe@example.com' },
     })
@@ -42,6 +43,26 @@ describe('聊天 MVP', () => {
     expect(await screen.findByText('宋知夏')).toBeInTheDocument()
     expect(screen.getByText('已发送，等待对方同意')).toBeInTheDocument()
     expect(screen.queryByLabelText('消息')).not.toBeInTheDocument()
+  })
+
+  it('keeps list actions inside the top-left menu', async () => {
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: '使用 Demo 账号' }))
+    expect(await screen.findByRole('heading', { name: '聊天' })).toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: '新建群聊' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '发送好友申请' })).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: '打开操作菜单' }))
+
+    expect(screen.getByRole('menu', { name: '聊天操作' })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: '新建群聊' })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: '发送好友申请' })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: '退出登录' })).toBeInTheDocument()
+
+    fireEvent.keyDown(document, { key: 'Escape' })
+
+    expect(screen.queryByRole('menu', { name: '聊天操作' })).not.toBeInTheDocument()
   })
 
   it('accepts a demo contact request before opening a direct chat', async () => {
@@ -53,6 +74,55 @@ describe('聊天 MVP', () => {
 
     expect(await screen.findByLabelText('消息')).toBeInTheDocument()
     expect(screen.getByText('李诺拉')).toBeInTheDocument()
+  })
+
+  it('searches conversations and opens a matching result', async () => {
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: '使用 Demo 账号' }))
+    fireEvent.change(await screen.findByLabelText('搜索聊天'), {
+      target: { value: '上线准备群' },
+    })
+
+    expect(await screen.findByText('搜索结果')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '打开搜索结果：上线准备群' }))
+
+    expect(await screen.findByLabelText('消息')).toBeInTheDocument()
+    expect(screen.getByText('上线准备群')).toBeInTheDocument()
+  })
+
+  it('searches loaded message content with Chinese keywords', async () => {
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: '使用 Demo 账号' }))
+    fireEvent.change(await screen.findByLabelText('搜索聊天'), {
+      target: { value: 'RLS 需要' },
+    })
+
+    expect(await screen.findByText('搜索结果')).toBeInTheDocument()
+    expect(
+      screen.getAllByText((_, element) =>
+        Boolean(element?.textContent?.includes('RLS 需要按会话成员关系限制每一条消息。')),
+      ).length,
+    ).toBeGreaterThan(0)
+  })
+
+  it('searches only the current conversation from the chat window', async () => {
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: '使用 Demo 账号' }))
+    fireEvent.click(await screen.findByText('林小米'))
+    fireEvent.click(screen.getByRole('button', { name: '搜索当前会话' }))
+    fireEvent.change(screen.getByLabelText('搜索当前会话消息'), {
+      target: { value: '移动端' },
+    })
+
+    expect(screen.getByText('1 条结果')).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', {
+        name: '当前会话搜索结果：移动端布局已经可以开始评审了。',
+      }),
+    ).toBeInTheDocument()
   })
 
   it('updates the demo profile avatar from the camera button', async () => {

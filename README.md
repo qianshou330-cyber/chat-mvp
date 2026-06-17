@@ -13,6 +13,7 @@ Telegram-style mobile PWA MVP for chat, built with React, TypeScript, Vite, Supa
 - Supabase 邮箱密码登录、Realtime 消息、Storage 上传和 signed URL 下载。
 - Supabase schema、RLS、头像上传 bucket、好友申请 RPC migrations，位于 `supabase/migrations`。
 - 附件类型校验和 10 MB 上传限制；头像仅支持 PNG/JPEG/WebP，限制 2 MB。
+- 客户端消息搜索：支持聊天列表搜索和当前会话搜索。
 - GitHub Actions CI、Vercel 部署配置、PWA manifest 和 app icon。
 - Figma 和 Lovable 交接文档，位于 `docs/`。
 
@@ -65,4 +66,4 @@ Use `docs/deployment-checklist.md` before promoting a Preview deployment to Prod
 
 所有反馈统一进入 GitHub Issues，使用已有的缺陷反馈、体验反馈和功能建议模板。
 
-已知 beta 限制：暂不支持端到端加密、原生移动 App、语音/视频通话、频道、机器人、推送通知和全文搜索。
+已知 beta 限制：暂不支持端到端加密、原生移动 App、语音/视频通话、频道、机器人、推送通知和服务端全文搜索。
