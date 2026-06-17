@@ -9,6 +9,8 @@ describe('聊天 MVP', () => {
     expect(screen.getByRole('heading', { name: '聊天 MVP' })).toBeInTheDocument()
     expect(screen.queryByText('Beta 测试版')).not.toBeInTheDocument()
     expect(screen.queryByText(/请暂时不要发送敏感信息/)).not.toBeInTheDocument()
+    expect(screen.queryByText('9:41')).not.toBeInTheDocument()
+    expect(screen.queryByText('5G')).not.toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: '使用 Demo 账号' }))
 

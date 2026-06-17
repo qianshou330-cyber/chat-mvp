@@ -208,10 +208,6 @@ function LoginScreen({
 
   return (
     <section className="login-screen">
-      <div className="status-bar">
-        <span>9:41</span>
-        <span>5G</span>
-      </div>
       <div className="login-hero">
         <div className="brand-mark large">
           <MessageCircle size={54} />

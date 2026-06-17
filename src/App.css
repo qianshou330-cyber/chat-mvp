@@ -61,6 +61,11 @@
   padding: 18px;
 }
 
+.login-screen {
+  overflow: auto;
+  padding-top: 30px;
+}
+
 .splash-screen {
   align-items: center;
   justify-content: center;
@@ -83,23 +88,13 @@
   width: 92px;
 }
 
-.status-bar {
-  align-items: center;
-  color: var(--text);
-  display: flex;
-  font-size: 13px;
-  font-weight: 700;
-  justify-content: space-between;
-  padding: 2px 2px 18px;
-}
-
 .login-hero {
   align-items: center;
   display: flex;
-  flex: 1;
+  flex: 0 0 auto;
   flex-direction: column;
   justify-content: center;
-  padding: 22px 14px;
+  padding: 16px 14px 28px;
   text-align: center;
 }
 
