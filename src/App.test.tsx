@@ -29,18 +29,44 @@ describe('聊天 MVP', () => {
     expect(screen.getByText('第一版移动聊天 MVP 可以发出去了。')).toBeInTheDocument()
   })
 
-  it('adds a demo contact and opens a direct chat', async () => {
+  it('sends a demo contact request without opening a direct chat', async () => {
     render(<App />)
 
     fireEvent.click(screen.getByRole('button', { name: '使用 Demo 账号' }))
-    fireEvent.click(await screen.findByRole('button', { name: '添加联系人' }))
-    fireEvent.change(screen.getByLabelText('联系人邮箱'), {
-      target: { value: 'nora@example.com' },
+    fireEvent.click(await screen.findByRole('button', { name: '发送好友申请' }))
+    fireEvent.change(screen.getByLabelText('对方邮箱'), {
+      target: { value: 'zoe@example.com' },
     })
-    fireEvent.click(screen.getByRole('button', { name: '开始聊天' }))
+    fireEvent.click(screen.getByRole('button', { name: '发送申请' }))
+
+    expect(await screen.findByText('宋知夏')).toBeInTheDocument()
+    expect(screen.getByText('已发送，等待对方同意')).toBeInTheDocument()
+    expect(screen.queryByLabelText('消息')).not.toBeInTheDocument()
+  })
+
+  it('accepts a demo contact request before opening a direct chat', async () => {
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: '使用 Demo 账号' }))
+    expect(await screen.findByText('想添加你为好友')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '同意' }))
 
     expect(await screen.findByLabelText('消息')).toBeInTheDocument()
     expect(screen.getByText('李诺拉')).toBeInTheDocument()
+  })
+
+  it('updates the demo profile avatar from the camera button', async () => {
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: '使用 Demo 账号' }))
+    fireEvent.click(await screen.findByRole('button', { name: '打开个人资料' }))
+
+    const avatar = new File(['avatar'], 'avatar.png', { type: 'image/png' })
+    fireEvent.change(screen.getByLabelText('头像文件'), {
+      target: { files: [avatar] },
+    })
+
+    expect(await screen.findByText('头像已更新。')).toBeInTheDocument()
   })
 
   it('shows a demo attachment link after upload', async () => {

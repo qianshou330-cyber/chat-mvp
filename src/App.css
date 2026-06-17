@@ -300,6 +300,105 @@
   padding: 2px 16px 14px;
 }
 
+.list-notice {
+  flex: 0 0 auto;
+  padding: 0 16px 10px;
+}
+
+.request-panel {
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0 16px 12px;
+}
+
+.request-panel-title,
+.request-row {
+  align-items: center;
+  display: flex;
+}
+
+.request-panel-title {
+  color: var(--text);
+  justify-content: space-between;
+}
+
+.request-panel-title span {
+  align-items: center;
+  background: var(--accent);
+  border-radius: 999px;
+  color: #ffffff;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 800;
+  height: 22px;
+  justify-content: center;
+  min-width: 22px;
+  padding: 0 7px;
+}
+
+.request-row {
+  background: var(--surface-soft);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  gap: 10px;
+  min-height: 64px;
+  padding: 8px;
+}
+
+.request-row > span {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.request-row strong,
+.request-row small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.request-row strong {
+  color: var(--text);
+  font-size: 14px;
+}
+
+.request-row small {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.request-row.compact {
+  min-height: 58px;
+}
+
+.request-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 6px;
+}
+
+.mini-button {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--accent-strong);
+  font-size: 12px;
+  font-weight: 800;
+  min-height: 34px;
+  padding: 0 10px;
+}
+
+.mini-button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #ffffff;
+}
+
 .quick-action {
   align-items: center;
   background: var(--accent-soft);
@@ -446,6 +545,13 @@
   height: 48px;
   justify-content: center;
   width: 48px;
+}
+
+.avatar img {
+  border-radius: inherit;
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
 }
 
 .avatar.small {
@@ -598,7 +704,7 @@
   padding: 10px 12px;
 }
 
-.composer input[aria-label='Message'] {
+.composer input[aria-label='消息'] {
   background: var(--surface-soft);
   border: 1px solid var(--border);
   border-radius: 8px;

@@ -24,7 +24,7 @@ import {
 } from 'lucide-react'
 import './App.css'
 import { useChatApp } from './hooks/useChatApp'
-import type { Conversation, Message, Profile } from './types'
+import type { ContactRequest, Conversation, Message, Profile } from './types'
 
 type Screen = 'login' | 'list' | 'chat' | 'group' | 'profile'
 const APP_DISPLAY_NAME = '聊天 MVP'
@@ -81,7 +81,9 @@ function App() {
             conversations={chat.visibleConversations}
             authNotice={chat.authNotice}
             getProfile={chat.getProfile}
+            incomingContactRequests={chat.incomingContactRequests}
             me={chat.me}
+            outgoingContactRequests={chat.outgoingContactRequests}
             query={chat.query}
             onCreateGroup={async () => {
               await chat.createGroup()
@@ -94,14 +96,15 @@ function App() {
             onOpenProfile={() => setScreen('profile')}
             onQueryChange={chat.setQuery}
             onSignOut={handleSignOut}
-            onAddContact={async (email) => {
-              const conversationId = await chat.addContactByEmail(email)
+            onRespondToContactRequest={async (requestId, action) => {
+              const conversationId = await chat.respondToContactRequest(requestId, action)
               if (conversationId) {
                 chat.setActiveConversationId(conversationId)
                 setScreen('chat')
               }
-              return Boolean(conversationId)
+              return action === 'declined' || Boolean(conversationId)
             }}
+            onSendContactRequest={chat.sendContactRequestByEmail}
           />
         )}
         {activeScreen === 'chat' && chat.activeConversation && (
@@ -130,6 +133,7 @@ function App() {
             email={chat.user?.email ?? ''}
             profile={chat.me}
             onBack={() => setScreen('list')}
+            onAvatarUpload={chat.updateProfileAvatar}
             onSave={chat.updateProfile}
             onSignOut={handleSignOut}
           />
@@ -261,40 +265,56 @@ function ConversationList({
   authNotice,
   conversations,
   getProfile,
+  incomingContactRequests,
   me,
-  onAddContact,
+  outgoingContactRequests,
   onCreateGroup,
   onOpenConversation,
   onOpenProfile,
   onQueryChange,
+  onRespondToContactRequest,
+  onSendContactRequest,
   onSignOut,
   query,
 }: {
   authNotice: string
   conversations: Conversation[]
   getProfile: (profileId: string) => Profile | undefined
+  incomingContactRequests: ContactRequest[]
   me: Profile | null | undefined
-  onAddContact: (email: string) => Promise<boolean>
+  outgoingContactRequests: ContactRequest[]
   onCreateGroup: () => void
   onOpenConversation: (id: string) => void
   onOpenProfile: () => void
   onQueryChange: (query: string) => void
+  onRespondToContactRequest: (
+    requestId: string,
+    action: 'accepted' | 'declined',
+  ) => Promise<boolean>
+  onSendContactRequest: (email: string) => Promise<boolean>
   onSignOut: () => void
   query: string
 }) {
   const [isContactFormOpen, setIsContactFormOpen] = useState(false)
   const [contactEmail, setContactEmail] = useState('')
   const [isAddingContact, setIsAddingContact] = useState(false)
+  const [respondingRequestId, setRespondingRequestId] = useState('')
 
   async function submitContact(event: FormEvent) {
     event.preventDefault()
     setIsAddingContact(true)
-    const didOpenChat = await onAddContact(contactEmail)
+    const didSendRequest = await onSendContactRequest(contactEmail)
     setIsAddingContact(false)
-    if (didOpenChat) {
+    if (didSendRequest) {
       setContactEmail('')
       setIsContactFormOpen(false)
     }
+  }
+
+  async function respondToRequest(requestId: string, action: 'accepted' | 'declined') {
+    setRespondingRequestId(requestId)
+    await onRespondToContactRequest(requestId, action)
+    setRespondingRequestId('')
   }
 
   return (
@@ -333,7 +353,7 @@ function ConversationList({
           type="button"
         >
           <UserPlus size={18} />
-          <span>添加联系人</span>
+          <span>发送好友申请</span>
         </button>
         <button className="quick-action subtle" onClick={onSignOut} type="button">
           <LogOut size={18} />
@@ -343,7 +363,7 @@ function ConversationList({
 
       {isContactFormOpen && (
         <form className="contact-panel" onSubmit={submitContact}>
-          <label htmlFor="contactEmail">联系人邮箱</label>
+          <label htmlFor="contactEmail">对方邮箱</label>
           <div className="input-row">
             <Mail size={20} />
             <input
@@ -359,7 +379,7 @@ function ConversationList({
           </div>
           <div className="auth-actions">
             <button className="primary-button" disabled={isAddingContact} type="submit">
-              {isAddingContact ? '正在创建' : '开始聊天'}
+              {isAddingContact ? '发送中' : '发送申请'}
             </button>
             <button
               className="secondary-button"
@@ -374,12 +394,69 @@ function ConversationList({
         </form>
       )}
 
+      {!isContactFormOpen && authNotice && <p className="notice list-notice">{authNotice}</p>}
+
+      {(incomingContactRequests.length > 0 || outgoingContactRequests.length > 0) && (
+        <section className="request-panel" aria-label="好友申请">
+          <div className="request-panel-title">
+            <strong>好友申请</strong>
+            {incomingContactRequests.length > 0 && (
+              <span>{incomingContactRequests.length}</span>
+            )}
+          </div>
+
+          {incomingContactRequests.map((request) => {
+            const requester = getProfile(request.ownerId)
+            return (
+              <div className="request-row" key={request.id}>
+                <Avatar profile={requester} />
+                <span>
+                  <strong>{requester?.displayName ?? '成员'}</strong>
+                  <small>想添加你为好友</small>
+                </span>
+                <div className="request-actions">
+                  <button
+                    className="mini-button primary"
+                    disabled={respondingRequestId === request.id}
+                    onClick={() => void respondToRequest(request.id, 'accepted')}
+                    type="button"
+                  >
+                    同意
+                  </button>
+                  <button
+                    className="mini-button"
+                    disabled={respondingRequestId === request.id}
+                    onClick={() => void respondToRequest(request.id, 'declined')}
+                    type="button"
+                  >
+                    拒绝
+                  </button>
+                </div>
+              </div>
+            )
+          })}
+
+          {outgoingContactRequests.map((request) => {
+            const target = getProfile(request.contactId)
+            return (
+              <div className="request-row compact" key={request.id}>
+                <Avatar profile={target} />
+                <span>
+                  <strong>{target?.displayName ?? '成员'}</strong>
+                  <small>已发送，等待对方同意</small>
+                </span>
+              </div>
+            )
+          })}
+        </section>
+      )}
+
       <div className="conversation-list">
         {conversations.length === 0 ? (
           <EmptyState
             icon={<MessageCircle size={28} />}
             title="暂无会话"
-            body="创建群聊或添加联系人后开始聊天。"
+            body="创建群聊或发送好友申请，等对方同意后开始聊天。"
           />
         ) : (
           conversations.map((conversation) => (
@@ -638,6 +715,7 @@ function GroupInfo({
 function ProfileSettings({
   authNotice,
   email,
+  onAvatarUpload,
   onBack,
   onSave,
   onSignOut,
@@ -645,6 +723,7 @@ function ProfileSettings({
 }: {
   authNotice: string
   email: string
+  onAvatarUpload: (file: File) => Promise<void>
   onBack: () => void
   onSave: (profile: Pick<Profile, 'displayName' | 'bio'>) => void
   onSignOut: () => void
@@ -652,6 +731,7 @@ function ProfileSettings({
 }) {
   const [displayName, setDisplayName] = useState(profile.displayName)
   const [bio, setBio] = useState(profile.bio)
+  const avatarInputRef = useRef<HTMLInputElement | null>(null)
 
   return (
     <section className="screen">
@@ -670,7 +750,24 @@ function ProfileSettings({
 
       <section className="profile-hero">
         <Avatar profile={profile} size="large" />
-        <button className="camera-button" type="button">
+        <input
+          ref={avatarInputRef}
+          accept="image/png,image/jpeg,image/webp"
+          aria-label="头像文件"
+          className="file-input"
+          onChange={(event) => {
+            const file = event.target.files?.[0]
+            if (file) void onAvatarUpload(file)
+            event.target.value = ''
+          }}
+          type="file"
+        />
+        <button
+          aria-label="更换头像"
+          className="camera-button"
+          onClick={() => avatarInputRef.current?.click()}
+          type="button"
+        >
           <Camera size={18} />
         </button>
       </section>
@@ -725,7 +822,13 @@ function Avatar({
 
   return (
     <span className={`avatar ${profile?.avatarTone ?? (variant === 'group' ? 'slate' : 'blue')} ${size}`}>
-      {variant === 'group' && !profile ? <Users size={size === 'large' ? 34 : 20} /> : initials}
+      {profile?.avatarUrl ? (
+        <img alt="" src={profile.avatarUrl} />
+      ) : variant === 'group' && !profile ? (
+        <Users size={size === 'large' ? 34 : 20} />
+      ) : (
+        initials
+      )}
     </span>
   )
 }

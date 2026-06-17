@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { MAX_ATTACHMENT_SIZE_BYTES, validateAttachment } from './attachments'
+import {
+  MAX_ATTACHMENT_SIZE_BYTES,
+  validateAttachment,
+  validateAvatar,
+} from './attachments'
 
 describe('validateAttachment', () => {
   it('accepts allowed image files within the size limit', () => {
@@ -33,5 +37,24 @@ describe('validateAttachment', () => {
         type: 'application/pdf',
       }),
     ).toEqual({ ok: false, reason: '文件大小不能超过 10 MB。' })
+  })
+})
+
+describe('validateAvatar', () => {
+  it('allows supported image avatars under 2 MB', () => {
+    expect(validateAvatar({ size: 24_000, type: 'image/png' })).toEqual({ ok: true })
+    expect(validateAvatar({ size: 24_000, type: 'image/jpeg' })).toEqual({ ok: true })
+    expect(validateAvatar({ size: 24_000, type: 'image/webp' })).toEqual({ ok: true })
+  })
+
+  it('rejects oversized or unsupported avatars with Chinese errors', () => {
+    expect(validateAvatar({ size: 2 * 1024 * 1024 + 1, type: 'image/png' })).toEqual({
+      ok: false,
+      reason: '头像不能超过 2 MB。',
+    })
+    expect(validateAvatar({ size: 24_000, type: 'text/plain' })).toEqual({
+      ok: false,
+      reason: '头像仅支持 PNG、JPEG 或 WebP。',
+    })
   })
 })

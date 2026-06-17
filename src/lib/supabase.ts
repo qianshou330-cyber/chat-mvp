@@ -11,3 +11,6 @@ export const supabase = isSupabaseConfigured
 
 export const chatStorageBucket =
   (import.meta.env.VITE_SUPABASE_CHAT_BUCKET as string | undefined) ?? 'chat-uploads'
+
+export const avatarStorageBucket =
+  (import.meta.env.VITE_SUPABASE_AVATAR_BUCKET as string | undefined) ?? 'profile-avatars'

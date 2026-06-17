@@ -1,4 +1,4 @@
-import type { AppUser, ChatState, Conversation, Message, Profile } from '../types'
+import type { AppUser, ChatState, ContactRequest, Conversation, Message, Profile } from '../types'
 
 const now = new Date()
 
@@ -14,6 +14,7 @@ export const demoProfiles: Profile[] = [
   {
     id: 'user-me',
     displayName: '陈启明',
+    avatarUrl: '',
     avatarTone: 'blue',
     bio: '正在打磨第一版聊天 MVP。',
     status: 'online',
@@ -22,6 +23,7 @@ export const demoProfiles: Profile[] = [
   {
     id: 'user-mira',
     displayName: '林小米',
+    avatarUrl: '',
     avatarTone: 'green',
     bio: '负责产品、调研和发布记录。',
     status: 'online',
@@ -30,6 +32,7 @@ export const demoProfiles: Profile[] = [
   {
     id: 'user-ian',
     displayName: '周一凡',
+    avatarUrl: '',
     avatarTone: 'amber',
     bio: '负责前端和设计系统。',
     status: 'away',
@@ -38,10 +41,20 @@ export const demoProfiles: Profile[] = [
   {
     id: 'user-nora',
     displayName: '李诺拉',
+    avatarUrl: '',
     avatarTone: 'rose',
     bio: '负责后端、数据和安全。',
     status: 'offline',
     lastSeen: minutesAgo(83),
+  },
+  {
+    id: 'user-zoe',
+    displayName: '宋知夏',
+    avatarUrl: '',
+    avatarTone: 'slate',
+    bio: '准备参加第一轮外测。',
+    status: 'offline',
+    lastSeen: minutesAgo(144),
   },
 ]
 
@@ -49,7 +62,35 @@ export const demoProfileEmails: Record<string, string> = {
   'mira@example.com': 'user-mira',
   'ian@example.com': 'user-ian',
   'nora@example.com': 'user-nora',
+  'zoe@example.com': 'user-zoe',
 }
+
+export const demoContacts: ContactRequest[] = [
+  {
+    id: 'contact-me-mira',
+    ownerId: 'user-me',
+    contactId: 'user-mira',
+    status: 'accepted',
+    createdAt: minutesAgo(240),
+    direction: 'outgoing',
+  },
+  {
+    id: 'contact-me-ian',
+    ownerId: 'user-me',
+    contactId: 'user-ian',
+    status: 'accepted',
+    createdAt: minutesAgo(230),
+    direction: 'outgoing',
+  },
+  {
+    id: 'contact-nora-me',
+    ownerId: 'user-nora',
+    contactId: 'user-me',
+    status: 'pending',
+    createdAt: minutesAgo(12),
+    direction: 'incoming',
+  },
+]
 
 export const demoConversations: Conversation[] = [
   {
@@ -168,6 +209,7 @@ export const demoMessages: Message[] = [
 
 export const createDemoState = (): ChatState => ({
   profiles: [...demoProfiles],
+  contacts: [...demoContacts],
   conversations: [...demoConversations],
   messages: [...demoMessages],
   members: demoConversations.flatMap((conversation) =>

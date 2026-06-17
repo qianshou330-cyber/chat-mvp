@@ -6,17 +6,15 @@ Telegram-style mobile PWA MVP for chat, built with React, TypeScript, Vite, Supa
 
 当前阶段：`v0.1-beta` 小范围外测准备。
 
-## What Is Included
+## 已包含能力
 
-- Mobile-first chat UI with login, chat list, add contact, direct chat, group info, and profile settings.
-- Demo mode that works without backend credentials.
-- Supabase client wiring for email/password Auth, Realtime messages, and Storage upload.
-- Supabase schema, RLS, and direct-contact RPC migrations in `supabase/migrations`.
-- Client-side attachment validation for allowed file types and 10 MB uploads.
-- Private attachment download links generated through Supabase signed URLs.
-- GitHub Actions CI and Vercel deployment configuration.
-- PWA manifest and app icon.
-- Figma and Lovable handoff docs in `docs/`.
+- 移动优先聊天 UI：登录、聊天列表、好友申请、单聊、群聊信息和个人资料设置。
+- 无后端凭据也能打开的 Demo 模式。
+- Supabase 邮箱密码登录、Realtime 消息、Storage 上传和 signed URL 下载。
+- Supabase schema、RLS、头像上传 bucket、好友申请 RPC migrations，位于 `supabase/migrations`。
+- 附件类型校验和 10 MB 上传限制；头像仅支持 PNG/JPEG/WebP，限制 2 MB。
+- GitHub Actions CI、Vercel 部署配置、PWA manifest 和 app icon。
+- Figma 和 Lovable 交接文档，位于 `docs/`。
 
 ## Local Development
 
@@ -41,7 +39,7 @@ VITE_SUPABASE_ANON_KEY=
 VITE_SUPABASE_CHAT_BUCKET=chat-uploads
 ```
 
-Allowed attachment types are PNG, JPEG, WebP, PDF, plain text, and Markdown. The migration configures the private `chat-uploads` bucket with the same 10 MB limit used by the client.
+Allowed attachment types are PNG, JPEG, WebP, PDF, plain text, and Markdown. The migrations configure the private `chat-uploads` bucket with the same 10 MB limit used by the client, plus the public `profile-avatars` bucket for 2 MB profile images.
 
 ## Verification
 

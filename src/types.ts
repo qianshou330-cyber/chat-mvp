@@ -8,6 +8,10 @@ export type MemberRole = 'owner' | 'admin' | 'member'
 
 export type ProfileStatus = 'online' | 'away' | 'offline'
 
+export type ContactStatus = 'pending' | 'accepted' | 'declined'
+
+export type ContactDirection = 'incoming' | 'outgoing'
+
 export interface AppUser {
   id: string
   email: string
@@ -16,10 +20,20 @@ export interface AppUser {
 export interface Profile {
   id: string
   displayName: string
+  avatarUrl: string
   avatarTone: 'blue' | 'green' | 'amber' | 'rose' | 'slate'
   bio: string
   status: ProfileStatus
   lastSeen: string
+}
+
+export interface ContactRequest {
+  id: string
+  ownerId: string
+  contactId: string
+  status: ContactStatus
+  createdAt: string
+  direction: ContactDirection
 }
 
 export interface Attachment {
@@ -60,6 +74,7 @@ export interface Conversation {
 
 export interface ChatState {
   profiles: Profile[]
+  contacts: ContactRequest[]
   conversations: Conversation[]
   messages: Message[]
   members: ConversationMember[]

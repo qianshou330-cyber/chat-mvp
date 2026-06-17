@@ -1,8 +1,21 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { chatStorageBucket, isSupabaseConfigured, supabase } from '../lib/supabase'
+import {
+  avatarStorageBucket,
+  chatStorageBucket,
+  isSupabaseConfigured,
+  supabase,
+} from '../lib/supabase'
 import { createDemoState, demoProfileEmails, demoUser } from '../data/demoData'
-import { validateAttachment } from '../lib/attachments'
-import type { AppUser, ChatState, Conversation, Message, Profile } from '../types'
+import { avatarFileExtension, validateAttachment, validateAvatar } from '../lib/attachments'
+import type {
+  AppUser,
+  ChatState,
+  ContactRequest,
+  ContactStatus,
+  Conversation,
+  Message,
+  Profile,
+} from '../types'
 
 const initialState = createDemoState()
 
@@ -56,6 +69,18 @@ function friendlyErrorMessage(message: string | undefined, fallback: string) {
     return '没有找到使用这个邮箱注册的用户。'
   }
 
+  if (normalized.includes('incoming contact request already exists')) {
+    return '对方已经给你发来申请，请在好友申请里处理。'
+  }
+
+  if (normalized.includes('contact request must be accepted')) {
+    return '需要对方同意好友申请后才能开始单聊。'
+  }
+
+  if (normalized.includes('contact request not found')) {
+    return '没有找到这条好友申请，可能已经被处理。'
+  }
+
   if (
     normalized.includes('row-level security') ||
     normalized.includes('permission denied') ||
@@ -76,6 +101,9 @@ export function useChatApp() {
   const [authNotice, setAuthNotice] = useState('')
   const [isLoading, setIsLoading] = useState(Boolean(supabase))
   const currentChannel = useRef<ReturnType<NonNullable<typeof supabase>['channel']> | null>(
+    null,
+  )
+  const stateChannel = useRef<ReturnType<NonNullable<typeof supabase>['channel']> | null>(
     null,
   )
 
@@ -100,21 +128,47 @@ export function useChatApp() {
 
   const me = user ? state.profiles.find((profile) => profile.id === user.id) : null
 
+  const incomingContactRequests = useMemo(
+    () =>
+      state.contacts
+        .filter((contact) => contact.status === 'pending' && contact.direction === 'incoming')
+        .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)),
+    [state.contacts],
+  )
+
+  const outgoingContactRequests = useMemo(
+    () =>
+      state.contacts
+        .filter((contact) => contact.status === 'pending' && contact.direction === 'outgoing')
+        .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)),
+    [state.contacts],
+  )
+
   const loadSupabaseState = useCallback(async (userId: string) => {
     if (!supabase) return
     setIsLoading(true)
 
-    const [profileResult, memberResult] = await Promise.all([
+    const [profileResult, memberResult, contactsResult] = await Promise.all([
       supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
       supabase
         .from('conversation_members')
         .select('conversation_id')
         .eq('user_id', userId),
+      supabase
+        .from('contacts')
+        .select('*')
+        .or(`owner_id.eq.${userId},contact_id.eq.${userId}`),
     ])
 
     if (profileResult.error) {
       setAuthNotice(
         friendlyErrorMessage(profileResult.error.message, '无法加载你的资料，请刷新后重试。'),
+      )
+    }
+
+    if (contactsResult.error) {
+      setAuthNotice(
+        friendlyErrorMessage(contactsResult.error.message, '无法加载好友申请，请刷新后重试。'),
       )
     }
 
@@ -148,44 +202,81 @@ export function useChatApp() {
 
     const conversationIds =
       memberResult.data?.map((member) => member.conversation_id as string) ?? []
+    const contactRows = contactsResult.data ?? []
 
-    if (conversationIds.length === 0) {
-      setState((previous) => ({
-        ...previous,
-        profiles: currentProfile ? [mapProfile(currentProfile)] : previous.profiles,
-        conversations: [],
-        messages: [],
-      }))
-      setIsLoading(false)
-      return
+    let conversationRows: Record<string, unknown>[] = []
+    let memberRows: Record<string, unknown>[] = []
+    let messageRows: Record<string, unknown>[] = []
+
+    if (conversationIds.length > 0) {
+      const [conversationsResult, membersResult, messagesResult] = await Promise.all([
+        supabase.from('conversations').select('*').in('id', conversationIds),
+        supabase
+          .from('conversation_members')
+          .select('*')
+          .in('conversation_id', conversationIds),
+        supabase
+          .from('messages')
+          .select('*, attachments(*)')
+          .in('conversation_id', conversationIds)
+          .order('created_at', { ascending: true }),
+      ])
+
+      if (conversationsResult.error) {
+        setAuthNotice(
+          friendlyErrorMessage(conversationsResult.error.message, '无法加载会话，请刷新后重试。'),
+        )
+      }
+
+      if (membersResult.error) {
+        setAuthNotice(
+          friendlyErrorMessage(membersResult.error.message, '无法加载成员，请刷新后重试。'),
+        )
+      }
+
+      if (messagesResult.error) {
+        setAuthNotice(
+          friendlyErrorMessage(messagesResult.error.message, '无法加载消息，请刷新后重试。'),
+        )
+      }
+
+      conversationRows = conversationsResult.data ?? []
+      memberRows = membersResult.data ?? []
+      messageRows = messagesResult.data ?? []
     }
 
-    const [conversationsResult, membersResult, messagesResult] = await Promise.all([
-      supabase.from('conversations').select('*').in('id', conversationIds),
-      supabase
-        .from('conversation_members')
-        .select('*')
-        .in('conversation_id', conversationIds),
-      supabase
-        .from('messages')
-        .select('*, attachments(*)')
-        .in('conversation_id', conversationIds)
-        .order('created_at', { ascending: true }),
-    ])
+    const profileIds = new Set<string>()
+    if (currentProfile) profileIds.add(userId)
+    contactRows.forEach((contact) => {
+      profileIds.add(contact.owner_id as string)
+      profileIds.add(contact.contact_id as string)
+    })
+    memberRows.forEach((member) => profileIds.add(member.user_id as string))
 
-    const memberRows = membersResult.data ?? []
-    const memberProfileIds = [...new Set(memberRows.map((member) => member.user_id as string))]
     const profilesResult =
-      memberProfileIds.length > 0
-        ? await supabase.from('profiles').select('*').in('id', memberProfileIds)
+      profileIds.size > 0
+        ? await supabase.from('profiles').select('*').in('id', [...profileIds])
         : { data: [], error: null }
+
+    if (profilesResult.error) {
+      setAuthNotice(
+        friendlyErrorMessage(profilesResult.error.message, '无法加载成员资料，请刷新后重试。'),
+      )
+    }
+
     const profiles = (profilesResult.data ?? []).map(mapProfile)
     const profilesById = new Map(profiles.map((profile) => [profile.id, profile]))
-    const messages = await Promise.all((messagesResult.data ?? []).map(mapMessage))
+    if (currentProfile && !profilesById.has(userId)) {
+      const mappedCurrentProfile = mapProfile(currentProfile)
+      profiles.push(mappedCurrentProfile)
+      profilesById.set(mappedCurrentProfile.id, mappedCurrentProfile)
+    }
+    const messages = await Promise.all(messageRows.map(mapMessage))
 
     setState({
       profiles,
-      conversations: (conversationsResult.data ?? []).map((row) => {
+      contacts: contactRows.map((row) => mapContact(row, userId)),
+      conversations: conversationRows.map((row) => {
         const conversationMemberIds = memberRows
           .filter((member) => member.conversation_id === row.id)
           .map((member) => member.user_id as string)
@@ -198,7 +289,9 @@ export function useChatApp() {
         joinedAt: member.joined_at as string,
       })),
     })
-    setActiveConversationId(conversationIds[0] ?? '')
+    setActiveConversationId((previous) =>
+      conversationIds.includes(previous) ? previous : (conversationIds[0] ?? ''),
+    )
     setIsLoading(false)
   }, [])
 
@@ -235,6 +328,59 @@ export function useChatApp() {
       subscription.unsubscribe()
     }
   }, [loadSupabaseState])
+
+  useEffect(() => {
+    if (!supabase || !user) return
+    const client = supabase
+    const reloadState = () => {
+      void loadSupabaseState(user.id)
+    }
+
+    if (stateChannel.current) {
+      void client.removeChannel(stateChannel.current)
+    }
+
+    stateChannel.current = client
+      .channel(`contacts:${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'contacts',
+          filter: `owner_id=eq.${user.id}`,
+        },
+        reloadState,
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'contacts',
+          filter: `contact_id=eq.${user.id}`,
+        },
+        reloadState,
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'conversation_members',
+          filter: `user_id=eq.${user.id}`,
+        },
+        reloadState,
+      )
+      .subscribe()
+
+    return () => {
+      if (stateChannel.current) {
+        void client.removeChannel(stateChannel.current)
+        stateChannel.current = null
+      }
+    }
+  }, [loadSupabaseState, user])
 
   useEffect(() => {
     if (!supabase || !user || !activeConversationId) return
@@ -500,6 +646,69 @@ export function useChatApp() {
     }
   }
 
+  async function updateProfileAvatar(file: File) {
+    const currentUser = user ?? (!supabase ? demoUser : null)
+    if (!currentUser) return
+
+    const validation = validateAvatar(file)
+    if (!validation.ok) {
+      setAuthNotice(validation.reason)
+      return
+    }
+
+    const localUrl = URL.createObjectURL(file)
+
+    setState((previous) => ({
+      ...previous,
+      profiles: previous.profiles.map((profile) =>
+        profile.id === currentUser.id ? { ...profile, avatarUrl: localUrl } : profile,
+      ),
+    }))
+
+    if (!supabase) {
+      setAuthNotice('头像已更新。')
+      return
+    }
+
+    const storagePath = `${currentUser.id}/avatar-${Date.now()}.${avatarFileExtension(file)}`
+    const upload = await supabase.storage.from(avatarStorageBucket).upload(storagePath, file, {
+      cacheControl: '3600',
+      upsert: false,
+    })
+
+    if (upload.error) {
+      setAuthNotice(friendlyErrorMessage(upload.error.message, '头像上传失败，请重试。'))
+      return
+    }
+
+    const {
+      data: { publicUrl },
+    } = supabase.storage.from(avatarStorageBucket).getPublicUrl(storagePath)
+
+    const profileUpdate = await supabase
+      .from('profiles')
+      .update({
+        avatar_url: publicUrl,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', currentUser.id)
+
+    if (profileUpdate.error) {
+      setAuthNotice(
+        friendlyErrorMessage(profileUpdate.error.message, '头像已上传，但资料更新失败。'),
+      )
+      return
+    }
+
+    setState((previous) => ({
+      ...previous,
+      profiles: previous.profiles.map((profile) =>
+        profile.id === currentUser.id ? { ...profile, avatarUrl: publicUrl } : profile,
+      ),
+    }))
+    setAuthNotice('头像已更新。')
+  }
+
   async function createGroup() {
     if (!user) return
 
@@ -541,14 +750,14 @@ export function useChatApp() {
     }
   }
 
-  async function addContactByEmail(email: string) {
+  async function sendContactRequestByEmail(email: string) {
     const trimmed = email.trim().toLowerCase()
     const currentUser = user ?? (!supabase ? demoUser : null)
-    if (!trimmed || !currentUser) return null
+    if (!trimmed || !currentUser) return false
 
     if (trimmed === currentUser.email.toLowerCase()) {
       setAuthNotice('不能添加自己。')
-      return null
+      return false
     }
 
     if (!supabase) {
@@ -557,86 +766,254 @@ export function useChatApp() {
 
       if (!targetProfile) {
         setAuthNotice('没有找到使用这个邮箱注册的用户。')
-        return null
+        return false
       }
 
-      const existingConversation = state.conversations.find(
-        (conversation) =>
-          conversation.type === 'direct' &&
-          conversation.memberIds.includes(currentUser.id) &&
-          conversation.memberIds.includes(targetProfile.id),
+      const existingConversation = findDirectConversation(
+        state.conversations,
+        currentUser.id,
+        targetProfile.id,
       )
 
       if (existingConversation) {
         setActiveConversationId(existingConversation.id)
         setAuthNotice('已打开现有聊天。')
-        return existingConversation.id
+        return true
       }
 
-      const conversationId = uid()
-      const conversation: Conversation = {
+      const existingContact = state.contacts.find(
+        (contact) =>
+          ((contact.ownerId === currentUser.id && contact.contactId === targetProfile.id) ||
+            (contact.ownerId === targetProfile.id && contact.contactId === currentUser.id)) &&
+          contact.status !== 'declined',
+      )
+
+      if (existingContact?.status === 'pending') {
+        setAuthNotice(
+          existingContact.direction === 'incoming'
+            ? '对方已经给你发来申请，请在好友申请里处理。'
+            : '好友申请已发送，等待对方同意。',
+        )
+        return true
+      }
+
+      if (existingContact?.status === 'accepted') {
+        setAuthNotice('你们已经是好友，可以在聊天列表里继续对话。')
+        return true
+      }
+
+      const contactRequest: ContactRequest = {
+        id: uid(),
+        ownerId: currentUser.id,
+        contactId: targetProfile.id,
+        status: 'pending',
+        createdAt: new Date().toISOString(),
+        direction: 'outgoing',
+      }
+
+      setState((previous) => ({
+        ...previous,
+        contacts: upsertContact(previous.contacts, contactRequest),
+      }))
+      setAuthNotice('已发送好友申请，等待对方同意。')
+      return true
+    }
+
+    const { data, error } = await supabase
+      .rpc('send_contact_request_by_email', { search_email: trimmed })
+      .single()
+
+    if (error) {
+      setAuthNotice(
+        friendlyErrorMessage(error.message, '无法发送好友申请，请检查邮箱后重试。'),
+      )
+      return false
+    }
+
+    const row = data as Record<string, unknown>
+    const targetProfile = mapProfile({
+      id: row.target_profile_id,
+      display_name: row.target_display_name,
+      avatar_url: row.target_avatar_url,
+      avatar_tone: row.target_avatar_tone,
+      bio: row.target_bio,
+      status: row.target_status,
+      last_seen: row.target_last_seen,
+    })
+    const contactStatus = String(row.contact_status ?? 'pending') as ContactStatus
+    const contactRequest: ContactRequest = {
+      id: String(row.request_id),
+      ownerId: currentUser.id,
+      contactId: targetProfile.id,
+      status: contactStatus,
+      createdAt: String(row.created_at ?? new Date().toISOString()),
+      direction: 'outgoing',
+    }
+
+    setState((previous) => ({
+      ...previous,
+      profiles: upsertProfile(previous.profiles, targetProfile),
+      contacts: upsertContact(previous.contacts, contactRequest),
+    }))
+
+    if (contactStatus === 'accepted') {
+      const existingConversation = findDirectConversation(
+        state.conversations,
+        currentUser.id,
+        targetProfile.id,
+      )
+      if (existingConversation) setActiveConversationId(existingConversation.id)
+      setAuthNotice('你们已经是好友，可以在聊天列表里继续对话。')
+      void loadSupabaseState(currentUser.id)
+      return true
+    }
+
+    if (contactStatus === 'declined') {
+      setAuthNotice('对方已拒绝好友申请。')
+      return true
+    }
+
+    setAuthNotice('已发送好友申请，等待对方同意。')
+    return true
+  }
+
+  async function respondToContactRequest(requestId: string, action: 'accepted' | 'declined') {
+    const currentUser = user ?? (!supabase ? demoUser : null)
+    if (!currentUser) return null
+
+    const request = state.contacts.find((contact) => contact.id === requestId)
+    if (!request || request.direction !== 'incoming') {
+      setAuthNotice('没有找到这条好友申请。')
+      return null
+    }
+
+    const requesterProfile = state.profiles.find((profile) => profile.id === request.ownerId)
+
+    if (!supabase) {
+      if (action === 'declined') {
+        setState((previous) => ({
+          ...previous,
+          contacts: previous.contacts.map((contact) =>
+            contact.id === requestId ? { ...contact, status: 'declined' } : contact,
+          ),
+        }))
+        setAuthNotice('已拒绝好友申请。')
+        return null
+      }
+
+      if (!requesterProfile) {
+        setAuthNotice('无法读取申请人资料。')
+        return null
+      }
+
+      const existingConversation = findDirectConversation(
+        state.conversations,
+        currentUser.id,
+        requesterProfile.id,
+      )
+      const conversationId = existingConversation?.id ?? uid()
+      const conversation: Conversation = existingConversation ?? {
         id: conversationId,
         type: 'direct',
-        title: targetProfile.displayName,
-        memberIds: [currentUser.id, targetProfile.id],
+        title: requesterProfile.displayName,
+        memberIds: [currentUser.id, requesterProfile.id],
         memberCount: 2,
         unreadCount: 0,
         updatedAt: new Date().toISOString(),
         lastMessage: '',
       }
 
+      const reciprocalContact: ContactRequest = {
+        id: uid(),
+        ownerId: currentUser.id,
+        contactId: requesterProfile.id,
+        status: 'accepted',
+        createdAt: new Date().toISOString(),
+        direction: 'outgoing',
+      }
+
       setState((previous) => ({
         ...previous,
-        conversations: [conversation, ...previous.conversations],
+        contacts: upsertContact(
+          upsertContact(
+            previous.contacts.map((contact) =>
+              contact.id === requestId ? { ...contact, status: 'accepted' } : contact,
+            ),
+            reciprocalContact,
+          ),
+          { ...request, status: 'accepted' },
+        ),
+        conversations: upsertConversation(previous.conversations, conversation),
+        members: upsertMembers(previous.members, conversation.memberIds),
       }))
       setActiveConversationId(conversationId)
-      setAuthNotice(`已创建和 ${targetProfile.displayName} 的聊天。`)
+      setAuthNotice(`已同意 ${requesterProfile.displayName} 的好友申请。`)
       return conversationId
     }
 
     const { data, error } = await supabase
-      .rpc('create_direct_conversation_by_email', { search_email: trimmed })
+      .rpc('respond_to_contact_request', { request_id: requestId, action })
       .single()
 
     if (error) {
-      setAuthNotice(
-        friendlyErrorMessage(error.message, '无法添加联系人，请检查邮箱后重试。'),
-      )
+      setAuthNotice(friendlyErrorMessage(error.message, '无法处理好友申请，请重试。'))
       return null
     }
 
     const row = data as Record<string, unknown>
-    const conversationId = String(row.conversation_id)
-    const targetProfile = mapProfile({
-      id: row.target_profile_id,
-      display_name: row.target_display_name,
-      avatar_tone: row.target_avatar_tone,
-      bio: row.target_bio,
-      status: row.target_status,
-      last_seen: row.target_last_seen,
+    const nextStatus = String(row.contact_status ?? action) as ContactStatus
+    const profile = mapProfile({
+      id: row.requester_profile_id,
+      display_name: row.requester_display_name,
+      avatar_url: row.requester_avatar_url,
+      avatar_tone: row.requester_avatar_tone,
+      bio: row.requester_bio,
+      status: row.requester_status,
+      last_seen: row.requester_last_seen,
     })
-
-    const conversation: Conversation = {
-      id: conversationId,
-      type: 'direct',
-      title: targetProfile.displayName,
-      memberIds: [currentUser.id, targetProfile.id],
-      memberCount: 2,
-      unreadCount: 0,
-      updatedAt: new Date().toISOString(),
-      lastMessage: '',
+    const updatedContact: ContactRequest = {
+      id: String(row.request_id ?? requestId),
+      ownerId: profile.id,
+      contactId: currentUser.id,
+      status: nextStatus,
+      createdAt: request.createdAt,
+      direction: 'incoming',
     }
+
+    const conversationId = row.conversation_id ? String(row.conversation_id) : null
+    const conversation: Conversation | null =
+      nextStatus === 'accepted' && conversationId
+        ? {
+            id: conversationId,
+            type: 'direct',
+            title: profile.displayName,
+            memberIds: [currentUser.id, profile.id],
+            memberCount: 2,
+            unreadCount: 0,
+            updatedAt: new Date().toISOString(),
+            lastMessage: '',
+          }
+        : null
 
     setState((previous) => ({
       ...previous,
-      profiles: upsertProfile(previous.profiles, targetProfile),
-      conversations: upsertConversation(previous.conversations, conversation),
+      profiles: upsertProfile(previous.profiles, profile),
+      contacts: upsertContact(previous.contacts, updatedContact),
+      conversations: conversation
+        ? upsertConversation(previous.conversations, conversation)
+        : previous.conversations,
+      members: conversation ? upsertMembers(previous.members, conversation.memberIds) : previous.members,
     }))
-    setActiveConversationId(conversationId)
-    setAuthNotice(
-      row.was_existing ? '已打开现有聊天。' : `已创建和 ${targetProfile.displayName} 的聊天。`,
-    )
-    return conversationId
+
+    if (conversationId && nextStatus === 'accepted') {
+      setActiveConversationId(conversationId)
+      setAuthNotice(`已同意 ${profile.displayName} 的好友申请。`)
+      void loadSupabaseState(currentUser.id)
+      return conversationId
+    }
+
+    setAuthNotice('已拒绝好友申请。')
+    return null
   }
 
   function getProfile(profileId: string) {
@@ -647,15 +1024,17 @@ export function useChatApp() {
     activeConversation,
     activeConversationId,
     activeMessages,
-    addContactByEmail,
     authNotice,
     createGroup,
     getProfile,
+    incomingContactRequests,
     isLoading,
     isSupabaseConfigured,
     me,
+    outgoingContactRequests,
     query,
     sendFile,
+    sendContactRequestByEmail,
     sendText,
     setActiveConversationId,
     setQuery,
@@ -663,7 +1042,9 @@ export function useChatApp() {
     signInWithPassword,
     signOut,
     state,
+    respondToContactRequest,
     updateProfile,
+    updateProfileAvatar,
     user,
     visibleConversations,
   }
@@ -683,6 +1064,22 @@ function upsertProfile(profiles: Profile[], incoming: Profile) {
     : [...profiles, incoming]
 }
 
+function upsertContact(contacts: ContactRequest[], incoming: ContactRequest) {
+  const exists = contacts.some(
+    (contact) =>
+      contact.id === incoming.id ||
+      (contact.ownerId === incoming.ownerId && contact.contactId === incoming.contactId),
+  )
+  return exists
+    ? contacts.map((contact) =>
+        contact.id === incoming.id ||
+        (contact.ownerId === incoming.ownerId && contact.contactId === incoming.contactId)
+          ? { ...contact, ...incoming }
+          : contact,
+      )
+    : [incoming, ...contacts]
+}
+
 function upsertConversation(conversations: Conversation[], incoming: Conversation) {
   const exists = conversations.some((conversation) => conversation.id === incoming.id)
   return exists
@@ -697,6 +1094,30 @@ function upsertConversation(conversations: Conversation[], incoming: Conversatio
           : conversation,
       )
     : [incoming, ...conversations]
+}
+
+function upsertMembers(members: ChatState['members'], memberIds: string[]) {
+  const existingIds = new Set(members.map((member) => member.userId))
+  const now = new Date().toISOString()
+  return [
+    ...members,
+    ...memberIds
+      .filter((userId) => !existingIds.has(userId))
+      .map((userId, index) => ({
+        userId,
+        role: index === 0 ? 'owner' as const : 'member' as const,
+        joinedAt: now,
+      })),
+  ]
+}
+
+function findDirectConversation(conversations: Conversation[], firstUserId: string, secondUserId: string) {
+  return conversations.find(
+    (conversation) =>
+      conversation.type === 'direct' &&
+      conversation.memberIds.includes(firstUserId) &&
+      conversation.memberIds.includes(secondUserId),
+  )
 }
 
 function withNewMessage(state: ChatState, message: Message): ChatState {
@@ -720,10 +1141,25 @@ function mapProfile(row: Record<string, unknown>): Profile {
   return {
     id: String(row.id),
     displayName: String(row.display_name ?? '成员'),
+    avatarUrl: String(row.avatar_url ?? ''),
     avatarTone: (row.avatar_tone as Profile['avatarTone']) ?? 'blue',
     bio: String(row.bio ?? ''),
     status: (row.status as Profile['status']) ?? 'offline',
     lastSeen: String(row.last_seen ?? new Date().toISOString()),
+  }
+}
+
+function mapContact(row: Record<string, unknown>, currentUserId: string): ContactRequest {
+  const ownerId = String(row.owner_id)
+  const contactId = String(row.contact_id)
+
+  return {
+    id: String(row.id),
+    ownerId,
+    contactId,
+    status: (row.status as ContactStatus) ?? 'pending',
+    createdAt: String(row.created_at ?? new Date().toISOString()),
+    direction: contactId === currentUserId ? 'incoming' : 'outgoing',
   }
 }
 
