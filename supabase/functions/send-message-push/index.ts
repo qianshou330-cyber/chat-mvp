@@ -99,24 +99,30 @@ Deno.serve(async (request) => {
 
   for (const subscription of (subscriptions ?? []) as PushSubscriptionRow[]) {
     try {
-      await webpush.sendNotification(
-        {
-          endpoint: subscription.endpoint,
-          keys: {
-            auth: subscription.auth,
-            p256dh: subscription.p256dh,
+      await withTimeout(
+        webpush.sendNotification(
+          {
+            endpoint: subscription.endpoint,
+            keys: {
+              auth: subscription.auth,
+              p256dh: subscription.p256dh,
+            },
           },
-        },
-        JSON.stringify({
-          body: '你有一条新消息',
-          data: {
-            conversationId: message.conversation_id,
-            messageId: message.id,
-            messageType: message.message_type ?? 'text',
-            url: `/?chat=${message.conversation_id}`,
+          JSON.stringify({
+            body: '你有一条新消息',
+            data: {
+              conversationId: message.conversation_id,
+              messageId: message.id,
+              messageType: message.message_type ?? 'text',
+              url: `/?chat=${message.conversation_id}`,
+            },
+            title: '聊天 MVP',
+          }),
+          {
+            TTL: 60,
           },
-          title: '聊天 MVP',
-        }),
+        ),
+        3000,
       )
 
       sent += 1
@@ -154,5 +160,19 @@ function jsonResponse(body: Record<string, unknown>, status: number) {
       'Content-Type': 'application/json',
     },
     status,
+  })
+}
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+  let timeoutId: number | undefined
+
+  const timeout = new Promise<T>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      reject(new Error('Push delivery timed out'))
+    }, timeoutMs)
+  })
+
+  return Promise.race([promise, timeout]).finally(() => {
+    if (timeoutId !== undefined) clearTimeout(timeoutId)
   })
 }
