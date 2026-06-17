@@ -14,3 +14,5 @@ export const chatStorageBucket =
 
 export const avatarStorageBucket =
   (import.meta.env.VITE_SUPABASE_AVATAR_BUCKET as string | undefined) ?? 'profile-avatars'
+
+export const vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined

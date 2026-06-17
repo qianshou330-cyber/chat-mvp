@@ -139,6 +139,17 @@ describe('聊天 MVP', () => {
     expect(await screen.findByText('头像已更新。')).toBeInTheDocument()
   })
 
+  it('shows notification settings in the profile screen', async () => {
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: '使用 Demo 账号' }))
+    fireEvent.click(await screen.findByRole('button', { name: '打开个人资料' }))
+
+    expect(screen.getByRole('region', { name: '消息通知' })).toBeInTheDocument()
+    expect(screen.getByText('当前浏览器不支持推送通知。')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '开启通知' })).toBeDisabled()
+  })
+
   it('shows a demo attachment link after upload', async () => {
     render(<App />)
 

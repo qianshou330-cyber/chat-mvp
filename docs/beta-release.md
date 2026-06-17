@@ -32,7 +32,7 @@
 - 端到端加密。
 - 语音/视频通话。
 - 频道、机器人或大规模公开群工具。
-- 推送通知。
+- Web Push 通知需要完成 VAPID、Edge Function 和 Database Webhook 配置后再对外验收。
 - 服务端全文搜索。
 - 原生手机 App。
 

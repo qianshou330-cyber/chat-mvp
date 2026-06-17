@@ -13,12 +13,15 @@
 - Set Auth Site URL to `https://chat-mvp-tau.vercel.app` for production.
 - Confirm RLS is enabled on all public user data tables.
 - Confirm the private `chat-uploads` bucket exists.
+- Deploy the `send-message-push` Edge Function after setting server-only secrets.
+- Create a Database Webhook for `public.messages` `INSERT` events with the `x-webhook-secret` header.
 - Do not create or use Supabase secret keys for the frontend.
 
 ## Vercel
 - Import the GitHub repository.
-- Set `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, and `VITE_SUPABASE_CHAT_BUCKET`.
+- Set `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_SUPABASE_CHAT_BUCKET`, `VITE_SUPABASE_AVATAR_BUCKET`, and `VITE_VAPID_PUBLIC_KEY`.
 - Confirm Vercel does not contain Supabase secret keys, service-role keys, or database passwords.
+- Confirm Vercel does not contain `WEB_PUSH_VAPID_PRIVATE_KEY` or `WEBHOOK_SECRET`.
 - Confirm Preview and Production deployments finish successfully.
 - Run a mobile browser smoke test on the production URL.
 
@@ -30,6 +33,8 @@
 - Send a text message.
 - Upload an allowed attachment under 10 MB.
 - Open the uploaded attachment from another member account.
+- Enable notifications on member B, send a message from member A, and confirm B receives a generic notification.
+- Confirm the notification payload does not contain message body, attachment filename, or email.
 - Confirm a non-member cannot read conversation rows in Supabase.
 - Confirm a non-member cannot read attachment metadata or create a signed download URL.
 

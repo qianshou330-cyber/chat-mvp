@@ -50,7 +50,7 @@
 - 暂不支持端到端加密。
 - 暂不提供原生 iOS 或 Android App。
 - 暂不支持语音通话、视频通话、频道或机器人。
-- 暂不支持推送通知。
+- Web Push 通知需要完成 VAPID、Edge Function 和 Database Webhook 配置后再验收。
 - 当前搜索为客户端已加载数据搜索，暂不支持服务端全文搜索。
 
 ## 生产 Smoke Test 数据

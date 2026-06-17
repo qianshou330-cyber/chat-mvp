@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
 import {
   ArrowLeft,
+  Bell,
   Camera,
   Check,
   CheckCheck,
@@ -23,6 +24,7 @@ import {
 } from 'lucide-react'
 import './App.css'
 import { useChatApp } from './hooks/useChatApp'
+import { usePushNotifications } from './hooks/usePushNotifications'
 import type { ContactRequest, Conversation, Message, Profile, SearchResult } from './types'
 
 type Screen = 'login' | 'list' | 'chat' | 'group' | 'profile'
@@ -34,6 +36,27 @@ function App() {
 
   const activeTitle = displayConversationTitle(chat.activeConversation?.title ?? '聊天')
   const activeScreen = chat.user && screen === 'login' ? 'list' : screen
+
+  useEffect(() => {
+    const targetConversationId = new URLSearchParams(window.location.search).get('chat')
+    if (!targetConversationId || !chat.user) return
+
+    const hasConversation = chat.state.conversations.some(
+      (conversation) => conversation.id === targetConversationId,
+    )
+    if (!hasConversation) return
+
+    const nextUrl = new URL(window.location.href)
+    nextUrl.searchParams.delete('chat')
+    window.history.replaceState(null, '', `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`)
+
+    const openChatTimer = window.setTimeout(() => {
+      chat.setActiveConversationId(targetConversationId)
+      setScreen('chat')
+    }, 0)
+
+    return () => window.clearTimeout(openChatTimer)
+  }, [chat, chat.user])
 
   async function handleSignOut() {
     await chat.signOut()
@@ -947,6 +970,7 @@ function ProfileSettings({
   const [displayName, setDisplayName] = useState(profile.displayName)
   const [bio, setBio] = useState(profile.bio)
   const avatarInputRef = useRef<HTMLInputElement | null>(null)
+  const pushNotifications = usePushNotifications(profile.id)
 
   return (
     <section className="screen">
@@ -1007,6 +1031,39 @@ function ProfileSettings({
           <span>邮箱</span>
           <strong>{email}</strong>
         </div>
+        <section className="notification-card" aria-label="消息通知">
+          <span className="notification-icon">
+            <Bell size={20} />
+          </span>
+          <div>
+            <strong>消息通知</strong>
+            <p>{pushNotifications.statusMessage}</p>
+          </div>
+          <button
+            className={pushNotifications.isSubscribed ? 'secondary-button' : 'primary-button'}
+            disabled={
+              pushNotifications.isBusy ||
+              pushNotifications.status === 'unsupported' ||
+              pushNotifications.status === 'demo' ||
+              pushNotifications.status === 'missing-config' ||
+              pushNotifications.status === 'denied'
+            }
+            onClick={() => {
+              if (pushNotifications.isSubscribed) {
+                void pushNotifications.disableNotifications()
+              } else {
+                void pushNotifications.enableNotifications()
+              }
+            }}
+            type="button"
+          >
+            {pushNotifications.isBusy
+              ? '处理中'
+              : pushNotifications.isSubscribed
+                ? '关闭通知'
+                : '开启通知'}
+          </button>
+        </section>
         <button className="primary-button" type="submit">
           保存资料
         </button>
