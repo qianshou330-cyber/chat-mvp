@@ -1,0 +1,31 @@
+name: Feature request
+description: Suggest a capability for a post-beta version.
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or need
+      placeholder: What user problem would this solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed feature
+      placeholder: Describe the feature in plain language.
+    validations:
+      required: true
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options:
+        - Later
+        - Soon
+        - Blocking beta
+    validations:
+      required: true
+

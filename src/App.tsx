@@ -187,6 +187,13 @@ function LoginScreen({
         <h1>Chat MVP</h1>
         <p>Fast private conversations for small teams and communities.</p>
       </div>
+      <section className="beta-note" aria-label="Beta privacy notice">
+        <strong>Beta preview</strong>
+        <p>
+          Do not share sensitive data yet. This version does not include end-to-end
+          encryption, calls, channels, or bots.
+        </p>
+      </section>
       <form className="login-form" onSubmit={submit}>
         <label htmlFor="email">Email</label>
         <div className="input-row">

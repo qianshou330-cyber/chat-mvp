@@ -7,6 +7,9 @@ describe('Chat MVP', () => {
     render(<App />)
 
     expect(screen.getByRole('heading', { name: 'Chat MVP' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Beta privacy notice')).toHaveTextContent(
+      'Do not share sensitive data yet.',
+    )
 
     fireEvent.click(screen.getByRole('button', { name: 'Use demo account' }))
 

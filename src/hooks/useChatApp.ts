@@ -15,6 +15,59 @@ const SIGNED_ATTACHMENT_URL_EXPIRES_SECONDS = 60 * 60
 
 const safeFileName = (name: string) => name.replace(/[^a-zA-Z0-9._-]/g, '-')
 
+function friendlyErrorMessage(message: string | undefined, fallback: string) {
+  const normalized = (message ?? '').toLowerCase()
+
+  if (!message) return fallback
+
+  if (
+    normalized.includes('failed to fetch') ||
+    normalized.includes('networkerror') ||
+    normalized.includes('load failed')
+  ) {
+    return 'Network request failed. Check your connection and try again.'
+  }
+
+  if (normalized.includes('invalid login credentials')) {
+    return 'Email or password is incorrect.'
+  }
+
+  if (normalized.includes('already registered') || normalized.includes('already exists')) {
+    return 'An account already exists for this email. Try signing in.'
+  }
+
+  if (
+    normalized.includes('weak password') ||
+    (normalized.includes('password') &&
+      (normalized.includes('least') || normalized.includes('characters')))
+  ) {
+    return 'Password is too weak. Use at least 8 characters.'
+  }
+
+  if (normalized.includes('email not confirmed')) {
+    return 'This email still needs confirmation before signing in.'
+  }
+
+  if (normalized.includes('rate limit') || normalized.includes('too many')) {
+    return 'Too many attempts. Wait a minute and try again.'
+  }
+
+  if (normalized.includes('no user found') || normalized.includes('user not found')) {
+    return 'No registered user was found for that email.'
+  }
+
+  if (
+    normalized.includes('row-level security') ||
+    normalized.includes('permission denied') ||
+    normalized.includes('not authorized') ||
+    normalized.includes('unauthorized')
+  ) {
+    return 'You do not have permission to do that.'
+  }
+
+  return fallback
+}
+
 export function useChatApp() {
   const [state, setState] = useState<ChatState>(initialState)
   const [user, setUser] = useState<AppUser | null>(null)
@@ -60,7 +113,9 @@ export function useChatApp() {
     ])
 
     if (profileResult.error) {
-      setAuthNotice(profileResult.error.message)
+      setAuthNotice(
+        friendlyErrorMessage(profileResult.error.message, 'Could not load your profile. Try refreshing.'),
+      )
     }
 
     let currentProfile = profileResult.data
@@ -80,7 +135,12 @@ export function useChatApp() {
         .single()
 
       if (createdProfile.error) {
-        setAuthNotice(createdProfile.error.message)
+        setAuthNotice(
+          friendlyErrorMessage(
+            createdProfile.error.message,
+            'Could not create your profile. Try again.',
+          ),
+        )
       } else {
         currentProfile = createdProfile.data
       }
@@ -208,7 +268,12 @@ export function useChatApp() {
                 .single()
 
               if (messageResult.error) {
-                setAuthNotice(messageResult.error.message)
+                setAuthNotice(
+                  friendlyErrorMessage(
+                    messageResult.error.message,
+                    'Could not load the new message. Try refreshing.',
+                  ),
+                )
               } else {
                 messageRow = messageResult.data
               }
@@ -246,7 +311,7 @@ export function useChatApp() {
     })
 
     if (error) {
-      setAuthNotice(error.message)
+      setAuthNotice(friendlyErrorMessage(error.message, 'Could not create the account. Try again.'))
       return
     }
 
@@ -255,7 +320,11 @@ export function useChatApp() {
       password: cleanPassword,
     })
 
-    setAuthNotice(signIn.error ? signIn.error.message : 'Account created. You are signed in.')
+    setAuthNotice(
+      signIn.error
+        ? friendlyErrorMessage(signIn.error.message, 'Account created, but sign in failed.')
+        : 'Account created. You are signed in.',
+    )
   }
 
   async function signInWithPassword(email: string, password: string) {
@@ -276,7 +345,7 @@ export function useChatApp() {
       password: cleanPassword,
     })
 
-    setAuthNotice(error ? error.message : 'Signed in.')
+    setAuthNotice(error ? friendlyErrorMessage(error.message, 'Could not sign in. Try again.') : 'Signed in.')
   }
 
   async function signOut() {
@@ -314,7 +383,7 @@ export function useChatApp() {
     })
 
     if (error) {
-      setAuthNotice(error.message)
+      setAuthNotice(friendlyErrorMessage(error.message, 'Could not send the message. Try again.'))
     } else {
       setState((previous) => ({
         ...previous,
@@ -363,7 +432,9 @@ export function useChatApp() {
     const upload = await supabase.storage.from(chatStorageBucket).upload(storagePath, file)
 
     if (upload.error) {
-      setAuthNotice(upload.error.message)
+      setAuthNotice(
+        friendlyErrorMessage(upload.error.message, 'Could not upload the file. Try again.'),
+      )
       return
     }
 
@@ -381,7 +452,12 @@ export function useChatApp() {
       .single()
 
     if (attachmentInsert.error) {
-      setAuthNotice(attachmentInsert.error.message)
+      setAuthNotice(
+        friendlyErrorMessage(
+          attachmentInsert.error.message,
+          'Could not save the file details. Try again.',
+        ),
+      )
       return
     }
 
@@ -396,7 +472,9 @@ export function useChatApp() {
     })
 
     if (messageInsert.error) {
-      setAuthNotice(messageInsert.error.message)
+      setAuthNotice(
+        friendlyErrorMessage(messageInsert.error.message, 'Could not send the file message. Try again.'),
+      )
     }
   }
 
@@ -459,7 +537,7 @@ export function useChatApp() {
         role: 'owner',
       })
     } else {
-      setAuthNotice(error.message)
+      setAuthNotice(friendlyErrorMessage(error.message, 'Could not create the group. Try again.'))
     }
   }
 
@@ -521,7 +599,9 @@ export function useChatApp() {
       .single()
 
     if (error) {
-      setAuthNotice(error.message)
+      setAuthNotice(
+        friendlyErrorMessage(error.message, 'Could not add this contact. Check the email and try again.'),
+      )
       return null
     }
 
