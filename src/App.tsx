@@ -187,12 +187,6 @@ function LoginScreen({
         <h1>Chat MVP</h1>
         <p>面向小团队和社群的轻量聊天测试版。</p>
       </div>
-      <section className="beta-note" aria-label="Beta 隐私提示">
-        <strong>Beta 测试版</strong>
-        <p>
-          请暂时不要发送敏感信息。当前版本还不支持端到端加密、通话、频道或机器人。
-        </p>
-      </section>
       <form className="login-form" onSubmit={submit}>
         <label htmlFor="email">邮箱</label>
         <div className="input-row">

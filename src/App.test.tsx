@@ -7,9 +7,8 @@ describe('Chat MVP', () => {
     render(<App />)
 
     expect(screen.getByRole('heading', { name: 'Chat MVP' })).toBeInTheDocument()
-    expect(screen.getByLabelText('Beta 隐私提示')).toHaveTextContent(
-      '请暂时不要发送敏感信息。',
-    )
+    expect(screen.queryByText('Beta 测试版')).not.toBeInTheDocument()
+    expect(screen.queryByText(/请暂时不要发送敏感信息/)).not.toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: '使用 Demo 账号' }))
 
