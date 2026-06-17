@@ -25,15 +25,15 @@ function friendlyErrorMessage(message: string | undefined, fallback: string) {
     normalized.includes('networkerror') ||
     normalized.includes('load failed')
   ) {
-    return 'Network request failed. Check your connection and try again.'
+    return '网络请求失败，请检查网络后重试。'
   }
 
   if (normalized.includes('invalid login credentials')) {
-    return 'Email or password is incorrect.'
+    return '邮箱或密码不正确。'
   }
 
   if (normalized.includes('already registered') || normalized.includes('already exists')) {
-    return 'An account already exists for this email. Try signing in.'
+    return '这个邮箱已经注册过，请直接登录。'
   }
 
   if (
@@ -41,19 +41,19 @@ function friendlyErrorMessage(message: string | undefined, fallback: string) {
     (normalized.includes('password') &&
       (normalized.includes('least') || normalized.includes('characters')))
   ) {
-    return 'Password is too weak. Use at least 8 characters.'
+    return '密码太弱，请至少使用 8 个字符。'
   }
 
   if (normalized.includes('email not confirmed')) {
-    return 'This email still needs confirmation before signing in.'
+    return '这个邮箱还需要确认后才能登录。'
   }
 
   if (normalized.includes('rate limit') || normalized.includes('too many')) {
-    return 'Too many attempts. Wait a minute and try again.'
+    return '尝试次数过多，请稍等一会儿再试。'
   }
 
   if (normalized.includes('no user found') || normalized.includes('user not found')) {
-    return 'No registered user was found for that email.'
+    return '没有找到使用这个邮箱注册的用户。'
   }
 
   if (
@@ -62,7 +62,7 @@ function friendlyErrorMessage(message: string | undefined, fallback: string) {
     normalized.includes('not authorized') ||
     normalized.includes('unauthorized')
   ) {
-    return 'You do not have permission to do that.'
+    return '你没有权限执行这个操作。'
   }
 
   return fallback
@@ -114,7 +114,7 @@ export function useChatApp() {
 
     if (profileResult.error) {
       setAuthNotice(
-        friendlyErrorMessage(profileResult.error.message, 'Could not load your profile. Try refreshing.'),
+        friendlyErrorMessage(profileResult.error.message, '无法加载你的资料，请刷新后重试。'),
       )
     }
 
@@ -138,7 +138,7 @@ export function useChatApp() {
         setAuthNotice(
           friendlyErrorMessage(
             createdProfile.error.message,
-            'Could not create your profile. Try again.',
+            '无法创建你的资料，请重试。',
           ),
         )
       } else {
@@ -271,7 +271,7 @@ export function useChatApp() {
                 setAuthNotice(
                   friendlyErrorMessage(
                     messageResult.error.message,
-                    'Could not load the new message. Try refreshing.',
+                    '无法加载新消息，请刷新后重试。',
                   ),
                 )
               } else {
@@ -311,7 +311,7 @@ export function useChatApp() {
     })
 
     if (error) {
-      setAuthNotice(friendlyErrorMessage(error.message, 'Could not create the account. Try again.'))
+      setAuthNotice(friendlyErrorMessage(error.message, '无法创建账号，请重试。'))
       return
     }
 
@@ -322,8 +322,8 @@ export function useChatApp() {
 
     setAuthNotice(
       signIn.error
-        ? friendlyErrorMessage(signIn.error.message, 'Account created, but sign in failed.')
-        : 'Account created. You are signed in.',
+        ? friendlyErrorMessage(signIn.error.message, '账号已创建，但登录失败。')
+        : '账号已创建并登录。',
     )
   }
 
@@ -345,7 +345,7 @@ export function useChatApp() {
       password: cleanPassword,
     })
 
-    setAuthNotice(error ? friendlyErrorMessage(error.message, 'Could not sign in. Try again.') : 'Signed in.')
+    setAuthNotice(error ? friendlyErrorMessage(error.message, '无法登录，请重试。') : '已登录。')
   }
 
   async function signOut() {
@@ -383,7 +383,7 @@ export function useChatApp() {
     })
 
     if (error) {
-      setAuthNotice(friendlyErrorMessage(error.message, 'Could not send the message. Try again.'))
+      setAuthNotice(friendlyErrorMessage(error.message, '消息发送失败，请重试。'))
     } else {
       setState((previous) => ({
         ...previous,
@@ -433,7 +433,7 @@ export function useChatApp() {
 
     if (upload.error) {
       setAuthNotice(
-        friendlyErrorMessage(upload.error.message, 'Could not upload the file. Try again.'),
+        friendlyErrorMessage(upload.error.message, '文件上传失败，请重试。'),
       )
       return
     }
@@ -455,7 +455,7 @@ export function useChatApp() {
       setAuthNotice(
         friendlyErrorMessage(
           attachmentInsert.error.message,
-          'Could not save the file details. Try again.',
+          '无法保存文件信息，请重试。',
         ),
       )
       return
@@ -473,7 +473,7 @@ export function useChatApp() {
 
     if (messageInsert.error) {
       setAuthNotice(
-        friendlyErrorMessage(messageInsert.error.message, 'Could not send the file message. Try again.'),
+        friendlyErrorMessage(messageInsert.error.message, '文件消息发送失败，请重试。'),
       )
     }
   }
@@ -537,7 +537,7 @@ export function useChatApp() {
         role: 'owner',
       })
     } else {
-      setAuthNotice(friendlyErrorMessage(error.message, 'Could not create the group. Try again.'))
+      setAuthNotice(friendlyErrorMessage(error.message, '无法创建群聊，请重试。'))
     }
   }
 
@@ -547,7 +547,7 @@ export function useChatApp() {
     if (!trimmed || !currentUser) return null
 
     if (trimmed === currentUser.email.toLowerCase()) {
-      setAuthNotice('You cannot add yourself')
+      setAuthNotice('不能添加自己。')
       return null
     }
 
@@ -556,7 +556,7 @@ export function useChatApp() {
       const targetProfile = state.profiles.find((profile) => profile.id === targetProfileId)
 
       if (!targetProfile) {
-        setAuthNotice('No user found')
+        setAuthNotice('没有找到使用这个邮箱注册的用户。')
         return null
       }
 
@@ -569,7 +569,7 @@ export function useChatApp() {
 
       if (existingConversation) {
         setActiveConversationId(existingConversation.id)
-        setAuthNotice('Opening existing chat.')
+        setAuthNotice('已打开现有聊天。')
         return existingConversation.id
       }
 
@@ -590,7 +590,7 @@ export function useChatApp() {
         conversations: [conversation, ...previous.conversations],
       }))
       setActiveConversationId(conversationId)
-      setAuthNotice(`Chat with ${targetProfile.displayName} created.`)
+      setAuthNotice(`已创建和 ${targetProfile.displayName} 的聊天。`)
       return conversationId
     }
 
@@ -600,7 +600,7 @@ export function useChatApp() {
 
     if (error) {
       setAuthNotice(
-        friendlyErrorMessage(error.message, 'Could not add this contact. Check the email and try again.'),
+        friendlyErrorMessage(error.message, '无法添加联系人，请检查邮箱后重试。'),
       )
       return null
     }
@@ -634,7 +634,7 @@ export function useChatApp() {
     }))
     setActiveConversationId(conversationId)
     setAuthNotice(
-      row.was_existing ? 'Opening existing chat.' : `Chat with ${targetProfile.displayName} created.`,
+      row.was_existing ? '已打开现有聊天。' : `已创建和 ${targetProfile.displayName} 的聊天。`,
     )
     return conversationId
   }

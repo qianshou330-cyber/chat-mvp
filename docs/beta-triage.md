@@ -1,85 +1,84 @@
-# v0.1 Beta Triage Guide
+# v0.1 Beta 反馈分诊指南
 
-## Triage Cadence
+## 分诊节奏
 
-Review new issues once per test day.
+外测期间建议每天查看一次新 Issue。
 
-Recommended order:
+处理顺序：
 
-1. Blocking bugs.
-2. Security or permission reports.
-3. Reproducible attachment/message delivery issues.
-4. Experience feedback.
-5. Feature requests.
+1. 阻塞缺陷。
+2. 安全或权限相关反馈。
+3. 可复现的附件或消息收发问题。
+4. 体验反馈。
+5. 功能建议。
 
-## Labels
+## 标签
 
-Use the repository default labels:
+继续使用 GitHub 默认标签：
 
-- `bug`: broken behavior or failed acceptance path.
-- `question`: experience feedback that needs discussion.
-- `enhancement`: feature request or v0.2 candidate.
-- `documentation`: tester instructions, release notes, or summary updates.
+- `bug`：功能坏掉或验收路径失败。
+- `question`：需要讨论的体验反馈。
+- `enhancement`：功能建议或 v0.2 候选项。
+- `documentation`：测试说明、发布说明或总结文档。
 
-## Severity
+## 严重程度
 
-| Severity | Meaning | Example |
+| 严重程度 | 含义 | 示例 |
 | --- | --- | --- |
-| P0 | Blocks beta for most testers | Cannot register, cannot sign in, production app blank |
-| P1 | Blocks a core chat path | Messages fail, Add contact fails, attachment cannot open |
-| P2 | Usability problem | Confusing copy, awkward layout, unclear empty state |
-| P3 | Later improvement | Search, push notifications, richer profiles |
+| P0 | 大多数测试者无法继续 | 无法注册、无法登录、生产页面空白 |
+| P1 | 核心聊天路径被阻塞 | 消息失败、添加联系人失败、附件无法打开 |
+| P2 | 明显体验问题 | 文案看不懂、布局拥挤、空状态不清楚 |
+| P3 | 后续优化 | 搜索、推送通知、更丰富的资料页 |
 
-Add the severity at the top of the issue body if labels are not available:
+如果没有专门标签，可以把严重程度写在 Issue 顶部：
 
 ```md
-Severity: P1
-Area: Direct chat
-Status: Needs reproduction
+严重程度：P1
+区域：单聊
+状态：需要复现
 ```
 
-## Reproduction Standard
+## 复现标准
 
-For a bug to be ready to fix, capture:
+一个缺陷进入修复前，至少需要记录：
 
-- Tester label.
-- Device and browser.
-- Production URL used.
-- Exact steps.
-- Expected result.
-- Actual result.
-- Screenshot or recording when visual.
+- 测试者代号。
+- 设备和浏览器。
+- 使用的生产地址。
+- 精确操作步骤。
+- 期望结果。
+- 实际结果。
+- 涉及视觉问题时附截图或录屏。
 
-If the issue is about permissions, also capture whether the account is a conversation member.
+如果是权限问题，还要记录该账号是否为会话成员。
 
-## Fix Flow
+## 修复流程
 
-Every fix should follow this sequence:
+每个修复都按这个顺序：
 
-1. Reproduce locally or in production with a test account.
-2. Patch the smallest affected area.
-3. Run `npm run lint`, `npm run test -- --run`, and `npm run build`.
-4. Push to `main`.
-5. Wait for GitHub Actions.
-6. Smoke test production after Vercel deploys.
-7. Comment on the issue with what was verified.
+1. 用测试账号在本地或生产环境复现。
+2. 只修改最小必要范围。
+3. 运行 `npm run lint`、`npm run test -- --run`、`npm run build`。
+4. 推送到 `main`。
+5. 等 GitHub Actions 通过。
+6. Vercel 部署后做生产 smoke test。
+7. 在对应 Issue 里评论验证结果。
 
-## v0.2 Candidate Scoring
+## v0.2 候选项评分
 
-Use this score when at least 10 feedback items exist.
+至少收集 10 条反馈后再评分。
 
-| Factor | Score |
+| 因素 | 分值 |
 | --- | --- |
-| Blocks current beta path | 3 |
-| Mentioned by 2 or more testers | 2 |
-| Reduces support or confusion | 2 |
-| Enables a clear next user story | 2 |
-| High implementation risk | -2 |
+| 阻塞当前 beta 路径 | 3 |
+| 2 名或更多测试者提到 | 2 |
+| 能减少支持成本或困惑 | 2 |
+| 能支撑清晰的下一条用户故事 | 2 |
+| 实现风险较高 | -2 |
 
-Default candidates:
+默认候选顺序：
 
-1. Push notifications.
-2. Message search.
-3. Contact request approval.
-4. Large group experience improvements.
-
+1. 推送通知。
+2. 消息搜索。
+3. 联系人申请审批。
+4. 大群体验优化。

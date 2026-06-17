@@ -1,43 +1,42 @@
-# v0.1 Beta Release Notes
+# v0.1 Beta 发布说明
 
-## Status
+## 状态
 
-`v0.1-beta` is the first small external test release for Chat MVP.
+`v0.1-beta` 是 Chat MVP 的第一版小范围外测版本。
 
-Production URL: `https://chat-mvp-tau.vercel.app`
+生产地址：`https://chat-mvp-tau.vercel.app`
 
-## Included
+## 已包含
 
-- Email and password registration/sign-in.
-- Profile display name and bio editing.
-- Direct chat through Add contact by registered email.
-- Group creation.
-- Realtime text messages.
-- Private attachment uploads with Supabase signed download URLs.
-- Mobile-first PWA shell with installable manifest and service worker.
+- 邮箱和密码注册/登录。
+- 修改显示名称和个人简介。
+- 通过已注册邮箱添加联系人并创建单聊。
+- 创建群聊。
+- 实时文字消息。
+- 私有附件上传和 Supabase signed URL 下载。
+- 移动优先 PWA 外壳、manifest 和 service worker。
 
-## Security Baseline
+## 安全基线
 
-- Supabase RLS is enabled for user-facing tables.
-- Storage bucket is private.
-- Attachment reads use signed URLs.
-- Vercel contains only public frontend environment variables.
-- No active Supabase secret key is required by the frontend.
+- 用户数据表已开启 Supabase RLS。
+- Storage bucket 是私有的。
+- 附件读取使用 signed URL。
+- Vercel 只保存公开前端环境变量。
+- 前端不需要 active Supabase secret key。
 
-## Not Included
+## 暂不包含
 
-- End-to-end encryption.
-- Voice/video calls.
-- Channels, bots, or large-public-group tooling.
-- Push notifications.
-- Message search.
-- Native mobile apps.
+- 端到端加密。
+- 语音/视频通话。
+- 频道、机器人或大规模公开群工具。
+- 推送通知。
+- 消息搜索。
+- 原生手机 App。
 
-## Release Checklist
+## 发布检查
 
-- Local `npm run lint`, `npm run test`, and `npm run build` pass.
-- GitHub Actions CI passes on `main`.
-- Vercel Production deploys from `main`.
-- Production smoke test passes for auth, direct chat, group, message, and attachment.
-- Third non-member account cannot read private direct chat rows or attachment metadata.
-
+- 本地 `npm run lint`、`npm run test`、`npm run build` 通过。
+- GitHub Actions 在 `main` 通过。
+- Vercel Production 从 `main` 部署。
+- 生产 smoke test 覆盖 auth、单聊、群聊、消息和附件。
+- 第三方非成员账号不能读取私聊行或附件元数据。

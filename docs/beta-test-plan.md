@@ -1,62 +1,62 @@
-# Chat MVP v0.1 Beta Test Plan
+# Chat MVP v0.1 Beta 外测计划
 
-## Release Snapshot
+## 发布快照
 
-- Version: `v0.1-beta`
-- Production URL: `https://chat-mvp-tau.vercel.app`
-- Baseline tag: `v0.1-beta`
-- Primary branch: `main`
-- Target testers: 3 to 5 invited users
-- Tracking issue: https://github.com/qianshou330-cyber/chat-mvp/issues/1
+- 版本：`v0.1-beta`
+- 生产地址：`https://chat-mvp-tau.vercel.app`
+- 基线标签：`v0.1-beta`
+- 主分支：`main`
+- 目标测试者：3 到 5 名邀请用户
+- 跟踪 Issue：https://github.com/qianshou330-cyber/chat-mvp/issues/1
 
-## Tester Setup
+## 测试者准备
 
-Ask each tester to create an account with email and password on the production URL. Email confirmation is currently disabled for MVP testing.
+请每位测试者在生产地址使用邮箱和密码创建账号。当前 MVP 测试阶段已关闭邮箱确认。
 
-Recommended tester path:
+建议测试路径：
 
-1. Create an account.
-2. Update display name in profile.
-3. Add another registered tester by email.
-4. Send direct text messages.
-5. Create a group.
-6. Upload one allowed attachment under 10 MB.
-7. Sign out and sign back in.
+1. 创建账号。
+2. 修改显示名称和个人简介。
+3. 通过邮箱添加另一名已注册测试用户。
+4. 发送单聊文字消息。
+5. 创建群聊。
+6. 上传一个 10 MB 以内的允许类型附件。
+7. 退出登录后重新登录。
 
-## Feedback Format
+## 反馈格式
 
-Use GitHub Issues and pick one template:
+统一使用 GitHub Issues，并选择一个模板：
 
-- Bug: broken or blocked behavior.
-- Experience feedback: confusing, slow, unclear, or awkward behavior.
-- Feature request: a capability to consider after beta.
+- 缺陷反馈：功能坏掉或流程被阻塞。
+- 体验反馈：看不懂、太慢、不顺手或布局不舒服。
+- 功能建议：beta 之后可考虑的新能力。
 
-Each issue should include:
+每条反馈建议包含：
 
-- Tester email or tester label.
-- Device and browser.
-- What they expected.
-- What happened.
-- Screenshot or screen recording when useful.
+- 测试者邮箱或测试者代号。
+- 设备和浏览器。
+- 期望发生什么。
+- 实际发生什么。
+- 必要时附截图或录屏。
 
-Use `docs/beta-outreach.md` for the tester invite message and checklist.
-Use `docs/beta-triage.md` to classify issues.
-Use `docs/beta-feedback-summary.md` after at least 10 feedback items are collected.
+使用 `docs/beta-outreach.md` 发送邀请文案和测试者清单。
+使用 `docs/beta-triage.md` 分类反馈。
+收集至少 10 条反馈后，使用 `docs/beta-feedback-summary.md` 输出总结。
 
-## Known Limits
+## 已知限制
 
-- No end-to-end encryption.
-- No native iOS or Android app.
-- No voice calls, video calls, channels, or bots.
-- No push notifications or full-text search yet.
-- Contacts are accepted immediately; there is no friend-request approval flow.
+- 暂不支持端到端加密。
+- 暂不提供原生 iOS 或 Android App。
+- 暂不支持语音通话、视频通话、频道或机器人。
+- 暂不支持推送通知或全文搜索。
+- 联系人默认直接接受，暂没有好友申请审批流程。
 
-## Production Smoke Data
+## 生产 Smoke Test 数据
 
-Production smoke tests may create temporary users and conversations with email prefixes like `codex-smoke-`. Keep them if they are useful for debugging. To clean them up, use the Supabase dashboard:
+生产 smoke test 可能会创建带 `codex-smoke-` 邮箱前缀的临时用户和会话。如果这些数据有调试价值，可以暂时保留。需要清理时，请在 Supabase 控制台操作：
 
-1. Authentication -> Users: filter `codex-smoke-` and delete the test users.
-2. Storage -> `chat-uploads`: remove folders owned by deleted smoke-test users if any remain.
-3. Table Editor: confirm related `profiles`, `contacts`, `conversation_members`, `messages`, and `attachments` rows are gone or harmless.
+1. Authentication -> Users：筛选 `codex-smoke-` 并删除测试用户。
+2. Storage -> `chat-uploads`：如果仍有对应测试用户文件夹，手动删除。
+3. Table Editor：确认相关 `profiles`、`contacts`、`conversation_members`、`messages`、`attachments` 行已经删除或不会影响测试。
 
-Do not create or restore Supabase secret keys for cleanup. Use the dashboard owner session instead.
+清理时不要创建或恢复 Supabase secret key。使用控制台 owner 登录态即可。

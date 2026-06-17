@@ -1,31 +1,31 @@
-name: Feature request
-description: Suggest a capability for a post-beta version.
-title: "[Feature]: "
+name: 功能建议
+description: 为 beta 之后的版本提出新能力建议。
+title: "[功能]: "
 labels:
   - enhancement
 body:
   - type: textarea
     id: problem
     attributes:
-      label: Problem or need
-      placeholder: What user problem would this solve?
+      label: 问题或需求
+      placeholder: 这个功能想解决什么用户问题？
     validations:
       required: true
   - type: textarea
     id: proposal
     attributes:
-      label: Proposed feature
-      placeholder: Describe the feature in plain language.
+      label: 建议功能
+      placeholder: 请用普通语言描述你想要的功能。
     validations:
       required: true
   - type: dropdown
     id: priority
     attributes:
-      label: Priority
+      label: 优先级
       options:
-        - Later
-        - Soon
-        - Blocking beta
+        - 以后再说
+        - 希望尽快有
+        - 阻塞 beta
     validations:
       required: true
 

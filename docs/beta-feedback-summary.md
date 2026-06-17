@@ -1,60 +1,60 @@
-# v0.1 Beta Feedback Summary
+# v0.1 Beta 反馈总结
 
-## Status
+## 状态
 
-Not started.
+尚未开始。
 
-Use this file after at least 10 feedback items are filed through GitHub Issues.
+至少收集 10 条 GitHub Issue 反馈后，再填写这份总结。
 
-## Test Run
+## 测试批次
 
-- Version: `v0.1-beta`
-- Production URL: `https://chat-mvp-tau.vercel.app`
-- Test window:
-- Number of testers:
-- Devices covered:
+- 版本：`v0.1-beta`
+- 生产地址：`https://chat-mvp-tau.vercel.app`
+- 测试窗口：
+- 测试者数量：
+- 覆盖设备：
 
-## Results
+## 结果
 
-| Metric | Target | Actual |
+| 指标 | 目标 | 实际 |
 | --- | --- | --- |
-| Testers completed full path | 3+ |  |
-| Feedback items collected | 10+ |  |
-| Blocking bugs open | 0 before next beta |  |
-| Non-member security regression passed | Yes |  |
+| 完整跑通测试路径的测试者 | 3+ |  |
+| 收集反馈数量 | 10+ |  |
+| 未关闭阻塞缺陷 | 下一版 beta 前为 0 |  |
+| 非成员安全回归通过 | 是 |  |
 
-## Blocking Bugs
+## 阻塞缺陷
 
-| Issue | Area | Status | Decision |
+| Issue | 区域 | 状态 | 决策 |
 | --- | --- | --- | --- |
 |  |  |  |  |
 
-## Experience Issues
+## 体验问题
 
-| Issue | Area | Status | Decision |
+| Issue | 区域 | 状态 | 决策 |
 | --- | --- | --- | --- |
 |  |  |  |  |
 
-## Feature Requests
+## 功能建议
 
-| Issue | Candidate | Score | Decision |
+| Issue | 候选项 | 分数 | 决策 |
 | --- | --- | --- | --- |
 |  |  |  |  |
 
-## v0.2 Recommendation
+## v0.2 建议
 
-Default order until feedback changes it:
+默认顺序，除非反馈改变优先级：
 
-1. Push notifications.
-2. Message search.
-3. Contact request approval.
-4. Large group experience improvements.
+1. 推送通知。
+2. 消息搜索。
+3. 联系人申请审批。
+4. 大群体验优化。
 
-Decision:
+最终决策：
 
-## Notes
+## 备注
 
-- Do not promote to a broader launch until P0/P1 beta bugs are closed.
-- Keep `v0.1-beta` as the baseline tag.
-- Use `v0.1.1-beta` only after a stable bug-fix batch is verified.
+- P0/P1 beta 缺陷关闭前，不进入更大范围发布。
+- `v0.1-beta` 保持为当前外测基线标签。
+- 只有稳定修复批次通过验证后，再使用 `v0.1.1-beta`。
 

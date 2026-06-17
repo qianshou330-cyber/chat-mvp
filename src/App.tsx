@@ -185,17 +185,16 @@ function LoginScreen({
           <MessageCircle size={54} />
         </div>
         <h1>Chat MVP</h1>
-        <p>Fast private conversations for small teams and communities.</p>
+        <p>面向小团队和社群的轻量聊天测试版。</p>
       </div>
-      <section className="beta-note" aria-label="Beta privacy notice">
-        <strong>Beta preview</strong>
+      <section className="beta-note" aria-label="Beta 隐私提示">
+        <strong>Beta 测试版</strong>
         <p>
-          Do not share sensitive data yet. This version does not include end-to-end
-          encryption, calls, channels, or bots.
+          请暂时不要发送敏感信息。当前版本还不支持端到端加密、通话、频道或机器人。
         </p>
       </section>
       <form className="login-form" onSubmit={submit}>
-        <label htmlFor="email">Email</label>
+        <label htmlFor="email">邮箱</label>
         <div className="input-row">
           <Mail size={20} />
           <input
@@ -210,7 +209,7 @@ function LoginScreen({
         </div>
         {isSupabaseConfigured && (
           <>
-            <label htmlFor="password">Password</label>
+            <label htmlFor="password">密码</label>
             <div className="input-row">
               <Lock size={20} />
               <input
@@ -218,7 +217,7 @@ function LoginScreen({
                 autoComplete={intent === 'create' ? 'new-password' : 'current-password'}
                 minLength={8}
                 onChange={(event) => setPassword(event.target.value)}
-                placeholder="At least 8 characters"
+                placeholder="至少 8 个字符"
                 required
                 type="password"
                 value={password}
@@ -235,7 +234,7 @@ function LoginScreen({
               type="submit"
               value="create"
             >
-              {isSubmitting && intent === 'create' ? 'Creating' : 'Create account'}
+              {isSubmitting && intent === 'create' ? '创建中' : '创建账号'}
             </button>
             <button
               className="secondary-button"
@@ -244,19 +243,19 @@ function LoginScreen({
               type="submit"
               value="sign-in"
             >
-              {isSubmitting && intent === 'sign-in' ? 'Signing in' : 'Sign in'}
+              {isSubmitting && intent === 'sign-in' ? '登录中' : '登录'}
             </button>
           </div>
         ) : (
           <button className="primary-button" disabled={isSubmitting} onClick={openDemo} type="button">
-            {isSubmitting ? 'Opening demo' : 'Use demo account'}
+            {isSubmitting ? '正在打开 Demo' : '使用 Demo 账号'}
           </button>
         )}
         <p className="notice">
           {authNotice ||
             (isSupabaseConfigured
-              ? 'Create an account with email and password, then sign in anytime.'
-              : 'Demo mode is active until Supabase environment variables are added.')}
+              ? '使用邮箱和密码创建账号，之后可随时登录。'
+              : '当前是 Demo 模式，配置 Supabase 环境变量后会切换到真实登录。')}
         </p>
       </form>
     </section>
@@ -306,14 +305,14 @@ function ConversationList({
   return (
     <section className="screen">
       <header className="topbar">
-        <button aria-label="Menu" className="icon-button" type="button">
+        <button aria-label="菜单" className="icon-button" type="button">
           <Menu size={22} />
         </button>
         <div>
-          <p className="eyebrow">Messages</p>
-          <h1>Chats</h1>
+          <p className="eyebrow">消息</p>
+          <h1>聊天</h1>
         </div>
-        <button aria-label="Open profile" className="avatar-button" onClick={onOpenProfile} type="button">
+        <button aria-label="打开个人资料" className="avatar-button" onClick={onOpenProfile} type="button">
           <Avatar profile={me} />
         </button>
       </header>
@@ -321,9 +320,9 @@ function ConversationList({
       <div className="search-box">
         <Search size={18} />
         <input
-          aria-label="Search chats"
+          aria-label="搜索聊天"
           onChange={(event) => onQueryChange(event.target.value)}
-          placeholder="Search"
+          placeholder="搜索"
           value={query}
         />
       </div>
@@ -331,7 +330,7 @@ function ConversationList({
       <div className="quick-actions">
         <button className="quick-action" onClick={onCreateGroup} type="button">
           <Users size={18} />
-          <span>New group</span>
+          <span>新建群聊</span>
         </button>
         <button
           className="quick-action"
@@ -339,17 +338,17 @@ function ConversationList({
           type="button"
         >
           <UserPlus size={18} />
-          <span>Add contact</span>
+          <span>添加联系人</span>
         </button>
         <button className="quick-action subtle" onClick={onSignOut} type="button">
           <LogOut size={18} />
-          <span>Sign out</span>
+          <span>退出登录</span>
         </button>
       </div>
 
       {isContactFormOpen && (
         <form className="contact-panel" onSubmit={submitContact}>
-          <label htmlFor="contactEmail">Contact email</label>
+          <label htmlFor="contactEmail">联系人邮箱</label>
           <div className="input-row">
             <Mail size={20} />
             <input
@@ -365,7 +364,7 @@ function ConversationList({
           </div>
           <div className="auth-actions">
             <button className="primary-button" disabled={isAddingContact} type="submit">
-              {isAddingContact ? 'Starting' : 'Start chat'}
+              {isAddingContact ? '正在创建' : '开始聊天'}
             </button>
             <button
               className="secondary-button"
@@ -373,7 +372,7 @@ function ConversationList({
               onClick={() => setIsContactFormOpen(false)}
               type="button"
             >
-              Cancel
+              取消
             </button>
           </div>
           {authNotice && <p className="notice">{authNotice}</p>}
@@ -384,8 +383,8 @@ function ConversationList({
         {conversations.length === 0 ? (
           <EmptyState
             icon={<MessageCircle size={28} />}
-            title="No conversations"
-            body="Create a group or add a contact to start chatting."
+            title="暂无会话"
+            body="创建群聊或添加联系人后开始聊天。"
           />
         ) : (
           conversations.map((conversation) => (
@@ -409,7 +408,7 @@ function ConversationList({
                   <span>{conversation.title}</span>
                   <time>{formatTime(conversation.updatedAt)}</time>
                 </span>
-                <span className="row-preview">{conversation.lastMessage || 'No messages yet'}</span>
+                <span className="row-preview">{conversation.lastMessage || '暂无消息'}</span>
               </span>
               {conversation.unreadCount > 0 && (
                 <span className="unread-badge">{conversation.unreadCount}</span>
@@ -457,7 +456,7 @@ function ChatView({
   return (
     <section className="screen chat-screen">
       <header className="chat-header">
-        <button aria-label="Back to chats" className="icon-button" onClick={onBack} type="button">
+        <button aria-label="返回聊天列表" className="icon-button" onClick={onBack} type="button">
           <ArrowLeft size={22} />
         </button>
         <button className="chat-identity" onClick={onOpenInfo} type="button">
@@ -466,12 +465,14 @@ function ChatView({
             <strong>{title}</strong>
             <small>
               {conversation.type === 'group'
-                ? `${conversation.memberCount} members`
-                : otherProfile?.status ?? 'offline'}
+                ? `${conversation.memberCount} 名成员`
+                : otherProfile?.status === 'online'
+                  ? '在线'
+                  : '离线'}
             </small>
           </span>
         </button>
-        <button aria-label="More" className="icon-button" type="button">
+        <button aria-label="更多" className="icon-button" type="button">
           <MoreVertical size={22} />
         </button>
       </header>
@@ -480,8 +481,8 @@ function ChatView({
         {messages.length === 0 ? (
           <EmptyState
             icon={<MessageCircle size={28} />}
-            title="No messages yet"
-            body="Send the first message to open the conversation."
+            title="暂无消息"
+            body="发送第一条消息，开始这段对话。"
           />
         ) : (
           messages.map((message) => (
@@ -498,7 +499,7 @@ function ChatView({
       <form className="composer" onSubmit={submit}>
         <input
           ref={fileInputRef}
-          aria-label="File attachment"
+          aria-label="文件附件"
           className="file-input"
           onChange={(event) => {
             const file = event.target.files?.[0]
@@ -508,7 +509,7 @@ function ChatView({
           type="file"
         />
         <button
-          aria-label="Attach file"
+          aria-label="添加附件"
           className="icon-button"
           onClick={() => fileInputRef.current?.click()}
           type="button"
@@ -516,12 +517,12 @@ function ChatView({
           <Paperclip size={21} />
         </button>
         <input
-          aria-label="Message"
+          aria-label="消息"
           onChange={(event) => setDraft(event.target.value)}
-          placeholder="Message"
+          placeholder="输入消息"
           value={draft}
         />
-        <button aria-label="Send message" className="send-button" type="submit">
+        <button aria-label="发送消息" className="send-button" type="submit">
           <SendHorizontal size={20} />
         </button>
       </form>
@@ -560,7 +561,7 @@ function MessageBubble({
     <article className={`message ${isMine ? 'mine' : 'theirs'}`}>
       {!isMine && <Avatar profile={sender} size="small" />}
       <div className="bubble">
-        {!isMine && <span className="sender-name">{sender?.displayName ?? 'Member'}</span>}
+        {!isMine && <span className="sender-name">{sender?.displayName ?? '成员'}</span>}
         {message.attachment && (
           <a className="attachment" href={message.attachment.url} rel="noreferrer" target="_blank">
             {message.type === 'image' ? <ImageIcon size={18} /> : <FileText size={18} />}
@@ -594,14 +595,14 @@ function GroupInfo({
   return (
     <section className="screen">
       <header className="topbar">
-        <button aria-label="Back to chat" className="icon-button" onClick={onBack} type="button">
+        <button aria-label="返回聊天" className="icon-button" onClick={onBack} type="button">
           <ArrowLeft size={22} />
         </button>
         <div>
-          <p className="eyebrow">Group info</p>
+          <p className="eyebrow">群聊信息</p>
           <h1>{conversation.title}</h1>
         </div>
-        <button aria-label="Group settings" className="icon-button" type="button">
+        <button aria-label="群聊设置" className="icon-button" type="button">
           <Settings size={22} />
         </button>
       </header>
@@ -609,18 +610,18 @@ function GroupInfo({
       <section className="group-summary">
         <Avatar title={conversation.title} variant="group" size="large" />
         <h2>{conversation.title}</h2>
-        <p>{conversation.memberCount} members</p>
+        <p>{conversation.memberCount} 名成员</p>
       </section>
 
       <div className="settings-list">
         <button className="settings-row" type="button">
           <UserPlus size={20} />
-          <span>Add member</span>
+          <span>添加成员</span>
           <ChevronRight size={19} />
         </button>
         <button className="settings-row" type="button">
           <ShieldCheck size={20} />
-          <span>Permissions</span>
+          <span>权限设置</span>
           <ChevronRight size={19} />
         </button>
       </div>
@@ -661,14 +662,14 @@ function ProfileSettings({
   return (
     <section className="screen">
       <header className="topbar">
-        <button aria-label="Back to chats" className="icon-button" onClick={onBack} type="button">
+        <button aria-label="返回聊天列表" className="icon-button" onClick={onBack} type="button">
           <ArrowLeft size={22} />
         </button>
         <div>
-          <p className="eyebrow">Settings</p>
-          <h1>Profile</h1>
+          <p className="eyebrow">设置</p>
+          <h1>个人资料</h1>
         </div>
-        <button aria-label="Sign out" className="icon-button" onClick={onSignOut} type="button">
+        <button aria-label="退出登录" className="icon-button" onClick={onSignOut} type="button">
           <LogOut size={22} />
         </button>
       </header>
@@ -688,20 +689,20 @@ function ProfileSettings({
           onBack()
         }}
       >
-        <label htmlFor="displayName">Name</label>
+        <label htmlFor="displayName">昵称</label>
         <input
           id="displayName"
           onChange={(event) => setDisplayName(event.target.value)}
           value={displayName}
         />
-        <label htmlFor="bio">Bio</label>
+        <label htmlFor="bio">简介</label>
         <textarea id="bio" onChange={(event) => setBio(event.target.value)} value={bio} />
         <div className="readonly-field">
-          <span>Email</span>
+          <span>邮箱</span>
           <strong>{email}</strong>
         </div>
         <button className="primary-button" type="submit">
-          Save profile
+          保存资料
         </button>
         {authNotice && <p className="notice">{authNotice}</p>}
       </form>

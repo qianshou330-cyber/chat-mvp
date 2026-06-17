@@ -1,71 +1,71 @@
-# v0.1 Beta Outreach Pack
+# v0.1 Beta 外测邀请包
 
-## Invite Message
+## 邀请文案
 
-Hi, I am testing a small beta of Chat MVP, a mobile-first web chat app.
+你好，我正在测试一个小范围 beta 版本的 Chat MVP。它是一个移动优先的 Web 聊天应用。
 
-Please try it here:
+请用这个地址体验：
 
 https://chat-mvp-tau.vercel.app
 
-This is a small beta test, not a public launch. Please do not share sensitive or private information in the app yet. The current version does not include end-to-end encryption, voice/video calls, channels, bots, or native mobile apps.
+这只是小范围测试，不是公开发布。请暂时不要在里面发送敏感或隐私信息。当前版本还不支持端到端加密、语音/视频通话、频道、机器人或原生手机 App。
 
-Please test these flows:
+请帮忙测试这些流程：
 
-1. Create an account with email and password.
-2. Sign out and sign back in.
-3. Edit your display name and profile bio.
-4. Add another registered tester by email.
-5. Send direct text messages.
-6. Create a group.
-7. Upload one allowed attachment under 10 MB.
-8. Tell me anything that feels broken, confusing, slow, or missing.
+1. 用邮箱和密码创建账号。
+2. 退出登录后重新登录。
+3. 修改显示名称和个人简介。
+4. 通过邮箱添加另一个已注册测试用户。
+5. 发送单聊文字消息。
+6. 创建一个群聊。
+7. 上传一个 10 MB 以内的允许类型附件。
+8. 告诉我任何坏掉、看不懂、卡住、慢或者缺失的地方。
 
-Feedback goes here:
+反馈入口：
 
 https://github.com/qianshou330-cyber/chat-mvp/issues
 
-Use:
+请选择：
 
-- Bug report for broken behavior.
-- Experience feedback for confusing or awkward flows.
-- Feature request for future ideas.
+- 缺陷反馈：功能坏掉或流程被阻塞。
+- 体验反馈：看不懂、不顺手、太慢、布局不舒服。
+- 功能建议：后续版本想要的能力。
 
-## Tester Checklist
+## 测试者清单
 
-Ask each tester to send back this checklist with yes/no notes:
+请让每位测试者按下面的表回传结果，可以简单写“通过/失败/卡住”：
 
-| Flow | Result | Notes |
+| 流程 | 结果 | 备注 |
 | --- | --- | --- |
-| Account created |  |  |
-| Signed out and signed back in |  |  |
-| Profile updated |  |  |
-| Added contact by email |  |  |
-| Direct message sent |  |  |
-| Direct message received |  |  |
-| Group created |  |  |
-| Group message sent |  |  |
-| Attachment uploaded |  |  |
-| Attachment opened by another member |  |  |
-| Mobile layout felt usable |  |  |
+| 创建账号 |  |  |
+| 退出后重新登录 |  |  |
+| 修改个人资料 |  |  |
+| 通过邮箱添加联系人 |  |  |
+| 发送单聊消息 |  |  |
+| 收到单聊消息 |  |  |
+| 创建群聊 |  |  |
+| 发送群聊消息 |  |  |
+| 上传附件 |  |  |
+| 另一名成员打开附件 |  |  |
+| 手机端布局可用 |  |  |
 
-## Tester Pool
+## 测试者名单
 
-Use 3 to 5 testers for this pass.
+本轮建议 3 到 5 名测试者。
 
-| Tester | Email used | Device/browser | Status | Notes |
+| 测试者 | 使用邮箱 | 设备/浏览器 | 状态 | 备注 |
 | --- | --- | --- | --- | --- |
-| Tester A |  |  | Invited |  |
-| Tester B |  |  | Invited |  |
-| Tester C |  |  | Invited |  |
-| Tester D |  |  | Optional |  |
-| Tester E |  |  | Optional |  |
+| 测试者 A |  |  | 已邀请 |  |
+| 测试者 B |  |  | 已邀请 |  |
+| 测试者 C |  |  | 已邀请 |  |
+| 测试者 D |  |  | 可选 |  |
+| 测试者 E |  |  | 可选 |  |
 
-Status values: Invited, Started, Completed, Blocked.
+状态可用：已邀请、已开始、已完成、被阻塞。
 
-## Tracking Issues
+## 跟踪 Issue
 
-- External test execution: https://github.com/qianshou330-cyber/chat-mvp/issues/1
-- Feedback triage summary: https://github.com/qianshou330-cyber/chat-mvp/issues/2
-- v0.2 planning: https://github.com/qianshou330-cyber/chat-mvp/issues/3
+- 外测执行：https://github.com/qianshou330-cyber/chat-mvp/issues/1
+- 反馈分诊与总结：https://github.com/qianshou330-cyber/chat-mvp/issues/2
+- v0.2 规划：https://github.com/qianshou330-cyber/chat-mvp/issues/3
 

@@ -7,25 +7,25 @@ describe('Chat MVP', () => {
     render(<App />)
 
     expect(screen.getByRole('heading', { name: 'Chat MVP' })).toBeInTheDocument()
-    expect(screen.getByLabelText('Beta privacy notice')).toHaveTextContent(
-      'Do not share sensitive data yet.',
+    expect(screen.getByLabelText('Beta 隐私提示')).toHaveTextContent(
+      '请暂时不要发送敏感信息。',
     )
 
-    fireEvent.click(screen.getByRole('button', { name: 'Use demo account' }))
+    fireEvent.click(screen.getByRole('button', { name: '使用 Demo 账号' }))
 
-    expect(await screen.findByRole('heading', { name: 'Chats' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: '聊天' })).toBeInTheDocument()
     expect(screen.getByText('Mira Stone')).toBeInTheDocument()
   })
 
   it('sends a demo text message inside a conversation', async () => {
     render(<App />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Use demo account' }))
+    fireEvent.click(screen.getByRole('button', { name: '使用 Demo 账号' }))
     fireEvent.click(await screen.findByText('Mira Stone'))
-    fireEvent.change(screen.getByLabelText('Message'), {
+    fireEvent.change(screen.getByLabelText('消息'), {
       target: { value: 'Shipping the first mobile MVP.' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Send message' }))
+    fireEvent.click(screen.getByRole('button', { name: '发送消息' }))
 
     expect(screen.getByText('Shipping the first mobile MVP.')).toBeInTheDocument()
   })
@@ -33,25 +33,25 @@ describe('Chat MVP', () => {
   it('adds a demo contact and opens a direct chat', async () => {
     render(<App />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Use demo account' }))
-    fireEvent.click(await screen.findByRole('button', { name: 'Add contact' }))
-    fireEvent.change(screen.getByLabelText('Contact email'), {
+    fireEvent.click(screen.getByRole('button', { name: '使用 Demo 账号' }))
+    fireEvent.click(await screen.findByRole('button', { name: '添加联系人' }))
+    fireEvent.change(screen.getByLabelText('联系人邮箱'), {
       target: { value: 'nora@example.com' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Start chat' }))
+    fireEvent.click(screen.getByRole('button', { name: '开始聊天' }))
 
-    expect(await screen.findByLabelText('Message')).toBeInTheDocument()
+    expect(await screen.findByLabelText('消息')).toBeInTheDocument()
     expect(screen.getByText('Nora Lee')).toBeInTheDocument()
   })
 
   it('shows a demo attachment link after upload', async () => {
     render(<App />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Use demo account' }))
+    fireEvent.click(screen.getByRole('button', { name: '使用 Demo 账号' }))
     fireEvent.click(await screen.findByText('Mira Stone'))
 
     const attachment = new File(['hello'], 'notes.txt', { type: 'text/plain' })
-    fireEvent.change(screen.getByLabelText('File attachment'), {
+    fireEvent.change(screen.getByLabelText('文件附件'), {
       target: { files: [attachment] },
     })
 

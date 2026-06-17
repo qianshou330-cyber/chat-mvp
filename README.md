@@ -2,9 +2,9 @@
 
 Telegram-style mobile PWA MVP for chat, built with React, TypeScript, Vite, Supabase, and a demo fallback mode.
 
-Production beta URL: `https://chat-mvp-tau.vercel.app`
+生产 beta 地址：`https://chat-mvp-tau.vercel.app`
 
-Current track: `v0.1-beta` small external test preparation.
+当前阶段：`v0.1-beta` 小范围外测准备。
 
 ## What Is Included
 
@@ -57,14 +57,14 @@ Deploy on Vercel and add the same Supabase environment variables. The project is
 
 Use `docs/deployment-checklist.md` before promoting a Preview deployment to Production.
 
-## Beta Testing
+## Beta 外测
 
-Use `docs/beta-test-plan.md` for invited tester setup, feedback format, and smoke-test data cleanup notes.
+使用 `docs/beta-test-plan.md` 安排受邀测试者、反馈格式和 smoke test 数据清理。
 
-Use `docs/beta-outreach.md` for the invite message and tester checklist.
+使用 `docs/beta-outreach.md` 复制外测邀请文案和测试者检查清单。
 
-Use `docs/beta-triage.md` and `docs/beta-feedback-summary.md` to classify feedback and decide v0.2 scope.
+使用 `docs/beta-triage.md` 和 `docs/beta-feedback-summary.md` 归类反馈，并决定 v0.2 范围。
 
-Use GitHub Issues with the included Bug, Experience feedback, and Feature request templates.
+所有反馈统一进入 GitHub Issues，使用已有的缺陷反馈、体验反馈和功能建议模板。
 
-Known beta limits: no end-to-end encryption, no native mobile app, no voice/video calls, no channels, no bots, no push notifications, and no full-text search yet.
+已知 beta 限制：暂不支持端到端加密、原生移动 App、语音/视频通话、频道、机器人、推送通知和全文搜索。
