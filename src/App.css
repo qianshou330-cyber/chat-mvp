@@ -127,14 +127,16 @@
 }
 
 .login-form,
-.profile-form {
+.profile-form,
+.contact-panel {
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
 
 .login-form label,
-.profile-form label {
+.profile-form label,
+.contact-panel label {
   color: var(--text-muted);
   font-size: 13px;
   font-weight: 700;
@@ -290,6 +292,12 @@
   gap: 8px;
   grid-template-columns: 1fr 1fr 1fr;
   padding: 0 16px 12px;
+}
+
+.contact-panel {
+  border-bottom: 1px solid var(--border);
+  flex: 0 0 auto;
+  padding: 2px 16px 14px;
 }
 
 .quick-action {

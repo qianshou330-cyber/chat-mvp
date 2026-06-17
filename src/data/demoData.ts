@@ -45,6 +45,12 @@ export const demoProfiles: Profile[] = [
   },
 ]
 
+export const demoProfileEmails: Record<string, string> = {
+  'mira@example.com': 'user-mira',
+  'ian@example.com': 'user-ian',
+  'nora@example.com': 'user-nora',
+}
+
 export const demoConversations: Conversation[] = [
   {
     id: 'conv-mira',

@@ -7,7 +7,7 @@
 
 ## Supabase
 - Create a Supabase project.
-- Apply `supabase/migrations/20260616000000_chat_mvp.sql`.
+- Apply all SQL files in `supabase/migrations` in filename order.
 - Enable the Email Auth provider.
 - Turn off email confirmation for MVP testing, or configure production SMTP before enabling confirmation.
 - Confirm RLS is enabled on all public user data tables.
@@ -22,6 +22,7 @@
 ## Smoke Test
 - Register or sign in with email and password.
 - Create a profile.
+- Add a registered user by email and open a direct chat.
 - Create a group.
 - Send a text message.
 - Upload an allowed attachment under 10 MB.

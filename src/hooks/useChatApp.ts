@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { chatStorageBucket, isSupabaseConfigured, supabase } from '../lib/supabase'
-import { createDemoState, demoUser } from '../data/demoData'
+import { createDemoState, demoProfileEmails, demoUser } from '../data/demoData'
 import { validateAttachment } from '../lib/attachments'
 import type { AppUser, ChatState, Conversation, Message, Profile } from '../types'
 
@@ -448,6 +448,102 @@ export function useChatApp() {
     }
   }
 
+  async function addContactByEmail(email: string) {
+    const trimmed = email.trim().toLowerCase()
+    const currentUser = user ?? (!supabase ? demoUser : null)
+    if (!trimmed || !currentUser) return null
+
+    if (trimmed === currentUser.email.toLowerCase()) {
+      setAuthNotice('You cannot add yourself')
+      return null
+    }
+
+    if (!supabase) {
+      const targetProfileId = demoProfileEmails[trimmed]
+      const targetProfile = state.profiles.find((profile) => profile.id === targetProfileId)
+
+      if (!targetProfile) {
+        setAuthNotice('No user found')
+        return null
+      }
+
+      const existingConversation = state.conversations.find(
+        (conversation) =>
+          conversation.type === 'direct' &&
+          conversation.memberIds.includes(currentUser.id) &&
+          conversation.memberIds.includes(targetProfile.id),
+      )
+
+      if (existingConversation) {
+        setActiveConversationId(existingConversation.id)
+        setAuthNotice('Opening existing chat.')
+        return existingConversation.id
+      }
+
+      const conversationId = uid()
+      const conversation: Conversation = {
+        id: conversationId,
+        type: 'direct',
+        title: targetProfile.displayName,
+        memberIds: [currentUser.id, targetProfile.id],
+        memberCount: 2,
+        unreadCount: 0,
+        updatedAt: new Date().toISOString(),
+        lastMessage: '',
+      }
+
+      setState((previous) => ({
+        ...previous,
+        conversations: [conversation, ...previous.conversations],
+      }))
+      setActiveConversationId(conversationId)
+      setAuthNotice(`Chat with ${targetProfile.displayName} created.`)
+      return conversationId
+    }
+
+    const { data, error } = await supabase
+      .rpc('create_direct_conversation_by_email', { search_email: trimmed })
+      .single()
+
+    if (error) {
+      setAuthNotice(error.message)
+      return null
+    }
+
+    const row = data as Record<string, unknown>
+    const conversationId = String(row.conversation_id)
+    const targetProfile = mapProfile({
+      id: row.target_profile_id,
+      display_name: row.target_display_name,
+      avatar_tone: row.target_avatar_tone,
+      bio: row.target_bio,
+      status: row.target_status,
+      last_seen: row.target_last_seen,
+    })
+
+    const conversation: Conversation = {
+      id: conversationId,
+      type: 'direct',
+      title: targetProfile.displayName,
+      memberIds: [currentUser.id, targetProfile.id],
+      memberCount: 2,
+      unreadCount: 0,
+      updatedAt: new Date().toISOString(),
+      lastMessage: '',
+    }
+
+    setState((previous) => ({
+      ...previous,
+      profiles: upsertProfile(previous.profiles, targetProfile),
+      conversations: upsertConversation(previous.conversations, conversation),
+    }))
+    setActiveConversationId(conversationId)
+    setAuthNotice(
+      row.was_existing ? 'Opening existing chat.' : `Chat with ${targetProfile.displayName} created.`,
+    )
+    return conversationId
+  }
+
   function getProfile(profileId: string) {
     return state.profiles.find((profile) => profile.id === profileId)
   }
@@ -456,6 +552,7 @@ export function useChatApp() {
     activeConversation,
     activeConversationId,
     activeMessages,
+    addContactByEmail,
     authNotice,
     createGroup,
     getProfile,
@@ -482,6 +579,29 @@ function upsertMessage(messages: Message[], incoming: Message) {
   return exists
     ? messages.map((message) => (message.id === incoming.id ? incoming : message))
     : [...messages, incoming]
+}
+
+function upsertProfile(profiles: Profile[], incoming: Profile) {
+  const exists = profiles.some((profile) => profile.id === incoming.id)
+  return exists
+    ? profiles.map((profile) => (profile.id === incoming.id ? incoming : profile))
+    : [...profiles, incoming]
+}
+
+function upsertConversation(conversations: Conversation[], incoming: Conversation) {
+  const exists = conversations.some((conversation) => conversation.id === incoming.id)
+  return exists
+    ? conversations.map((conversation) =>
+        conversation.id === incoming.id
+          ? {
+              ...conversation,
+              ...incoming,
+              lastMessage: incoming.lastMessage || conversation.lastMessage,
+              updatedAt: incoming.lastMessage ? incoming.updatedAt : conversation.updatedAt,
+            }
+          : conversation,
+      )
+    : [incoming, ...conversations]
 }
 
 function withNewMessage(state: ChatState, message: Message): ChatState {

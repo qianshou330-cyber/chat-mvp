@@ -7,7 +7,7 @@ Use React, TypeScript, Supabase Auth, Supabase Postgres, Supabase Realtime, and 
 ## Required MVP
 - Email/password sign-up and sign-in.
 - Profile editing with display name and bio.
-- Chat list with search, recent conversations, last message, unread count.
+- Chat list with search, add contact by email, recent conversations, last message, unread count.
 - Direct chat and group chat views.
 - Realtime text messages.
 - File/image attachment upload to the `chat-uploads` bucket.

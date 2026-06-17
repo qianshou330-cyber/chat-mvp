@@ -78,6 +78,7 @@ function App() {
         {activeScreen === 'list' && (
           <ConversationList
             conversations={chat.visibleConversations}
+            authNotice={chat.authNotice}
             getProfile={chat.getProfile}
             me={chat.me}
             query={chat.query}
@@ -92,6 +93,14 @@ function App() {
             onOpenProfile={() => setScreen('profile')}
             onQueryChange={chat.setQuery}
             onSignOut={handleSignOut}
+            onAddContact={async (email) => {
+              const conversationId = await chat.addContactByEmail(email)
+              if (conversationId) {
+                chat.setActiveConversationId(conversationId)
+                setScreen('chat')
+              }
+              return Boolean(conversationId)
+            }}
           />
         )}
         {activeScreen === 'chat' && chat.activeConversation && (
@@ -248,9 +257,11 @@ function LoginScreen({
 }
 
 function ConversationList({
+  authNotice,
   conversations,
   getProfile,
   me,
+  onAddContact,
   onCreateGroup,
   onOpenConversation,
   onOpenProfile,
@@ -258,9 +269,11 @@ function ConversationList({
   onSignOut,
   query,
 }: {
+  authNotice: string
   conversations: Conversation[]
   getProfile: (profileId: string) => Profile | undefined
   me: Profile | null | undefined
+  onAddContact: (email: string) => Promise<boolean>
   onCreateGroup: () => void
   onOpenConversation: (id: string) => void
   onOpenProfile: () => void
@@ -268,6 +281,21 @@ function ConversationList({
   onSignOut: () => void
   query: string
 }) {
+  const [isContactFormOpen, setIsContactFormOpen] = useState(false)
+  const [contactEmail, setContactEmail] = useState('')
+  const [isAddingContact, setIsAddingContact] = useState(false)
+
+  async function submitContact(event: FormEvent) {
+    event.preventDefault()
+    setIsAddingContact(true)
+    const didOpenChat = await onAddContact(contactEmail)
+    setIsAddingContact(false)
+    if (didOpenChat) {
+      setContactEmail('')
+      setIsContactFormOpen(false)
+    }
+  }
+
   return (
     <section className="screen">
       <header className="topbar">
@@ -298,7 +326,11 @@ function ConversationList({
           <Users size={18} />
           <span>New group</span>
         </button>
-        <button className="quick-action" type="button">
+        <button
+          className="quick-action"
+          onClick={() => setIsContactFormOpen((isOpen) => !isOpen)}
+          type="button"
+        >
           <UserPlus size={18} />
           <span>Add contact</span>
         </button>
@@ -307,6 +339,39 @@ function ConversationList({
           <span>Sign out</span>
         </button>
       </div>
+
+      {isContactFormOpen && (
+        <form className="contact-panel" onSubmit={submitContact}>
+          <label htmlFor="contactEmail">Contact email</label>
+          <div className="input-row">
+            <Mail size={20} />
+            <input
+              id="contactEmail"
+              autoComplete="email"
+              inputMode="email"
+              onChange={(event) => setContactEmail(event.target.value)}
+              placeholder="teammate@example.com"
+              required
+              type="email"
+              value={contactEmail}
+            />
+          </div>
+          <div className="auth-actions">
+            <button className="primary-button" disabled={isAddingContact} type="submit">
+              {isAddingContact ? 'Starting' : 'Start chat'}
+            </button>
+            <button
+              className="secondary-button"
+              disabled={isAddingContact}
+              onClick={() => setIsContactFormOpen(false)}
+              type="button"
+            >
+              Cancel
+            </button>
+          </div>
+          {authNotice && <p className="notice">{authNotice}</p>}
+        </form>
+      )}
 
       <div className="conversation-list">
         {conversations.length === 0 ? (

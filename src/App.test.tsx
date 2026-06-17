@@ -26,4 +26,18 @@ describe('Chat MVP', () => {
 
     expect(screen.getByText('Shipping the first mobile MVP.')).toBeInTheDocument()
   })
+
+  it('adds a demo contact and opens a direct chat', async () => {
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Use demo account' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Add contact' }))
+    fireEvent.change(screen.getByLabelText('Contact email'), {
+      target: { value: 'nora@example.com' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Start chat' }))
+
+    expect(await screen.findByLabelText('Message')).toBeInTheDocument()
+    expect(screen.getByText('Nora Lee')).toBeInTheDocument()
+  })
 })

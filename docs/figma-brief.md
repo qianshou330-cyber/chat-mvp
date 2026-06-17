@@ -5,7 +5,7 @@ Create a mobile-first PWA design for a Telegram-style chat MVP. Keep the product
 ## Screens
 - Splash: app mark, product name, loading state.
 - Login: email field, password field, create account action, sign-in action, setup notice.
-- Chat list: profile entry, search, quick actions, recent conversations, unread counts.
+- Chat list: profile entry, search, add contact by email, quick actions, recent conversations, unread counts.
 - Chat window: compact header, message feed, attachment button, text composer, send button.
 - Group info: group avatar, member count, add member, permissions, member list.
 - Profile settings: avatar, name, bio, email, save, sign out.

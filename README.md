@@ -4,10 +4,10 @@ Telegram-style mobile PWA MVP for chat, built with React, TypeScript, Vite, Supa
 
 ## What Is Included
 
-- Mobile-first chat UI with login, chat list, direct chat, group info, and profile settings.
+- Mobile-first chat UI with login, chat list, add contact, direct chat, group info, and profile settings.
 - Demo mode that works without backend credentials.
 - Supabase client wiring for email/password Auth, Realtime messages, and Storage upload.
-- Supabase schema and RLS migration in `supabase/migrations`.
+- Supabase schema, RLS, and direct-contact RPC migrations in `supabase/migrations`.
 - Client-side attachment validation for allowed file types and 10 MB uploads.
 - GitHub Actions CI and Vercel deployment configuration.
 - PWA manifest and app icon.
@@ -25,7 +25,7 @@ The app runs in demo mode until Supabase variables are configured.
 ## Supabase Setup
 
 1. Create a Supabase project.
-2. Apply `supabase/migrations/20260616000000_chat_mvp.sql`.
+2. Apply all SQL files in `supabase/migrations` in filename order.
 3. Enable the Email Auth provider and turn off email confirmation for local MVP testing.
 4. Copy `.env.example` to `.env.local`.
 5. Fill in:

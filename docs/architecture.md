@@ -20,7 +20,6 @@
 - Upload paths are scoped by authenticated user id.
 
 ## Next Production Tasks
-- Add a server-side RPC for atomic direct chat creation.
 - Add push notifications for PWA installs.
 - Add full-text message search.
 - Add signed URL handling for attachments shared inside conversations.
