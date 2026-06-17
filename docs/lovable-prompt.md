@@ -5,7 +5,7 @@ Build a Telegram-style mobile PWA chat app MVP using this repository as the prod
 Use React, TypeScript, Supabase Auth, Supabase Postgres, Supabase Realtime, and Supabase Storage. Keep the UI mobile-first and close to the screens described in `docs/figma-brief.md`. Do not copy Telegram branding, logos, or proprietary assets.
 
 ## Required MVP
-- Email-based passwordless login.
+- Email/password sign-up and sign-in.
 - Profile editing with display name and bio.
 - Chat list with search, recent conversations, last message, unread count.
 - Direct chat and group chat views.

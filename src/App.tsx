@@ -8,6 +8,7 @@ import {
   ChevronRight,
   FileText,
   Image as ImageIcon,
+  Lock,
   LogOut,
   Mail,
   Menu,
@@ -32,6 +33,12 @@ function App() {
   const [screen, setScreen] = useState<Screen>('login')
 
   const activeTitle = chat.activeConversation?.title ?? 'Chat'
+  const activeScreen = chat.user && screen === 'login' ? 'list' : screen
+
+  async function handleSignOut() {
+    await chat.signOut()
+    setScreen('login')
+  }
 
   if (chat.isLoading) {
     return (
@@ -47,14 +54,17 @@ function App() {
     )
   }
 
-  if (!chat.user || screen === 'login') {
+  if (!chat.user && activeScreen === 'login') {
     return (
       <main className="app-shell">
         <LoginScreen
           authNotice={chat.authNotice}
           isSupabaseConfigured={chat.isSupabaseConfigured}
-          onSignIn={async (email) => {
-            await chat.signInWithEmail(email)
+          onCreateAccount={async (email, password) => {
+            await chat.createAccountWithEmail(email, password)
+          }}
+          onSignIn={async (email, password) => {
+            await chat.signInWithPassword(email, password)
             if (!chat.isSupabaseConfigured) setScreen('list')
           }}
         />
@@ -65,7 +75,7 @@ function App() {
   return (
     <main className="app-shell">
       <section className="mobile-app" aria-label="Chat MVP">
-        {screen === 'list' && (
+        {activeScreen === 'list' && (
           <ConversationList
             conversations={chat.visibleConversations}
             getProfile={chat.getProfile}
@@ -81,15 +91,15 @@ function App() {
             }}
             onOpenProfile={() => setScreen('profile')}
             onQueryChange={chat.setQuery}
-            onSignOut={chat.signOut}
+            onSignOut={handleSignOut}
           />
         )}
-        {screen === 'chat' && chat.activeConversation && chat.user && (
+        {activeScreen === 'chat' && chat.activeConversation && (
           <ChatView
             conversation={chat.activeConversation}
             getProfile={chat.getProfile}
             messages={chat.activeMessages}
-            myUserId={chat.user.id}
+            myUserId={chat.user?.id ?? ''}
             onBack={() => setScreen('list')}
             onOpenInfo={() => setScreen(chat.activeConversation?.type === 'group' ? 'group' : 'profile')}
             onSendFile={chat.sendFile}
@@ -97,21 +107,21 @@ function App() {
             title={activeTitle}
           />
         )}
-        {screen === 'group' && chat.activeConversation && (
+        {activeScreen === 'group' && chat.activeConversation && (
           <GroupInfo
             conversation={chat.activeConversation}
             getProfile={chat.getProfile}
             onBack={() => setScreen('chat')}
           />
         )}
-        {screen === 'profile' && chat.me && (
+        {activeScreen === 'profile' && chat.me && (
           <ProfileSettings
             authNotice={chat.authNotice}
-            email={chat.user.email}
+            email={chat.user?.email ?? ''}
             profile={chat.me}
             onBack={() => setScreen('list')}
             onSave={chat.updateProfile}
-            onSignOut={chat.signOut}
+            onSignOut={handleSignOut}
           />
         )}
       </section>
@@ -122,19 +132,36 @@ function App() {
 function LoginScreen({
   authNotice,
   isSupabaseConfigured,
+  onCreateAccount,
   onSignIn,
 }: {
   authNotice: string
   isSupabaseConfigured: boolean
-  onSignIn: (email: string) => Promise<void>
+  onCreateAccount: (email: string, password: string) => Promise<void>
+  onSignIn: (email: string, password: string) => Promise<void>
 }) {
   const [email, setEmail] = useState('founder@example.com')
+  const [password, setPassword] = useState('')
+  const [intent, setIntent] = useState<'create' | 'sign-in'>('create')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   async function submit(event: FormEvent) {
     event.preventDefault()
+    const submitter = (event.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null
+    const nextIntent = submitter?.value === 'sign-in' ? 'sign-in' : 'create'
     setIsSubmitting(true)
-    await onSignIn(email)
+    setIntent(nextIntent)
+    if (!isSupabaseConfigured || nextIntent === 'sign-in') {
+      await onSignIn(email, password)
+    } else {
+      await onCreateAccount(email, password)
+    }
+    setIsSubmitting(false)
+  }
+
+  async function openDemo() {
+    setIsSubmitting(true)
+    await onSignIn(email, password)
     setIsSubmitting(false)
   }
 
@@ -165,13 +192,54 @@ function LoginScreen({
             value={email}
           />
         </div>
-        <button className="primary-button" disabled={isSubmitting} type="submit">
-          {isSubmitting ? 'Sending' : isSupabaseConfigured ? 'Send magic link' : 'Use demo account'}
-        </button>
+        {isSupabaseConfigured && (
+          <>
+            <label htmlFor="password">Password</label>
+            <div className="input-row">
+              <Lock size={20} />
+              <input
+                id="password"
+                autoComplete={intent === 'create' ? 'new-password' : 'current-password'}
+                minLength={8}
+                onChange={(event) => setPassword(event.target.value)}
+                placeholder="At least 8 characters"
+                required
+                type="password"
+                value={password}
+              />
+            </div>
+          </>
+        )}
+        {isSupabaseConfigured ? (
+          <div className="auth-actions">
+            <button
+              className="primary-button"
+              disabled={isSubmitting}
+              onClick={() => setIntent('create')}
+              type="submit"
+              value="create"
+            >
+              {isSubmitting && intent === 'create' ? 'Creating' : 'Create account'}
+            </button>
+            <button
+              className="secondary-button"
+              disabled={isSubmitting}
+              onClick={() => setIntent('sign-in')}
+              type="submit"
+              value="sign-in"
+            >
+              {isSubmitting && intent === 'sign-in' ? 'Signing in' : 'Sign in'}
+            </button>
+          </div>
+        ) : (
+          <button className="primary-button" disabled={isSubmitting} onClick={openDemo} type="button">
+            {isSubmitting ? 'Opening demo' : 'Use demo account'}
+          </button>
+        )}
         <p className="notice">
           {authNotice ||
             (isSupabaseConfigured
-              ? 'Supabase is configured for passwordless email sign in.'
+              ? 'Create an account with email and password, then sign in anytime.'
               : 'Demo mode is active until Supabase environment variables are added.')}
         </p>
       </form>

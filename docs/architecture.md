@@ -2,7 +2,7 @@
 
 ## Stack
 - React + TypeScript + Vite for the mobile PWA.
-- Supabase Auth for email sign-in.
+- Supabase Auth for email/password sign-up and sign-in.
 - Supabase Postgres for profiles, contacts, conversations, members, messages, read receipts, and attachments.
 - Supabase Realtime for inserted messages.
 - Supabase Storage for uploaded files.

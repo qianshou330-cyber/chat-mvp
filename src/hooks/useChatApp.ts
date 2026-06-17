@@ -61,15 +61,27 @@ export function useChatApp() {
       setAuthNotice(profileResult.error.message)
     }
 
+    let currentProfile = profileResult.data
+
     if (!profileResult.data) {
       const email = (await supabase.auth.getUser()).data.user?.email ?? 'member@example.com'
-      await supabase.from('profiles').upsert({
-        id: userId,
-        display_name: email.split('@')[0],
-        bio: '',
-        avatar_tone: 'blue',
-        status: 'online',
-      })
+      const createdProfile = await supabase
+        .from('profiles')
+        .upsert({
+          id: userId,
+          display_name: email.split('@')[0],
+          bio: '',
+          avatar_tone: 'blue',
+          status: 'online',
+        })
+        .select()
+        .single()
+
+      if (createdProfile.error) {
+        setAuthNotice(createdProfile.error.message)
+      } else {
+        currentProfile = createdProfile.data
+      }
     }
 
     const conversationIds =
@@ -78,7 +90,7 @@ export function useChatApp() {
     if (conversationIds.length === 0) {
       setState((previous) => ({
         ...previous,
-        profiles: profileResult.data ? [mapProfile(profileResult.data)] : previous.profiles,
+        profiles: currentProfile ? [mapProfile(currentProfile)] : previous.profiles,
         conversations: [],
         messages: [],
       }))
@@ -204,9 +216,10 @@ export function useChatApp() {
     }
   }, [activeConversationId, user])
 
-  async function signInWithEmail(email: string) {
+  async function createAccountWithEmail(email: string, password: string) {
     const trimmed = email.trim().toLowerCase()
-    if (!trimmed) return
+    const cleanPassword = password.trim()
+    if (!trimmed || !cleanPassword) return
 
     if (!supabase) {
       setUser({ ...demoUser, email: trimmed })
@@ -214,18 +227,41 @@ export function useChatApp() {
       return
     }
 
-    const { error } = await supabase.auth.signInWithOtp({
+    const { error } = await supabase.auth.signUp({
       email: trimmed,
-      options: {
-        emailRedirectTo: window.location.origin,
-      },
+      password: cleanPassword,
     })
 
-    setAuthNotice(
-      error
-        ? error.message
-        : 'Magic link sent. Open the email on this device to finish sign in.',
-    )
+    if (error) {
+      setAuthNotice(error.message)
+      return
+    }
+
+    const signIn = await supabase.auth.signInWithPassword({
+      email: trimmed,
+      password: cleanPassword,
+    })
+
+    setAuthNotice(signIn.error ? signIn.error.message : 'Account created. You are signed in.')
+  }
+
+  async function signInWithPassword(email: string, password: string) {
+    const trimmed = email.trim().toLowerCase()
+    const cleanPassword = password.trim()
+    if (!trimmed || !cleanPassword) return
+
+    if (!supabase) {
+      setUser({ ...demoUser, email: trimmed })
+      setAuthNotice('')
+      return
+    }
+
+    const { error } = await supabase.auth.signInWithPassword({
+      email: trimmed,
+      password: cleanPassword,
+    })
+
+    setAuthNotice(error ? error.message : 'Signed in.')
   }
 
   async function signOut() {
@@ -236,12 +272,13 @@ export function useChatApp() {
 
   async function sendText(body: string) {
     const trimmed = body.trim()
-    if (!trimmed || !user || !activeConversation) return
+    const currentUser = user ?? (!supabase ? demoUser : null)
+    if (!trimmed || !currentUser || !activeConversation) return
 
     const optimisticMessage: Message = {
       id: uid(),
       conversationId: activeConversation.id,
-      senderId: user.id,
+      senderId: currentUser.id,
       body: trimmed,
       type: 'text',
       status: supabase ? 'sending' : 'read',
@@ -255,7 +292,7 @@ export function useChatApp() {
     const { error } = await supabase.from('messages').insert({
       id: optimisticMessage.id,
       conversation_id: activeConversation.id,
-      sender_id: user.id,
+      sender_id: currentUser.id,
       body: trimmed,
       message_type: 'text',
       status: 'sent',
@@ -430,7 +467,8 @@ export function useChatApp() {
     sendText,
     setActiveConversationId,
     setQuery,
-    signInWithEmail,
+    createAccountWithEmail,
+    signInWithPassword,
     signOut,
     state,
     updateProfile,

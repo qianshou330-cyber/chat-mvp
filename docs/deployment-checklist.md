@@ -8,9 +8,10 @@
 ## Supabase
 - Create a Supabase project.
 - Apply `supabase/migrations/20260616000000_chat_mvp.sql`.
+- Enable the Email Auth provider.
+- Turn off email confirmation for MVP testing, or configure production SMTP before enabling confirmation.
 - Confirm RLS is enabled on all public user data tables.
 - Confirm the private `chat-uploads` bucket exists.
-- Add `http://localhost:5173` and the Vercel production URL to Auth redirect URLs.
 
 ## Vercel
 - Import the GitHub repository.
@@ -19,7 +20,7 @@
 - Run a mobile browser smoke test on the production URL.
 
 ## Smoke Test
-- Register or sign in with email.
+- Register or sign in with email and password.
 - Create a profile.
 - Create a group.
 - Send a text message.
