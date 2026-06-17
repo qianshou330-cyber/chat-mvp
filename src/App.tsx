@@ -491,6 +491,7 @@ function ChatView({
       <form className="composer" onSubmit={submit}>
         <input
           ref={fileInputRef}
+          aria-label="File attachment"
           className="file-input"
           onChange={(event) => {
             const file = event.target.files?.[0]
@@ -554,7 +555,7 @@ function MessageBubble({
       <div className="bubble">
         {!isMine && <span className="sender-name">{sender?.displayName ?? 'Member'}</span>}
         {message.attachment && (
-          <a className="attachment" href={message.attachment.url}>
+          <a className="attachment" href={message.attachment.url} rel="noreferrer" target="_blank">
             {message.type === 'image' ? <ImageIcon size={18} /> : <FileText size={18} />}
             <span>{message.attachment.fileName}</span>
           </a>

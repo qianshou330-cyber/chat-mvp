@@ -11,6 +11,8 @@ const uid = () =>
     ? crypto.randomUUID()
     : `${Date.now()}-${Math.random().toString(16).slice(2)}`
 
+const SIGNED_ATTACHMENT_URL_EXPIRES_SECONDS = 60 * 60
+
 const safeFileName = (name: string) => name.replace(/[^a-zA-Z0-9._-]/g, '-')
 
 export function useChatApp() {
@@ -119,7 +121,7 @@ export function useChatApp() {
         : { data: [], error: null }
     const profiles = (profilesResult.data ?? []).map(mapProfile)
     const profilesById = new Map(profiles.map((profile) => [profile.id, profile]))
-    const messages = (messagesResult.data ?? []).map(mapMessage)
+    const messages = await Promise.all((messagesResult.data ?? []).map(mapMessage))
 
     setState({
       profiles,
@@ -176,12 +178,13 @@ export function useChatApp() {
 
   useEffect(() => {
     if (!supabase || !user || !activeConversationId) return
+    const client = supabase
 
     if (currentChannel.current) {
-      void supabase.removeChannel(currentChannel.current)
+      void client.removeChannel(currentChannel.current)
     }
 
-    currentChannel.current = supabase
+    currentChannel.current = client
       .channel(`messages:${activeConversationId}`)
       .on(
         'postgres_changes',
@@ -192,25 +195,35 @@ export function useChatApp() {
           filter: `conversation_id=eq.${activeConversationId}`,
         },
         (payload) => {
-          const row = payload.new as Record<string, string>
-          setState((previous) =>
-            withNewMessage(previous, {
-              id: row.id,
-              conversationId: row.conversation_id,
-              senderId: row.sender_id,
-              body: row.body ?? '',
-              type: (row.message_type as Message['type']) ?? 'text',
-              status: row.sender_id === user.id ? 'sent' : 'read',
-              createdAt: row.created_at,
-            }),
-          )
+          const row = payload.new as Record<string, unknown>
+
+          void (async () => {
+            let messageRow = row
+
+            if (row.attachment_id) {
+              const messageResult = await client
+                .from('messages')
+                .select('*, attachments(*)')
+                .eq('id', row.id)
+                .single()
+
+              if (messageResult.error) {
+                setAuthNotice(messageResult.error.message)
+              } else {
+                messageRow = messageResult.data
+              }
+            }
+
+            const message = await mapMessage(messageRow)
+            setState((previous) => withNewMessage(previous, message))
+          })()
         },
       )
       .subscribe()
 
     return () => {
-      if (currentChannel.current && supabase) {
-        void supabase.removeChannel(currentChannel.current)
+      if (currentChannel.current) {
+        void client.removeChannel(currentChannel.current)
         currentChannel.current = null
       }
     }
@@ -247,14 +260,16 @@ export function useChatApp() {
 
   async function signInWithPassword(email: string, password: string) {
     const trimmed = email.trim().toLowerCase()
-    const cleanPassword = password.trim()
-    if (!trimmed || !cleanPassword) return
+    if (!trimmed) return
 
     if (!supabase) {
       setUser({ ...demoUser, email: trimmed })
       setAuthNotice('')
       return
     }
+
+    const cleanPassword = password.trim()
+    if (!cleanPassword) return
 
     const { error } = await supabase.auth.signInWithPassword({
       email: trimmed,
@@ -660,7 +675,7 @@ function mapConversation(
   }
 }
 
-function mapMessage(row: Record<string, unknown>): Message {
+async function mapMessage(row: Record<string, unknown>): Promise<Message> {
   const attachment = row.attachments as Record<string, unknown> | null
 
   return {
@@ -677,8 +692,20 @@ function mapMessage(row: Record<string, unknown>): Message {
           fileName: String(attachment.file_name),
           mimeType: String(attachment.mime_type),
           sizeBytes: Number(attachment.size_bytes ?? 0),
-          url: '#',
+          url: await createSignedAttachmentUrl(attachment),
         }
       : undefined,
   }
+}
+
+async function createSignedAttachmentUrl(attachment: Record<string, unknown>) {
+  const bucketPath = String(attachment.bucket_path ?? '')
+
+  if (!supabase || !bucketPath) return '#'
+
+  const { data, error } = await supabase.storage
+    .from(chatStorageBucket)
+    .createSignedUrl(bucketPath, SIGNED_ATTACHMENT_URL_EXPIRES_SECONDS)
+
+  return error ? '#' : (data.signedUrl ?? '#')
 }

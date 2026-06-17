@@ -40,4 +40,21 @@ describe('Chat MVP', () => {
     expect(await screen.findByLabelText('Message')).toBeInTheDocument()
     expect(screen.getByText('Nora Lee')).toBeInTheDocument()
   })
+
+  it('shows a demo attachment link after upload', async () => {
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Use demo account' }))
+    fireEvent.click(await screen.findByText('Mira Stone'))
+
+    const attachment = new File(['hello'], 'notes.txt', { type: 'text/plain' })
+    fireEvent.change(screen.getByLabelText('File attachment'), {
+      target: { files: [attachment] },
+    })
+
+    expect(await screen.findByRole('link', { name: 'notes.txt' })).toHaveAttribute(
+      'href',
+      'blob:test-attachment',
+    )
+  })
 })
