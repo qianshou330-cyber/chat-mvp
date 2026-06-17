@@ -415,7 +415,7 @@ export function useChatApp() {
       id: uid(),
       conversationId: activeConversation.id,
       senderId: user.id,
-      body: file.type.startsWith('image/') ? 'Image' : file.name,
+      body: file.type.startsWith('image/') ? '图片' : file.name,
       type: file.type.startsWith('image/') ? 'image' : 'file',
       status: supabase ? 'sending' : 'read',
       createdAt: new Date().toISOString(),
@@ -507,12 +507,12 @@ export function useChatApp() {
     const conversation: Conversation = {
       id: groupId,
       type: 'group',
-      title: 'New Group',
+      title: '新群聊',
       memberIds: [user.id],
       memberCount: 1,
       unreadCount: 0,
       updatedAt: new Date().toISOString(),
-      lastMessage: 'Group created',
+      lastMessage: '群聊已创建',
     }
 
     setState((previous) => ({
@@ -719,7 +719,7 @@ function withNewMessage(state: ChatState, message: Message): ChatState {
 function mapProfile(row: Record<string, unknown>): Profile {
   return {
     id: String(row.id),
-    displayName: String(row.display_name ?? 'Member'),
+    displayName: String(row.display_name ?? '成员'),
     avatarTone: (row.avatar_tone as Profile['avatarTone']) ?? 'blue',
     bio: String(row.bio ?? ''),
     status: (row.status as Profile['status']) ?? 'offline',
@@ -746,7 +746,7 @@ function mapConversation(
   return {
     id: String(row.id),
     type,
-    title: String(row.title ?? fallbackTitle ?? 'Conversation'),
+    title: String(row.title ?? fallbackTitle ?? '会话'),
     memberIds,
     memberCount: memberIds.length,
     unreadCount: 0,

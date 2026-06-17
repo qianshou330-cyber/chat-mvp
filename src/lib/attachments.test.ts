@@ -21,7 +21,7 @@ describe('validateAttachment', () => {
       }),
     ).toEqual({
       ok: false,
-      reason: 'Only PNG, JPEG, WebP, PDF, plain text, and Markdown files are allowed.',
+      reason: '仅支持 PNG、JPEG、WebP、PDF、纯文本和 Markdown 文件。',
     })
   })
 
@@ -32,6 +32,6 @@ describe('validateAttachment', () => {
         size: MAX_ATTACHMENT_SIZE_BYTES + 1,
         type: 'application/pdf',
       }),
-    ).toEqual({ ok: false, reason: 'Files must be 10 MB or smaller.' })
+    ).toEqual({ ok: false, reason: '文件大小不能超过 10 MB。' })
   })
 })

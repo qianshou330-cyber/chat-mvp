@@ -27,12 +27,13 @@ import { useChatApp } from './hooks/useChatApp'
 import type { Conversation, Message, Profile } from './types'
 
 type Screen = 'login' | 'list' | 'chat' | 'group' | 'profile'
+const APP_DISPLAY_NAME = '聊天 MVP'
 
 function App() {
   const chat = useChatApp()
   const [screen, setScreen] = useState<Screen>('login')
 
-  const activeTitle = chat.activeConversation?.title ?? 'Chat'
+  const activeTitle = displayConversationTitle(chat.activeConversation?.title ?? '聊天')
   const activeScreen = chat.user && screen === 'login' ? 'list' : screen
 
   async function handleSignOut() {
@@ -42,13 +43,13 @@ function App() {
 
   if (chat.isLoading) {
     return (
-      <main className="app-shell" aria-label="Loading chat app">
+      <main className="app-shell" aria-label="正在加载聊天应用">
         <section className="splash-screen">
           <div className="brand-mark">
             <MessageCircle size={46} />
           </div>
-          <h1>Chat MVP</h1>
-          <p>Preparing secure conversations</p>
+          <h1>{APP_DISPLAY_NAME}</h1>
+          <p>正在准备安全聊天</p>
         </section>
       </main>
     )
@@ -74,7 +75,7 @@ function App() {
 
   return (
     <main className="app-shell">
-      <section className="mobile-app" aria-label="Chat MVP">
+      <section className="mobile-app" aria-label={APP_DISPLAY_NAME}>
         {activeScreen === 'list' && (
           <ConversationList
             conversations={chat.visibleConversations}
@@ -184,7 +185,7 @@ function LoginScreen({
         <div className="brand-mark large">
           <MessageCircle size={54} />
         </div>
-        <h1>Chat MVP</h1>
+        <h1>{APP_DISPLAY_NAME}</h1>
         <p>面向小团队和社群的轻量聊天测试版。</p>
       </div>
       <form className="login-form" onSubmit={submit}>
@@ -394,12 +395,12 @@ function ConversationList({
                     ? getProfile(conversation.memberIds.find((id) => id !== me?.id) ?? '')
                     : undefined
                 }
-                title={conversation.title}
+                title={displayConversationTitle(conversation.title)}
                 variant={conversation.type}
               />
               <span className="conversation-copy">
                 <span className="row-title">
-                  <span>{conversation.title}</span>
+                  <span>{displayConversationTitle(conversation.title)}</span>
                   <time>{formatTime(conversation.updatedAt)}</time>
                 </span>
                 <span className="row-preview">{conversation.lastMessage || '暂无消息'}</span>
@@ -460,9 +461,7 @@ function ChatView({
             <small>
               {conversation.type === 'group'
                 ? `${conversation.memberCount} 名成员`
-                : otherProfile?.status === 'online'
-                  ? '在线'
-                  : '离线'}
+                : formatStatus(otherProfile?.status ?? 'offline')}
             </small>
           </span>
         </button>
@@ -585,6 +584,7 @@ function GroupInfo({
     () => conversation.memberIds.map((id) => getProfile(id)).filter(Boolean) as Profile[],
     [conversation.memberIds, getProfile],
   )
+  const title = displayConversationTitle(conversation.title)
 
   return (
     <section className="screen">
@@ -594,7 +594,7 @@ function GroupInfo({
         </button>
         <div>
           <p className="eyebrow">群聊信息</p>
-          <h1>{conversation.title}</h1>
+          <h1>{title}</h1>
         </div>
         <button aria-label="群聊设置" className="icon-button" type="button">
           <Settings size={22} />
@@ -602,8 +602,8 @@ function GroupInfo({
       </header>
 
       <section className="group-summary">
-        <Avatar title={conversation.title} variant="group" size="large" />
-        <h2>{conversation.title}</h2>
+        <Avatar title={title} variant="group" size="large" />
+        <h2>{title}</h2>
         <p>{conversation.memberCount} 名成员</p>
       </section>
 
@@ -626,7 +626,7 @@ function GroupInfo({
             <Avatar profile={member} />
             <span>
               <strong>{member.displayName}</strong>
-              <small>{member.status}</small>
+              <small>{formatStatus(member.status)}</small>
             </span>
           </div>
         ))}
@@ -715,7 +715,7 @@ function Avatar({
   title?: string
   variant?: 'direct' | 'group'
 }) {
-  const label = profile?.displayName ?? title ?? 'Group'
+  const label = profile?.displayName ?? title ?? '群聊'
   const initials = label
     .split(' ')
     .slice(0, 2)
@@ -731,10 +731,21 @@ function Avatar({
 }
 
 function formatTime(value: string) {
-  return new Intl.DateTimeFormat('en', {
-    hour: 'numeric',
+  return new Intl.DateTimeFormat('zh-CN', {
+    hour: '2-digit',
     minute: '2-digit',
+    hour12: false,
   }).format(new Date(value))
+}
+
+function formatStatus(status: Profile['status']) {
+  if (status === 'online') return '在线'
+  if (status === 'away') return '暂离'
+  return '离线'
+}
+
+function displayConversationTitle(title: string) {
+  return title === 'New Group' ? '新群聊' : title
 }
 
 export default App

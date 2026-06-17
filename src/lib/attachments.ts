@@ -17,17 +17,17 @@ export function validateAttachment(
   file: Pick<File, 'name' | 'size' | 'type'>,
 ): AttachmentValidationResult {
   if (file.size <= 0) {
-    return { ok: false, reason: 'The selected file is empty.' }
+    return { ok: false, reason: '选择的文件是空文件。' }
   }
 
   if (file.size > MAX_ATTACHMENT_SIZE_BYTES) {
-    return { ok: false, reason: 'Files must be 10 MB or smaller.' }
+    return { ok: false, reason: '文件大小不能超过 10 MB。' }
   }
 
   if (!ALLOWED_ATTACHMENT_MIME_TYPES.includes(file.type)) {
     return {
       ok: false,
-      reason: 'Only PNG, JPEG, WebP, PDF, plain text, and Markdown files are allowed.',
+      reason: '仅支持 PNG、JPEG、WebP、PDF、纯文本和 Markdown 文件。',
     }
   }
 

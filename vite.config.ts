@@ -10,9 +10,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['app-icon.svg'],
       manifest: {
-        name: 'Chat MVP',
-        short_name: 'Chat MVP',
-        description: 'A mobile-first Telegram-style chat MVP.',
+        name: '聊天 MVP',
+        short_name: '聊天 MVP',
+        description: '移动优先的聊天应用 MVP。',
         theme_color: '#2aabee',
         background_color: '#f4f8fb',
         display: 'standalone',
