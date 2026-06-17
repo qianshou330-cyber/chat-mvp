@@ -39,6 +39,6 @@
 - Confirm a non-member cannot read attachment metadata or create a signed download URL.
 
 ## Beta Release
-- Tag the beta-ready commit as `v0.1-beta`.
+- Tag the beta-ready commit as `v0.2-beta`.
 - Use `docs/beta-test-plan.md` for tester instructions and issue triage.
-- Collect feedback through GitHub Issue templates before prioritizing push notifications, search, and large-group work.
+- Collect feedback through GitHub Issue templates before prioritizing the next beta scope.
