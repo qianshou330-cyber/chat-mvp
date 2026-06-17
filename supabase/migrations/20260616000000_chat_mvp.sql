@@ -251,7 +251,15 @@ with check (user_id = auth.uid());
 create policy "owners read attachments"
 on public.attachments for select
 to authenticated
-using (owner_id = auth.uid());
+using (
+  owner_id = auth.uid()
+  or exists (
+    select 1
+    from public.messages m
+    where m.attachment_id = attachments.id
+      and public.is_conversation_member(m.conversation_id)
+  )
+);
 
 create policy "owners create attachments"
 on public.attachments for insert
@@ -276,12 +284,15 @@ to authenticated
 with check (
   bucket_id = 'chat-uploads'
   and (storage.foldername(name))[1] = auth.uid()::text
+  and (storage.foldername(name))[2] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+  and public.is_conversation_member(((storage.foldername(name))[2])::uuid)
 );
 
-create policy "users read own upload folder"
+create policy "conversation members read uploads"
 on storage.objects for select
 to authenticated
 using (
   bucket_id = 'chat-uploads'
-  and (storage.foldername(name))[1] = auth.uid()::text
+  and (storage.foldername(name))[2] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+  and public.is_conversation_member(((storage.foldername(name))[2])::uuid)
 );

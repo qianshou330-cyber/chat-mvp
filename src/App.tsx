@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
-import type { FormEvent } from 'react'
+import type { FormEvent, ReactNode } from 'react'
 import {
   ArrowLeft,
   Camera,
@@ -241,34 +241,42 @@ function ConversationList({
       </div>
 
       <div className="conversation-list">
-        {conversations.map((conversation) => (
-          <button
-            className="conversation-row"
-            key={conversation.id}
-            onClick={() => onOpenConversation(conversation.id)}
-            type="button"
-          >
-            <Avatar
-              profile={
-                conversation.type === 'direct'
-                  ? getProfile(conversation.memberIds.find((id) => id !== me?.id) ?? '')
-                  : undefined
-              }
-              title={conversation.title}
-              variant={conversation.type}
-            />
-            <span className="conversation-copy">
-              <span className="row-title">
-                <span>{conversation.title}</span>
-                <time>{formatTime(conversation.updatedAt)}</time>
+        {conversations.length === 0 ? (
+          <EmptyState
+            icon={<MessageCircle size={28} />}
+            title="No conversations"
+            body="Create a group or add a contact to start chatting."
+          />
+        ) : (
+          conversations.map((conversation) => (
+            <button
+              className="conversation-row"
+              key={conversation.id}
+              onClick={() => onOpenConversation(conversation.id)}
+              type="button"
+            >
+              <Avatar
+                profile={
+                  conversation.type === 'direct'
+                    ? getProfile(conversation.memberIds.find((id) => id !== me?.id) ?? '')
+                    : undefined
+                }
+                title={conversation.title}
+                variant={conversation.type}
+              />
+              <span className="conversation-copy">
+                <span className="row-title">
+                  <span>{conversation.title}</span>
+                  <time>{formatTime(conversation.updatedAt)}</time>
+                </span>
+                <span className="row-preview">{conversation.lastMessage || 'No messages yet'}</span>
               </span>
-              <span className="row-preview">{conversation.lastMessage}</span>
-            </span>
-            {conversation.unreadCount > 0 && (
-              <span className="unread-badge">{conversation.unreadCount}</span>
-            )}
-          </button>
-        ))}
+              {conversation.unreadCount > 0 && (
+                <span className="unread-badge">{conversation.unreadCount}</span>
+              )}
+            </button>
+          ))
+        )}
       </div>
     </section>
   )
@@ -329,14 +337,22 @@ function ChatView({
       </header>
 
       <div className="message-list" role="log">
-        {messages.map((message) => (
-          <MessageBubble
-            isMine={message.senderId === myUserId}
-            key={message.id}
-            message={message}
-            sender={getProfile(message.senderId)}
+        {messages.length === 0 ? (
+          <EmptyState
+            icon={<MessageCircle size={28} />}
+            title="No messages yet"
+            body="Send the first message to open the conversation."
           />
-        ))}
+        ) : (
+          messages.map((message) => (
+            <MessageBubble
+              isMine={message.senderId === myUserId}
+              key={message.id}
+              message={message}
+              sender={getProfile(message.senderId)}
+            />
+          ))
+        )}
       </div>
 
       <form className="composer" onSubmit={submit}>
@@ -369,6 +385,24 @@ function ChatView({
         </button>
       </form>
     </section>
+  )
+}
+
+function EmptyState({
+  body,
+  icon,
+  title,
+}: {
+  body: string
+  icon: ReactNode
+  title: string
+}) {
+  return (
+    <div className="empty-state">
+      <span>{icon}</span>
+      <strong>{title}</strong>
+      <p>{body}</p>
+    </div>
   )
 }
 

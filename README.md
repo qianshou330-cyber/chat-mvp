@@ -8,6 +8,8 @@ Telegram-style mobile PWA MVP for chat, built with React, TypeScript, Vite, Supa
 - Demo mode that works without backend credentials.
 - Supabase client wiring for Auth, Realtime messages, and Storage upload.
 - Supabase schema and RLS migration in `supabase/migrations`.
+- Client-side attachment validation for allowed file types and 10 MB uploads.
+- GitHub Actions CI and Vercel deployment configuration.
 - PWA manifest and app icon.
 - Figma and Lovable handoff docs in `docs/`.
 
@@ -33,6 +35,8 @@ VITE_SUPABASE_ANON_KEY=
 VITE_SUPABASE_CHAT_BUCKET=chat-uploads
 ```
 
+Allowed attachment types are PNG, JPEG, WebP, PDF, plain text, and Markdown. The migration configures the private `chat-uploads` bucket with the same 10 MB limit used by the client.
+
 ## Verification
 
 ```bash
@@ -44,3 +48,5 @@ npm run build
 ## Deployment
 
 Deploy on Vercel and add the same Supabase environment variables. The project is PWA-ready and can be installed from supported mobile browsers.
+
+Use `docs/deployment-checklist.md` before promoting a Preview deployment to Production.

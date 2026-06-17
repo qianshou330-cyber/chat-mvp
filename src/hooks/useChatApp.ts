@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { chatStorageBucket, isSupabaseConfigured, supabase } from '../lib/supabase'
 import { createDemoState, demoUser } from '../data/demoData'
+import { validateAttachment } from '../lib/attachments'
 import type { AppUser, ChatState, Conversation, Message, Profile } from '../types'
 
 const initialState = createDemoState()
@@ -85,9 +86,12 @@ export function useChatApp() {
       return
     }
 
-    const [profilesResult, conversationsResult, messagesResult] = await Promise.all([
-      supabase.from('profiles').select('*'),
+    const [conversationsResult, membersResult, messagesResult] = await Promise.all([
       supabase.from('conversations').select('*').in('id', conversationIds),
+      supabase
+        .from('conversation_members')
+        .select('*')
+        .in('conversation_id', conversationIds),
       supabase
         .from('messages')
         .select('*, attachments(*)')
@@ -95,13 +99,30 @@ export function useChatApp() {
         .order('created_at', { ascending: true }),
     ])
 
+    const memberRows = membersResult.data ?? []
+    const memberProfileIds = [...new Set(memberRows.map((member) => member.user_id as string))]
+    const profilesResult =
+      memberProfileIds.length > 0
+        ? await supabase.from('profiles').select('*').in('id', memberProfileIds)
+        : { data: [], error: null }
+    const profiles = (profilesResult.data ?? []).map(mapProfile)
+    const profilesById = new Map(profiles.map((profile) => [profile.id, profile]))
+    const messages = (messagesResult.data ?? []).map(mapMessage)
+
     setState({
-      profiles: (profilesResult.data ?? []).map(mapProfile),
-      conversations: (conversationsResult.data ?? []).map((row) =>
-        mapConversation(row, conversationIds),
-      ),
-      messages: (messagesResult.data ?? []).map(mapMessage),
-      members: [],
+      profiles,
+      conversations: (conversationsResult.data ?? []).map((row) => {
+        const conversationMemberIds = memberRows
+          .filter((member) => member.conversation_id === row.id)
+          .map((member) => member.user_id as string)
+        return mapConversation(row, conversationMemberIds, profilesById, userId, messages)
+      }),
+      messages,
+      members: memberRows.map((member) => ({
+        userId: member.user_id as string,
+        role: member.role as 'owner' | 'admin' | 'member',
+        joinedAt: member.joined_at as string,
+      })),
     })
     setActiveConversationId(conversationIds[0] ?? '')
     setIsLoading(false)
@@ -160,9 +181,8 @@ export function useChatApp() {
         },
         (payload) => {
           const row = payload.new as Record<string, string>
-          setState((previous) => ({
-            ...previous,
-            messages: upsertMessage(previous.messages, {
+          setState((previous) =>
+            withNewMessage(previous, {
               id: row.id,
               conversationId: row.conversation_id,
               senderId: row.sender_id,
@@ -171,7 +191,7 @@ export function useChatApp() {
               status: row.sender_id === user.id ? 'sent' : 'read',
               createdAt: row.created_at,
             }),
-          }))
+          )
         },
       )
       .subscribe()
@@ -255,6 +275,12 @@ export function useChatApp() {
 
   async function sendFile(file: File) {
     if (!user || !activeConversation) return
+
+    const validation = validateAttachment(file)
+    if (!validation.ok) {
+      setAuthNotice(validation.reason)
+      return
+    }
 
     const attachment = {
       id: uid(),
@@ -448,16 +474,31 @@ function mapProfile(row: Record<string, unknown>): Profile {
   }
 }
 
-function mapConversation(row: Record<string, unknown>, memberIds: string[]): Conversation {
+function mapConversation(
+  row: Record<string, unknown>,
+  memberIds: string[],
+  profilesById: Map<string, Profile>,
+  currentUserId: string,
+  messages: Message[],
+): Conversation {
+  const latestMessage = messages
+    .filter((message) => message.conversationId === row.id)
+    .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))[0]
+  const type = (row.type as Conversation['type']) ?? 'direct'
+  const fallbackTitle =
+    type === 'direct'
+      ? profilesById.get(memberIds.find((id) => id !== currentUserId) ?? '')?.displayName
+      : undefined
+
   return {
     id: String(row.id),
-    type: (row.type as Conversation['type']) ?? 'direct',
-    title: String(row.title ?? 'Conversation'),
+    type,
+    title: String(row.title ?? fallbackTitle ?? 'Conversation'),
     memberIds,
     memberCount: memberIds.length,
     unreadCount: 0,
     updatedAt: String(row.updated_at ?? row.created_at ?? new Date().toISOString()),
-    lastMessage: '',
+    lastMessage: latestMessage?.body ?? '',
   }
 }
 
