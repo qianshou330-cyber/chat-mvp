@@ -2,7 +2,7 @@ name: Experience feedback
 description: Share confusing, slow, unclear, or awkward beta experience.
 title: "[Feedback]: "
 labels:
-  - feedback
+  - question
 body:
   - type: input
     id: tester
@@ -28,4 +28,3 @@ body:
     attributes:
       label: Suggested improvement
       placeholder: What would make this better?
-
