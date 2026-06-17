@@ -61,6 +61,10 @@ Use `docs/deployment-checklist.md` before promoting a Preview deployment to Prod
 
 Use `docs/beta-test-plan.md` for invited tester setup, feedback format, and smoke-test data cleanup notes.
 
+Use `docs/beta-outreach.md` for the invite message and tester checklist.
+
+Use `docs/beta-triage.md` and `docs/beta-feedback-summary.md` to classify feedback and decide v0.2 scope.
+
 Use GitHub Issues with the included Bug, Experience feedback, and Feature request templates.
 
 Known beta limits: no end-to-end encryption, no native mobile app, no voice/video calls, no channels, no bots, no push notifications, and no full-text search yet.

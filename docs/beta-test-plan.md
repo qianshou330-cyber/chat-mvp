@@ -4,9 +4,10 @@
 
 - Version: `v0.1-beta`
 - Production URL: `https://chat-mvp-tau.vercel.app`
-- Baseline commit before beta prep: `82e7af5 Add signed attachment downloads`
+- Baseline tag: `v0.1-beta`
 - Primary branch: `main`
 - Target testers: 3 to 5 invited users
+- Tracking issue: https://github.com/qianshou330-cyber/chat-mvp/issues/1
 
 ## Tester Setup
 
@@ -38,6 +39,10 @@ Each issue should include:
 - What happened.
 - Screenshot or screen recording when useful.
 
+Use `docs/beta-outreach.md` for the tester invite message and checklist.
+Use `docs/beta-triage.md` to classify issues.
+Use `docs/beta-feedback-summary.md` after at least 10 feedback items are collected.
+
 ## Known Limits
 
 - No end-to-end encryption.
@@ -55,4 +60,3 @@ Production smoke tests may create temporary users and conversations with email p
 3. Table Editor: confirm related `profiles`, `contacts`, `conversation_members`, `messages`, and `attachments` rows are gone or harmless.
 
 Do not create or restore Supabase secret keys for cleanup. Use the dashboard owner session instead.
-
