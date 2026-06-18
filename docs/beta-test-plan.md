@@ -45,6 +45,7 @@
 
 使用 `docs/beta-outreach.md` 发送邀请文案和测试者清单。
 使用 `docs/beta-triage.md` 分类反馈。
+使用 `docs/v0.2.1-external-test-run.md` 记录每位测试者的执行结果。
 收集至少 10 条反馈后，使用 `docs/beta-feedback-summary.md` 输出总结。
 
 ## 已知限制

@@ -4,6 +4,17 @@ title: "[功能]: "
 labels:
   - enhancement
 body:
+  - type: dropdown
+    id: target_version
+    attributes:
+      label: 候选阶段
+      options:
+        - v0.3 公司试用版
+        - v0.4 公司试用增强
+        - v0.5+ 长期功能
+        - 暂不确定
+    validations:
+      required: true
   - type: textarea
     id: problem
     attributes:
@@ -28,4 +39,3 @@ body:
         - 阻塞 beta
     validations:
       required: true
-

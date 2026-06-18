@@ -4,6 +4,25 @@ title: "[缺陷]: "
 labels:
   - bug
 body:
+  - type: dropdown
+    id: severity
+    attributes:
+      label: 严重程度
+      description: 用于外测分诊。P0/P1 会优先处理。
+      options:
+        - P0 - 大多数测试者无法继续
+        - P1 - 核心聊天路径被阻塞
+        - P2 - 明显体验问题
+        - P3 - 后续优化
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: 测试版本
+      placeholder: v0.2.1-beta / https://chat-mvp-tau.vercel.app
+    validations:
+      required: true
   - type: input
     id: tester
     attributes:
@@ -15,6 +34,24 @@ body:
     attributes:
       label: 设备和浏览器
       placeholder: iPhone Safari、Android Chrome、桌面 Chrome
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: 影响区域
+      options:
+        - 注册/登录
+        - 个人资料/头像
+        - 好友申请
+        - 单聊
+        - 群聊
+        - 搜索
+        - 附件
+        - 通知
+        - 权限/安全
+        - 移动端布局
+        - 其他
     validations:
       required: true
   - type: textarea
@@ -43,4 +80,3 @@ body:
     attributes:
       label: 截图或录屏
       placeholder: 如果方便，请附上截图、录屏或相关日志。
-
