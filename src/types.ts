@@ -90,6 +90,18 @@ export interface WorkspaceMember {
   joinedAt: string
 }
 
+export interface DeviceSession {
+  id: string
+  userId: string
+  deviceId: string
+  deviceName: string
+  browserName: string
+  platform: string
+  lastSeenAt: string
+  revokedAt: string
+  createdAt: string
+}
+
 export interface SearchResult {
   id: string
   conversationId: string
@@ -109,5 +121,6 @@ export interface ChatState {
   members: ConversationMember[]
   workspaces: Workspace[]
   workspaceMembers: WorkspaceMember[]
+  deviceSessions: DeviceSession[]
   activeWorkspaceId: string
 }

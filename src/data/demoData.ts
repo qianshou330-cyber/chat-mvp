@@ -7,6 +7,7 @@ import type {
   Profile,
   Workspace,
   WorkspaceMember,
+  DeviceSession,
 } from '../types'
 
 const now = new Date()
@@ -135,6 +136,31 @@ export const demoWorkspaceMembers: WorkspaceMember[] = [
     userId: 'user-nora',
     role: 'member',
     joinedAt: minutesAgo(320),
+  },
+]
+
+export const demoDeviceSessions: DeviceSession[] = [
+  {
+    id: 'device-demo-current',
+    userId: 'user-me',
+    deviceId: 'demo-current-device',
+    deviceName: '当前浏览器',
+    browserName: 'Demo 浏览器',
+    platform: 'Web',
+    lastSeenAt: minutesAgo(0),
+    revokedAt: '',
+    createdAt: minutesAgo(45),
+  },
+  {
+    id: 'device-demo-tablet',
+    userId: 'user-me',
+    deviceId: 'demo-tablet-device',
+    deviceName: '备用设备',
+    browserName: 'Demo 浏览器',
+    platform: 'Tablet',
+    lastSeenAt: minutesAgo(42),
+    revokedAt: '',
+    createdAt: minutesAgo(180),
   },
 ]
 
@@ -268,5 +294,6 @@ export const createDemoState = (): ChatState => ({
   ),
   workspaces: [...demoWorkspaces],
   workspaceMembers: [...demoWorkspaceMembers],
+  deviceSessions: [...demoDeviceSessions],
   activeWorkspaceId: demoWorkspaces[0]?.id ?? '',
 })

@@ -164,6 +164,23 @@ describe('聊天 MVP', () => {
     expect(screen.getByRole('link', { name: '反馈问题' })).toBeInTheDocument()
   })
 
+  it('shows and manages login devices in the profile screen', async () => {
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: '使用 Demo 账号' }))
+    fireEvent.click(await screen.findByRole('button', { name: '打开个人资料' }))
+
+    expect(screen.getByRole('region', { name: '登录设备' })).toBeInTheDocument()
+    expect(screen.getByText('当前浏览器')).toBeInTheDocument()
+    expect(screen.getByText('当前设备')).toBeInTheDocument()
+    expect(screen.getByText('备用设备')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: '移除设备 备用设备' }))
+
+    expect(await screen.findByText('设备已移除。')).toBeInTheDocument()
+    expect(screen.queryByText('备用设备')).not.toBeInTheDocument()
+  })
+
   it('adds a demo workspace member by email', async () => {
     render(<App />)
 

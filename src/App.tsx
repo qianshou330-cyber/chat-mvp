@@ -15,6 +15,7 @@ import {
   Mail,
   Menu,
   MessageCircle,
+  Monitor,
   Paperclip,
   Search,
   SendHorizontal,
@@ -30,6 +31,7 @@ import { usePushNotifications } from './hooks/usePushNotifications'
 import type {
   ContactRequest,
   Conversation,
+  DeviceSession,
   Message,
   Profile,
   SearchResult,
@@ -171,6 +173,8 @@ function App() {
             activeWorkspace={chat.activeWorkspace}
             activeWorkspaceRole={chat.activeWorkspaceRole}
             authNotice={chat.authNotice}
+            currentDeviceId={chat.currentDeviceId}
+            deviceSessions={chat.deviceSessions}
             email={chat.user?.email ?? ''}
             profile={chat.me}
             workspaceMembers={chat.workspaceMembers}
@@ -179,6 +183,9 @@ function App() {
             onBack={() => setScreen('list')}
             onAvatarUpload={chat.updateProfileAvatar}
             onRemoveWorkspaceMember={chat.removeWorkspaceMember}
+            onRefreshDeviceSessions={chat.refreshDeviceSessions}
+            onRevokeDeviceSession={chat.revokeDeviceSession}
+            onRevokeOtherDevices={chat.revokeOtherDevices}
             onSave={chat.updateProfile}
             onSignOut={handleSignOut}
             onUpdateWorkspaceMemberRole={chat.updateWorkspaceMemberRole}
@@ -975,12 +982,17 @@ function ProfileSettings({
   activeWorkspace,
   activeWorkspaceRole,
   authNotice,
+  currentDeviceId,
+  deviceSessions,
   email,
   getProfile,
   onAddWorkspaceMember,
   onAvatarUpload,
   onBack,
+  onRefreshDeviceSessions,
   onRemoveWorkspaceMember,
+  onRevokeDeviceSession,
+  onRevokeOtherDevices,
   onSave,
   onSignOut,
   onUpdateWorkspaceMemberRole,
@@ -990,12 +1002,17 @@ function ProfileSettings({
   activeWorkspace: Workspace | null
   activeWorkspaceRole: WorkspaceRole
   authNotice: string
+  currentDeviceId: string
+  deviceSessions: DeviceSession[]
   email: string
   getProfile: (profileId: string) => Profile | undefined
   onAddWorkspaceMember: (email: string, role: WorkspaceRole) => Promise<boolean>
   onAvatarUpload: (file: File) => Promise<void>
   onBack: () => void
+  onRefreshDeviceSessions: () => Promise<void>
   onRemoveWorkspaceMember: (memberUserId: string) => Promise<boolean>
+  onRevokeDeviceSession: (deviceId: string) => Promise<boolean>
+  onRevokeOtherDevices: () => Promise<boolean>
   onSave: (profile: Pick<Profile, 'displayName' | 'bio'>) => void
   onSignOut: () => void
   onUpdateWorkspaceMemberRole: (memberUserId: string, role: WorkspaceRole) => Promise<boolean>
@@ -1007,6 +1024,7 @@ function ProfileSettings({
   const [memberEmail, setMemberEmail] = useState('')
   const [memberRole, setMemberRole] = useState<WorkspaceRole>('member')
   const [isMemberBusy, setIsMemberBusy] = useState(false)
+  const [isDeviceBusy, setIsDeviceBusy] = useState(false)
   const avatarInputRef = useRef<HTMLInputElement | null>(null)
   const pushNotifications = usePushNotifications(profile.id)
   const canManageWorkspace = activeWorkspaceRole === 'owner' || activeWorkspaceRole === 'admin'
@@ -1016,6 +1034,18 @@ function ProfileSettings({
     const added = await onAddWorkspaceMember(memberEmail, memberRole)
     if (added) setMemberEmail('')
     setIsMemberBusy(false)
+  }
+
+  async function handleRevokeOtherDevices() {
+    setIsDeviceBusy(true)
+    await onRevokeOtherDevices()
+    setIsDeviceBusy(false)
+  }
+
+  async function handleRevokeDevice(deviceId: string) {
+    setIsDeviceBusy(true)
+    await onRevokeDeviceSession(deviceId)
+    setIsDeviceBusy(false)
   }
 
   return (
@@ -1182,6 +1212,81 @@ function ProfileSettings({
             反馈问题
           </a>
         </section>
+        <section className="device-card" aria-label="登录设备">
+          <div className="workspace-card-header">
+            <span className="notification-icon">
+              <Monitor size={20} />
+            </span>
+            <div>
+              <strong>登录设备</strong>
+              <p>{deviceSessions.length} 台设备正在使用这个账号</p>
+            </div>
+            <button
+              className="secondary-button compact-button"
+              disabled={isDeviceBusy}
+              onClick={() => {
+                void onRefreshDeviceSessions()
+              }}
+              type="button"
+            >
+              刷新
+            </button>
+          </div>
+
+          <div className="device-session-list">
+            {deviceSessions.length === 0 ? (
+              <p className="device-note">当前还没有设备记录，刷新后会自动登记。</p>
+            ) : (
+              deviceSessions.map((device) => {
+                const isCurrentDevice =
+                  device.deviceId === currentDeviceId || device.deviceId === 'demo-current-device'
+
+                return (
+                  <div className="device-session-row" key={device.id}>
+                    <Monitor size={18} />
+                    <span>
+                      <strong>{device.deviceName}</strong>
+                      <small>
+                        {device.browserName} · {device.platform} ·{' '}
+                        {formatDeviceLastSeen(device.lastSeenAt)}
+                      </small>
+                    </span>
+                    <div className="device-row-actions">
+                      <span className="role-badge">{formatDeviceStatus(device.lastSeenAt)}</span>
+                      {isCurrentDevice ? (
+                        <span className="current-device-badge">当前设备</span>
+                      ) : (
+                        <button
+                          className="icon-button danger-icon-button"
+                          disabled={isDeviceBusy}
+                          aria-label={`移除设备 ${device.deviceName}`}
+                          onClick={() => {
+                            void handleRevokeDevice(device.deviceId)
+                          }}
+                          type="button"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )
+              })
+            )}
+          </div>
+
+          <button
+            className="secondary-button danger-secondary-button"
+            disabled={isDeviceBusy || deviceSessions.length <= 1}
+            onClick={() => {
+              void handleRevokeOtherDevices()
+            }}
+            type="button"
+          >
+            {isDeviceBusy ? '处理中' : '退出其他设备'}
+          </button>
+          <p className="device-note">移除单台设备后，该设备下次刷新或心跳时会退出。</p>
+        </section>
         <section className="notification-card" aria-label="消息通知">
           <span className="notification-icon">
             <Bell size={20} />
@@ -1274,6 +1379,31 @@ function formatWorkspaceRole(role: WorkspaceRole) {
   if (role === 'owner') return '所有者'
   if (role === 'admin') return '管理员'
   return '成员'
+}
+
+function formatDeviceStatus(lastSeenAt: string) {
+  const minutes = minutesSince(lastSeenAt)
+  if (minutes <= 2) return '在线'
+  if (minutes <= 30) return '最近活跃'
+  return '离线'
+}
+
+function formatDeviceLastSeen(lastSeenAt: string) {
+  const minutes = minutesSince(lastSeenAt)
+  if (minutes < 1) return '刚刚活跃'
+  if (minutes < 60) return `${minutes} 分钟前`
+
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours} 小时前`
+
+  const days = Math.floor(hours / 24)
+  return `${days} 天前`
+}
+
+function minutesSince(value: string) {
+  const timestamp = Date.parse(value)
+  if (Number.isNaN(timestamp)) return Number.POSITIVE_INFINITY
+  return Math.max(0, Math.floor((Date.now() - timestamp) / 60000))
 }
 
 function displayConversationTitle(title: string) {

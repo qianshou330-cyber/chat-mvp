@@ -1017,11 +1017,22 @@ mark {
   padding: 12px;
 }
 
+.device-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+}
+
 .workspace-card-header {
   align-items: center;
   display: grid;
   gap: 12px;
   grid-template-columns: 42px 1fr;
+}
+
+.device-card .workspace-card-header {
+  grid-template-columns: 42px 1fr auto;
 }
 
 .workspace-card-header p {
@@ -1099,6 +1110,75 @@ mark {
   font-weight: 800;
   padding: 6px 8px;
   white-space: nowrap;
+}
+
+.current-device-badge {
+  background: #eefdf4;
+  border-radius: 999px;
+  color: #15803d;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 6px 8px;
+  white-space: nowrap;
+}
+
+.device-session-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.device-session-row {
+  align-items: center;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 28px 1fr auto;
+  min-height: 58px;
+}
+
+.device-session-row > svg {
+  color: var(--accent-strong);
+}
+
+.device-session-row > span {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.device-session-row strong,
+.device-session-row small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.device-session-row strong {
+  color: var(--text);
+  font-size: 14px;
+}
+
+.device-session-row small,
+.device-note {
+  color: var(--text-muted);
+  font-size: 12px;
+  margin: 0;
+}
+
+.device-row-actions {
+  align-items: center;
+  display: flex;
+  gap: 6px;
+}
+
+.compact-button {
+  min-height: 36px;
+  padding: 0 12px;
+  white-space: nowrap;
+}
+
+.danger-secondary-button {
+  color: #c2410c;
 }
 
 .danger-icon-button {

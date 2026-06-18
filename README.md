@@ -4,7 +4,7 @@ Telegram-style mobile PWA MVP for chat, built with React, TypeScript, Vite, Supa
 
 生产 beta 地址：`https://chat-mvp-tau.vercel.app`
 
-当前阶段：`v0.2.1-beta` 已完成自动模拟外测记录，正在开发 `v0.3` 公司试用版第一批能力：工作区和管理员成员管理。
+当前阶段：`v0.2.1-beta` 已完成自动模拟外测记录，正在开发 `v0.3` 公司试用版能力：工作区、管理员成员管理和同账号多端登录管理。
 
 ## 已包含能力
 
@@ -15,7 +15,7 @@ Telegram-style mobile PWA MVP for chat, built with React, TypeScript, Vite, Supa
 - 附件类型校验和 10 MB 上传限制；头像仅支持 PNG/JPEG/WebP，限制 2 MB。
 - 客户端消息搜索：支持聊天列表搜索和当前会话搜索。
 - Web Push/PWA 通知基础设施：浏览器订阅、Supabase 订阅表、Edge Function 和隐私保护通知 payload。
-- v0.3 工作区基础设施开发中：默认工作区、工作区成员、管理员添加/移除成员和群聊工作区归属。
+- v0.3 公司试用基础设施开发中：默认工作区、管理员成员管理、群聊工作区归属和登录设备管理。
 - GitHub Actions CI、Vercel 部署配置、PWA manifest 和 app icon。
 - Figma 和 Lovable 交接文档，位于 `docs/`。
 
@@ -46,7 +46,9 @@ VITE_VAPID_PUBLIC_KEY=
 
 Allowed attachment types are PNG, JPEG, WebP, PDF, plain text, and Markdown. The migrations configure the private `chat-uploads` bucket with the same 10 MB limit used by the client, plus the public `profile-avatars` bucket for 2 MB profile images.
 
-v0.3 工作区功能需要运行 `supabase/migrations/20260618000000_workspaces.sql`。运行前生产站点仍可使用 v0.2 能力；运行后新用户会自动拥有默认工作区，新建群聊会归属当前工作区。
+v0.3 工作区功能需要运行 `supabase/migrations/20260618000000_workspaces.sql`。运行后新用户会自动拥有默认工作区，新建群聊会归属当前工作区。
+
+v0.3 登录设备管理需要继续运行 `supabase/migrations/20260618010000_device_sessions.sql`。运行后个人资料页会显示“登录设备”，用户可以退出其他设备或移除单台设备。
 
 ## Web Push Setup
 

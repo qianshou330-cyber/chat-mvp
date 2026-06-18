@@ -13,6 +13,7 @@ import type {
   ContactRequest,
   ContactStatus,
   Conversation,
+  DeviceSession,
   Message,
   Profile,
   SearchResult,
@@ -29,8 +30,55 @@ const uid = () =>
     : `${Date.now()}-${Math.random().toString(16).slice(2)}`
 
 const SIGNED_ATTACHMENT_URL_EXPIRES_SECONDS = 60 * 60
+const DEVICE_ID_STORAGE_KEY = 'chat_mvp_device_id'
+const DEVICE_HEARTBEAT_INTERVAL_MS = 60 * 1000
 
 const safeFileName = (name: string) => name.replace(/[^a-zA-Z0-9._-]/g, '-')
+
+function getOrCreateDeviceId() {
+  if (typeof window === 'undefined') return 'server-device'
+
+  const existing = window.localStorage.getItem(DEVICE_ID_STORAGE_KEY)
+  if (existing) return existing
+
+  const nextDeviceId = uid()
+  window.localStorage.setItem(DEVICE_ID_STORAGE_KEY, nextDeviceId)
+  return nextDeviceId
+}
+
+function getDeviceMetadata() {
+  if (typeof navigator === 'undefined') {
+    return {
+      browserName: '浏览器',
+      deviceName: '当前设备',
+      platform: 'Web',
+      userAgent: '',
+    }
+  }
+
+  const userAgent = navigator.userAgent
+  const browserName = detectBrowserName(userAgent)
+  const platform =
+    (navigator as Navigator & { userAgentData?: { platform?: string } }).userAgentData?.platform ??
+    navigator.platform ??
+    'Web'
+
+  return {
+    browserName,
+    deviceName: `${browserName} · ${platform}`,
+    platform,
+    userAgent,
+  }
+}
+
+function detectBrowserName(userAgent: string) {
+  const normalized = userAgent.toLowerCase()
+  if (normalized.includes('edg/')) return 'Edge'
+  if (normalized.includes('chrome/')) return 'Chrome'
+  if (normalized.includes('firefox/')) return 'Firefox'
+  if (normalized.includes('safari/')) return 'Safari'
+  return '浏览器'
+}
 
 function friendlyErrorMessage(message: string | undefined, fallback: string) {
   const normalized = (message ?? '').toLowerCase()
@@ -122,6 +170,19 @@ function isMissingWorkspaceSchema(message: string | undefined) {
   )
 }
 
+function isMissingDeviceSessionSchema(message: string | undefined) {
+  const normalized = (message ?? '').toLowerCase()
+  return (
+    normalized.includes('device_sessions') ||
+    normalized.includes('upsert_device_session') ||
+    normalized.includes('revoke_other_device_sessions') ||
+    normalized.includes('revoke_device_session') ||
+    normalized.includes('schema cache') ||
+    normalized.includes('could not find the function') ||
+    normalized.includes('does not exist')
+  )
+}
+
 export function useChatApp() {
   const [state, setState] = useState<ChatState>(initialState)
   const [user, setUser] = useState<AppUser | null>(null)
@@ -129,6 +190,8 @@ export function useChatApp() {
   const [query, setQuery] = useState('')
   const [authNotice, setAuthNotice] = useState('')
   const [isLoading, setIsLoading] = useState(Boolean(supabase))
+  const currentDeviceId = useMemo(() => getOrCreateDeviceId(), [])
+  const allowDeviceRestore = useRef(false)
   const currentChannel = useRef<ReturnType<NonNullable<typeof supabase>['channel']> | null>(
     null,
   )
@@ -207,6 +270,74 @@ export function useChatApp() {
         .filter((contact) => contact.status === 'pending' && contact.direction === 'outgoing')
         .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)),
     [state.contacts],
+  )
+
+  const refreshCurrentDeviceSession = useCallback(
+    async (userId: string, allowRevokedRestore = false) => {
+      if (!supabase) return { ok: true, rows: [] as Record<string, unknown>[] }
+
+      const currentSession = await supabase
+        .from('device_sessions')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('device_id', currentDeviceId)
+        .maybeSingle()
+
+      if (currentSession.error) {
+        if (!isMissingDeviceSessionSchema(currentSession.error.message)) {
+          setAuthNotice(
+            friendlyErrorMessage(
+              currentSession.error.message,
+              '无法加载登录设备，请刷新后重试。',
+            ),
+          )
+        }
+        return { ok: true, rows: [] as Record<string, unknown>[] }
+      }
+
+      if (currentSession.data?.revoked_at && !allowRevokedRestore) {
+        await supabase.auth.signOut({ scope: 'local' })
+        setUser(null)
+        setState(createDemoState())
+        setAuthNotice('这台设备已被退出，请重新登录。')
+        setIsLoading(false)
+        return { ok: false, rows: [] as Record<string, unknown>[] }
+      }
+
+      const metadata = getDeviceMetadata()
+      const upsertResult = await supabase.rpc('upsert_device_session', {
+        requested_browser_name: metadata.browserName,
+        requested_device_id: currentDeviceId,
+        requested_device_name: metadata.deviceName,
+        requested_platform: metadata.platform,
+        requested_user_agent: metadata.userAgent,
+      })
+
+      if (upsertResult.error) {
+        if (!isMissingDeviceSessionSchema(upsertResult.error.message)) {
+          setAuthNotice(
+            friendlyErrorMessage(upsertResult.error.message, '无法更新登录设备，请刷新后重试。'),
+          )
+        }
+        return { ok: true, rows: [] as Record<string, unknown>[] }
+      }
+
+      const sessionsResult = await supabase
+        .from('device_sessions')
+        .select('*')
+        .eq('user_id', userId)
+        .is('revoked_at', null)
+        .order('last_seen_at', { ascending: false })
+
+      if (sessionsResult.error) {
+        setAuthNotice(
+          friendlyErrorMessage(sessionsResult.error.message, '无法加载登录设备，请刷新后重试。'),
+        )
+      }
+
+      return { ok: true, rows: sessionsResult.data ?? [] }
+    },
+    [currentDeviceId],
   )
 
   const loadSupabaseState = useCallback(async (userId: string) => {
@@ -341,6 +472,14 @@ export function useChatApp() {
       }
     }
 
+    const deviceSessionResult = await refreshCurrentDeviceSession(
+      userId,
+      allowDeviceRestore.current,
+    )
+    allowDeviceRestore.current = false
+    if (!deviceSessionResult.ok) return
+    const deviceSessionRows = deviceSessionResult.rows
+
     const conversationIds =
       memberResult.data?.map((member) => member.conversation_id as string) ?? []
     const contactRows = contactsResult.data ?? []
@@ -432,13 +571,14 @@ export function useChatApp() {
       })),
       workspaces: workspaceRows.map(mapWorkspace),
       workspaceMembers: workspaceMemberRows.map(mapWorkspaceMember),
+      deviceSessions: deviceSessionRows.map(mapDeviceSession),
       activeWorkspaceId,
     })
     setActiveConversationId((previous) =>
       conversationIds.includes(previous) ? previous : (conversationIds[0] ?? ''),
     )
     setIsLoading(false)
-  }, [])
+  }, [refreshCurrentDeviceSession])
 
   useEffect(() => {
     if (!supabase) return
@@ -538,6 +678,37 @@ export function useChatApp() {
   }, [loadSupabaseState, user])
 
   useEffect(() => {
+    if (!supabase || !user) return
+
+    let cancelled = false
+
+    const syncDeviceSession = async () => {
+      const result = await refreshCurrentDeviceSession(user.id)
+      if (cancelled || !result.ok) return
+
+      setState((previous) => ({
+        ...previous,
+        deviceSessions: result.rows.map(mapDeviceSession),
+      }))
+    }
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') void syncDeviceSession()
+    }
+
+    const interval = window.setInterval(() => {
+      void syncDeviceSession()
+    }, DEVICE_HEARTBEAT_INTERVAL_MS)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    return () => {
+      cancelled = true
+      window.clearInterval(interval)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [refreshCurrentDeviceSession, user])
+
+  useEffect(() => {
     if (!supabase || !user || !activeConversationId) return
     const client = supabase
 
@@ -606,12 +777,15 @@ export function useChatApp() {
       return
     }
 
+    allowDeviceRestore.current = true
+
     const { error } = await supabase.auth.signUp({
       email: trimmed,
       password: cleanPassword,
     })
 
     if (error) {
+      allowDeviceRestore.current = false
       setAuthNotice(friendlyErrorMessage(error.message, '无法创建账号，请重试。'))
       return
     }
@@ -626,6 +800,7 @@ export function useChatApp() {
         ? friendlyErrorMessage(signIn.error.message, '账号已创建，但登录失败。')
         : '账号已创建并登录。',
     )
+    if (signIn.error) allowDeviceRestore.current = false
   }
 
   async function signInWithPassword(email: string, password: string) {
@@ -641,18 +816,107 @@ export function useChatApp() {
     const cleanPassword = password.trim()
     if (!cleanPassword) return
 
+    allowDeviceRestore.current = true
+
     const { error } = await supabase.auth.signInWithPassword({
       email: trimmed,
       password: cleanPassword,
     })
 
+    if (error) allowDeviceRestore.current = false
     setAuthNotice(error ? friendlyErrorMessage(error.message, '无法登录，请重试。') : '已登录。')
   }
 
   async function signOut() {
-    if (supabase) await supabase.auth.signOut()
+    if (supabase) {
+      const revoke = await supabase.rpc('revoke_device_session', {
+        target_device_id: currentDeviceId,
+      })
+      if (revoke.error && !isMissingDeviceSessionSchema(revoke.error.message)) {
+        setAuthNotice(friendlyErrorMessage(revoke.error.message, '无法更新登录设备状态。'))
+      }
+      await supabase.auth.signOut({ scope: 'local' })
+    }
     setUser(null)
     setState(createDemoState())
+  }
+
+  async function refreshDeviceSessions() {
+    if (!user) return
+
+    if (!supabase) {
+      setAuthNotice('设备列表已刷新。')
+      return
+    }
+
+    const result = await refreshCurrentDeviceSession(user.id)
+    if (!result.ok) return
+
+    setState((previous) => ({
+      ...previous,
+      deviceSessions: result.rows.map(mapDeviceSession),
+    }))
+  }
+
+  async function revokeOtherDevices() {
+    if (!user) return false
+
+    if (!supabase) {
+      setState((previous) => ({
+        ...previous,
+        deviceSessions: previous.deviceSessions.filter(
+          (session) =>
+            session.deviceId === currentDeviceId || session.deviceId === 'demo-current-device',
+        ),
+      }))
+      setAuthNotice('其他设备已退出。')
+      return true
+    }
+
+    const authSignOut = await supabase.auth.signOut({ scope: 'others' })
+    if (authSignOut.error) {
+      setAuthNotice(friendlyErrorMessage(authSignOut.error.message, '无法退出其他设备，请重试。'))
+      return false
+    }
+
+    const { error } = await supabase.rpc('revoke_other_device_sessions', {
+      current_device_id: currentDeviceId,
+    })
+
+    if (error) {
+      setAuthNotice(friendlyErrorMessage(error.message, '无法退出其他设备，请重试。'))
+      return false
+    }
+
+    setAuthNotice('其他设备已退出。')
+    await refreshDeviceSessions()
+    return true
+  }
+
+  async function revokeDeviceSession(deviceId: string) {
+    if (!deviceId || deviceId === currentDeviceId) return false
+
+    if (!supabase) {
+      setState((previous) => ({
+        ...previous,
+        deviceSessions: previous.deviceSessions.filter((session) => session.deviceId !== deviceId),
+      }))
+      setAuthNotice('设备已移除。')
+      return true
+    }
+
+    const { error } = await supabase.rpc('revoke_device_session', {
+      target_device_id: deviceId,
+    })
+
+    if (error) {
+      setAuthNotice(friendlyErrorMessage(error.message, '无法移除这个设备，请重试。'))
+      return false
+    }
+
+    setAuthNotice('设备已移除。')
+    await refreshDeviceSessions()
+    return true
   }
 
   async function sendText(body: string) {
@@ -1383,6 +1647,8 @@ export function useChatApp() {
     addWorkspaceMemberByEmail,
     authNotice,
     createGroup,
+    currentDeviceId,
+    deviceSessions: state.deviceSessions,
     getProfile,
     incomingContactRequests,
     isLoading,
@@ -1400,7 +1666,10 @@ export function useChatApp() {
     signInWithPassword,
     signOut,
     state,
+    refreshDeviceSessions,
     respondToContactRequest,
+    revokeDeviceSession,
+    revokeOtherDevices,
     removeWorkspaceMember,
     updateProfile,
     updateProfileAvatar,
@@ -1639,6 +1908,20 @@ function mapWorkspaceMember(row: Record<string, unknown>): WorkspaceMember {
     userId: String(row.user_id),
     role: (row.role as WorkspaceRole) ?? 'member',
     joinedAt: String(row.joined_at ?? new Date().toISOString()),
+  }
+}
+
+function mapDeviceSession(row: Record<string, unknown>): DeviceSession {
+  return {
+    id: String(row.id),
+    userId: String(row.user_id),
+    deviceId: String(row.device_id),
+    deviceName: String(row.device_name ?? '当前设备'),
+    browserName: String(row.browser_name ?? '浏览器'),
+    platform: String(row.platform ?? 'Web'),
+    lastSeenAt: String(row.last_seen_at ?? new Date().toISOString()),
+    revokedAt: String(row.revoked_at ?? ''),
+    createdAt: String(row.created_at ?? new Date().toISOString()),
   }
 }
 
