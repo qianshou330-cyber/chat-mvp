@@ -110,6 +110,42 @@ as $$
   );
 $$;
 
+create or replace function public.can_insert_conversation_member(
+  target_conversation_id uuid,
+  target_member_user_id uuid,
+  target_actor_id uuid default auth.uid()
+)
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select exists (
+    select 1
+    from public.conversations conversation
+    where conversation.id = target_conversation_id
+      and (
+        (
+          target_member_user_id = target_actor_id
+          and conversation.created_by = target_actor_id
+          and (
+            conversation.workspace_id is null
+            or public.is_workspace_member(conversation.workspace_id, target_actor_id)
+          )
+        )
+        or (
+          conversation.type = 'group'
+          and public.is_conversation_admin(conversation.id, target_actor_id)
+          and (
+            conversation.workspace_id is null
+            or public.is_workspace_member(conversation.workspace_id, target_member_user_id)
+          )
+        )
+      )
+  );
+$$;
+
 alter table public.workspaces enable row level security;
 alter table public.workspace_members enable row level security;
 
@@ -202,39 +238,7 @@ using (public.can_access_conversation(conversation_id));
 create policy "users join themselves or group admins invite"
 on public.conversation_members for insert
 to authenticated
-with check (
-  (
-    user_id = auth.uid()
-    and exists (
-      select 1
-      from public.conversations conversation
-      where conversation.id = conversation_id
-        and (
-          public.can_access_conversation(conversation.id)
-          or (
-            conversation.created_by = auth.uid()
-            and (
-              conversation.workspace_id is null
-              or public.is_workspace_member(conversation.workspace_id)
-            )
-          )
-        )
-    )
-  )
-  or (
-    public.is_conversation_admin(conversation_id)
-    and exists (
-      select 1
-      from public.conversations conversation
-      where conversation.id = conversation_id
-        and conversation.type = 'group'
-        and (
-          conversation.workspace_id is null
-          or public.is_workspace_member(conversation.workspace_id, user_id)
-        )
-    )
-  )
-);
+with check (public.can_insert_conversation_member(conversation_id, user_id));
 
 create policy "admins manage members"
 on public.conversation_members for update
@@ -576,6 +580,7 @@ grant execute on function public.ensure_default_workspace() to authenticated;
 grant execute on function public.add_workspace_member_by_email(text, public.member_role) to authenticated;
 grant execute on function public.remove_workspace_member(uuid) to authenticated;
 grant execute on function public.update_workspace_member_role(uuid, public.member_role) to authenticated;
+grant execute on function public.can_insert_conversation_member(uuid, uuid, uuid) to authenticated;
 
 do $$
 begin
