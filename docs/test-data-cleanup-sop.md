@@ -19,6 +19,8 @@
 - v0.4.2 smoke 的 `chat-uploads` bucket 已按 `codex-v042` 搜索复验，测试附件数量为 0。
 - 5 人先导自动验收使用 `codex.pilot.*@example.com` 临时 Auth 用户；清理前必须先预览命中列表，并确认不包含真实试用成员。
 - 5 人先导自动验收可能留下 `codex-pilot-` 测试附件；必须通过 Storage 控制台删除，不能直接 SQL 删除 `storage.objects`。
+- v0.4.3-beta 收口已删除 17 个 `codex.pilot.*@example.com` 临时 Auth 用户；复验数量为 0。
+- v0.4.3-beta 收口已删除 `chat-uploads` 中唯一 `codex-pilot-` 测试附件；复验数量为 0。
 
 ## 测试前缀
 

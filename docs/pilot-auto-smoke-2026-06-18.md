@@ -74,3 +74,19 @@
 ## 当前结论
 
 `v0.4.2-beta` 自动先导发现 P1，因此不再作为 5 人先导最终基线。`ae5a636` 修复候选已通过脚本化 5 人复验、生产 UI 群聊创建补验和通知链路补验，可作为 `v0.4.3-beta` 候选。
+
+## v0.4.3-beta 清理收口
+
+- 当前基线：`v0.4.3-beta`，tag 指向 `02738f8`。
+- 远程 `main` 与 `v0.4.3-beta` 均指向 `02738f8`。
+- 已清理 `codex.pilot.*@example.com` 临时 Auth 用户 17 个。
+- 已清理 `chat-uploads` 中唯一 `codex-pilot-` 测试附件。
+- SQL Editor 复验结果：
+  - `auth.users` 命中数：0
+  - `storage.objects` 命中数：0
+- 生产站点复查：
+  - `/`、`manifest.webmanifest`、`sw.js` 均返回 200。
+  - 生产 bundle 包含 `create_group_conversation`。
+  - 清理旧测试 session 后，登录页正常显示，且没有工作区错误提示。
+
+`v0.4.3-beta` 可作为真实 5 人先导试用基线。
