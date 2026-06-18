@@ -1329,16 +1329,61 @@ export function useChatApp() {
   async function createGroup() {
     if (!user) return
 
+    const groupTitle = '新群聊'
+    const createdAt = new Date().toISOString()
+
+    if (supabase) {
+      const { data, error } = await supabase.rpc('create_group_conversation', {
+        group_title: groupTitle,
+      })
+
+      if (error) {
+        setAuthNotice(friendlyErrorMessage(error.message, '无法创建群聊，请重试。'))
+        return
+      }
+
+      const createdConversation = Array.isArray(data) ? data[0] : data
+      const conversationId = createdConversation?.conversation_id as string | undefined
+
+      if (!conversationId) {
+        setAuthNotice('无法创建群聊，请刷新后重试。')
+        return
+      }
+
+      const conversation: Conversation = {
+        id: conversationId,
+        type: 'group',
+        title: (createdConversation?.conversation_title as string | undefined) ?? groupTitle,
+        workspaceId:
+          (createdConversation?.conversation_workspace_id as string | undefined) ||
+          state.activeWorkspaceId ||
+          undefined,
+        memberIds: [user.id],
+        memberCount: 1,
+        unreadCount: 0,
+        updatedAt:
+          (createdConversation?.conversation_updated_at as string | undefined) ?? createdAt,
+        lastMessage: '群聊已创建',
+      }
+
+      setState((previous) => ({
+        ...previous,
+        conversations: [conversation, ...previous.conversations],
+      }))
+      setActiveConversationId(conversationId)
+      return
+    }
+
     const groupId = uid()
     const conversation: Conversation = {
       id: groupId,
       type: 'group',
-      title: '新群聊',
+      title: groupTitle,
       workspaceId: state.activeWorkspaceId || undefined,
       memberIds: [user.id],
       memberCount: 1,
       unreadCount: 0,
-      updatedAt: new Date().toISOString(),
+      updatedAt: createdAt,
       lastMessage: '群聊已创建',
     }
 
@@ -1348,29 +1393,6 @@ export function useChatApp() {
     }))
     setActiveConversationId(groupId)
 
-    if (!supabase) return
-
-    const conversationInsert: Record<string, unknown> = {
-      id: groupId,
-      type: 'group',
-      title: conversation.title,
-      created_by: user.id,
-    }
-    if (state.activeWorkspaceId) {
-      conversationInsert.workspace_id = state.activeWorkspaceId
-    }
-
-    const { error } = await supabase.from('conversations').insert(conversationInsert)
-
-    if (!error) {
-      await supabase.from('conversation_members').insert({
-        conversation_id: groupId,
-        user_id: user.id,
-        role: 'owner',
-      })
-    } else {
-      setAuthNotice(friendlyErrorMessage(error.message, '无法创建群聊，请重试。'))
-    }
   }
 
   async function sendContactRequestByEmail(email: string) {

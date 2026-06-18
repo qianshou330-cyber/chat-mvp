@@ -67,6 +67,16 @@ describe('聊天 MVP', () => {
     expect(screen.queryByRole('menu', { name: '聊天操作' })).not.toBeInTheDocument()
   })
 
+  it('creates a demo group from the top-left menu', async () => {
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: '使用 Demo 账号' }))
+    fireEvent.click(await screen.findByRole('button', { name: '打开操作菜单' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: '新建群聊' }))
+
+    expect(await screen.findByLabelText('消息')).toBeInTheDocument()
+  })
+
   it('accepts a demo contact request before opening a direct chat', async () => {
     render(<App />)
 

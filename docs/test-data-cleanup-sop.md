@@ -17,6 +17,7 @@
 - v0.4.2 smoke 可能留下 `codex-v042-` 测试附件；必须通过 Storage 控制台删除，不能直接 SQL 删除 `storage.objects`。
 - v0.4.2 smoke 使用的 6 个 `codex.v042.*@example.com` 临时 Auth 用户已在 Supabase 控制台删除，复验数量为 0。
 - v0.4.2 smoke 的 `chat-uploads` bucket 已按 `codex-v042` 搜索复验，测试附件数量为 0。
+- 5 人先导自动验收使用 `codex.pilot.*@example.com` 临时 Auth 用户；清理前必须先预览命中列表，并确认不包含真实试用成员。
 
 ## 测试前缀
 
@@ -27,6 +28,7 @@
 - `codex.v031.`
 - `codex.v04.`
 - `codex.v042.`
+- `codex.pilot.`
 - `codex.push.`
 - `codex.browserpush.`
 - `codex.directpush.`
@@ -49,6 +51,7 @@ with test_users as (
      or email like 'codex.v031.%@example.com'
      or email like 'codex.v04.%@example.com'
      or email like 'codex.v042.%@example.com'
+     or email like 'codex.pilot.%@example.com'
      or email like 'codex.push.%@example.com'
      or email like 'codex.browserpush.%@example.com'
      or email like 'codex.directpush.%@example.com'
@@ -87,6 +90,7 @@ where users.email like 'codex.v02.%@example.com'
    or users.email like 'codex.v031.%@example.com'
    or users.email like 'codex.v04.%@example.com'
    or users.email like 'codex.v042.%@example.com'
+   or users.email like 'codex.pilot.%@example.com'
    or users.email like 'codex.push.%@example.com'
    or users.email like 'codex.browserpush.%@example.com'
    or users.email like 'codex.directpush.%@example.com'
