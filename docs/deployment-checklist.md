@@ -13,6 +13,7 @@
 - Set Auth Site URL to `https://chat-mvp-tau.vercel.app` for production.
 - Confirm RLS is enabled on all public user data tables.
 - Confirm the private `chat-uploads` bucket exists.
+- Confirm the public `profile-avatars` and `profile-avatar-videos` buckets exist.
 - Confirm `workspaces`, `workspace_members`, and `device_sessions` exist after v0.3 migrations.
 - Confirm `ensure_default_workspace`, `add_workspace_member_by_email`, `remove_workspace_member`, `update_workspace_member_role`, `upsert_device_session`, `revoke_other_device_sessions`, and `revoke_device_session` exist.
 - Confirm `app_error_events` and `admin_activity_logs` exist after the v0.4 migration and RLS is enabled.
@@ -22,7 +23,7 @@
 
 ## Vercel
 - Import the GitHub repository.
-- Set `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_SUPABASE_CHAT_BUCKET`, `VITE_SUPABASE_AVATAR_BUCKET`, and `VITE_VAPID_PUBLIC_KEY`.
+- Set `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_SUPABASE_CHAT_BUCKET`, `VITE_SUPABASE_AVATAR_BUCKET`, `VITE_SUPABASE_AVATAR_VIDEO_BUCKET`, and `VITE_VAPID_PUBLIC_KEY`.
 - Confirm Vercel does not contain Supabase secret keys, service-role keys, or database passwords.
 - Confirm Vercel does not contain `WEB_PUSH_VAPID_PRIVATE_KEY` or `WEBHOOK_SECRET`.
 - Confirm Preview and Production deployments finish successfully.
@@ -31,6 +32,7 @@
 ## Smoke Test
 - Register or sign in with email and password.
 - Create a profile.
+- Upload a static avatar and a short MP4/WebM video avatar; confirm chat lists still show the static poster.
 - Add a registered user by email and open a direct chat.
 - Create a group.
 - Send a text message.

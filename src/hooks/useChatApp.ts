@@ -1,12 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   avatarStorageBucket,
+  avatarVideoStorageBucket,
   chatStorageBucket,
   isSupabaseConfigured,
   supabase,
 } from '../lib/supabase'
 import { createDemoState, demoProfileEmails, demoUser } from '../data/demoData'
-import { avatarFileExtension, validateAttachment, validateAvatar } from '../lib/attachments'
+import {
+  MAX_AVATAR_VIDEO_DURATION_SECONDS,
+  avatarFileExtension,
+  avatarVideoFileExtension,
+  validateAttachment,
+  validateAvatar,
+  validateAvatarVideo,
+} from '../lib/attachments'
 import type {
   AdminActivityAction,
   AdminActivityLog,
@@ -1314,7 +1322,16 @@ export function useChatApp() {
     setState((previous) => ({
       ...previous,
       profiles: previous.profiles.map((profile) =>
-        profile.id === currentUser.id ? { ...profile, avatarUrl: localUrl } : profile,
+        profile.id === currentUser.id
+          ? {
+              ...profile,
+              avatarUrl: localUrl,
+              avatarMediaType: 'image',
+              avatarVideoUrl: '',
+              avatarVideoPosterUrl: '',
+              avatarVideoUpdatedAt: '',
+            }
+          : profile,
       ),
     }))
 
@@ -1338,13 +1355,30 @@ export function useChatApp() {
       data: { publicUrl },
     } = supabase.storage.from(avatarStorageBucket).getPublicUrl(storagePath)
 
-    const profileUpdate = await supabase
+    let profileUpdate = await supabase
       .from('profiles')
       .update({
         avatar_url: publicUrl,
+        avatar_media_type: 'image',
+        avatar_video_url: null,
+        avatar_video_poster_url: null,
+        avatar_video_updated_at: null,
         updated_at: new Date().toISOString(),
       })
       .eq('id', currentUser.id)
+
+    if (
+      profileUpdate.error &&
+      /avatar_media_type|avatar_video/i.test(profileUpdate.error.message)
+    ) {
+      profileUpdate = await supabase
+        .from('profiles')
+        .update({
+          avatar_url: publicUrl,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', currentUser.id)
+    }
 
     if (profileUpdate.error) {
       setAuthNotice(
@@ -1356,10 +1390,182 @@ export function useChatApp() {
     setState((previous) => ({
       ...previous,
       profiles: previous.profiles.map((profile) =>
-        profile.id === currentUser.id ? { ...profile, avatarUrl: publicUrl } : profile,
+        profile.id === currentUser.id
+          ? {
+              ...profile,
+              avatarUrl: publicUrl,
+              avatarMediaType: 'image',
+              avatarVideoUrl: '',
+              avatarVideoPosterUrl: '',
+              avatarVideoUpdatedAt: '',
+            }
+          : profile,
       ),
     }))
     setAuthNotice('头像已更新。')
+  }
+
+  async function updateProfileVideoAvatar(file: File) {
+    const currentUser = user ?? (!supabase ? demoUser : null)
+    if (!currentUser) return
+
+    const validation = validateAvatarVideo(file)
+    if (!validation.ok) {
+      setAuthNotice(validation.reason)
+      return
+    }
+
+    let analysis: AvatarVideoAnalysis
+    try {
+      analysis = await analyzeAvatarVideo(file)
+    } catch {
+      setAuthNotice('无法读取视频头像，请换一个 MP4 或 WebM 文件。')
+      return
+    }
+
+    if (analysis.duration > MAX_AVATAR_VIDEO_DURATION_SECONDS) {
+      setAuthNotice('视频头像不能超过 5 秒。')
+      return
+    }
+
+    const localVideoUrl = URL.createObjectURL(file)
+    const localPosterUrl = URL.createObjectURL(analysis.posterBlob)
+    const updatedAt = new Date().toISOString()
+
+    setState((previous) => ({
+      ...previous,
+      profiles: previous.profiles.map((profile) =>
+        profile.id === currentUser.id
+          ? {
+              ...profile,
+              avatarUrl: localPosterUrl,
+              avatarMediaType: 'video',
+              avatarVideoUrl: localVideoUrl,
+              avatarVideoPosterUrl: localPosterUrl,
+              avatarVideoUpdatedAt: updatedAt,
+            }
+          : profile,
+      ),
+    }))
+
+    if (!supabase) {
+      setAuthNotice('视频头像已更新。')
+      return
+    }
+
+    const timestamp = Date.now()
+    const videoPath = `${currentUser.id}/avatar-video-${timestamp}.${avatarVideoFileExtension(file)}`
+    const posterPath = `${currentUser.id}/avatar-video-poster-${timestamp}.jpg`
+
+    const videoUpload = await supabase.storage.from(avatarVideoStorageBucket).upload(videoPath, file, {
+      cacheControl: '3600',
+      upsert: false,
+    })
+
+    if (videoUpload.error) {
+      setAuthNotice(friendlyErrorMessage(videoUpload.error.message, '视频头像上传失败，请重试。'))
+      return
+    }
+
+    const posterUpload = await supabase.storage
+      .from(avatarStorageBucket)
+      .upload(posterPath, analysis.posterBlob, {
+        cacheControl: '3600',
+        contentType: 'image/jpeg',
+        upsert: false,
+      })
+
+    if (posterUpload.error) {
+      setAuthNotice(friendlyErrorMessage(posterUpload.error.message, '视频封面上传失败，请重试。'))
+      return
+    }
+
+    const {
+      data: { publicUrl: videoUrl },
+    } = supabase.storage.from(avatarVideoStorageBucket).getPublicUrl(videoPath)
+    const {
+      data: { publicUrl: posterUrl },
+    } = supabase.storage.from(avatarStorageBucket).getPublicUrl(posterPath)
+
+    const profileUpdate = await supabase
+      .from('profiles')
+      .update({
+        avatar_url: posterUrl,
+        avatar_media_type: 'video',
+        avatar_video_url: videoUrl,
+        avatar_video_poster_url: posterUrl,
+        avatar_video_updated_at: updatedAt,
+        updated_at: updatedAt,
+      })
+      .eq('id', currentUser.id)
+
+    if (profileUpdate.error) {
+      setAuthNotice(
+        friendlyErrorMessage(profileUpdate.error.message, '视频头像已上传，但资料更新失败。'),
+      )
+      return
+    }
+
+    setState((previous) => ({
+      ...previous,
+      profiles: previous.profiles.map((profile) =>
+        profile.id === currentUser.id
+          ? {
+              ...profile,
+              avatarUrl: posterUrl,
+              avatarMediaType: 'video',
+              avatarVideoUrl: videoUrl,
+              avatarVideoPosterUrl: posterUrl,
+              avatarVideoUpdatedAt: updatedAt,
+            }
+          : profile,
+      ),
+    }))
+    setAuthNotice('视频头像已更新。')
+  }
+
+  async function removeProfileVideoAvatar() {
+    const currentUser = user ?? (!supabase ? demoUser : null)
+    if (!currentUser) return
+    const updatedAt = new Date().toISOString()
+
+    setState((previous) => ({
+      ...previous,
+      profiles: previous.profiles.map((profile) =>
+        profile.id === currentUser.id
+          ? {
+              ...profile,
+              avatarMediaType: 'image',
+              avatarVideoUrl: '',
+              avatarVideoPosterUrl: '',
+              avatarVideoUpdatedAt: '',
+            }
+          : profile,
+      ),
+    }))
+
+    if (!supabase) {
+      setAuthNotice('已移除视频头像。')
+      return
+    }
+
+    const profileUpdate = await supabase
+      .from('profiles')
+      .update({
+        avatar_media_type: 'image',
+        avatar_video_url: null,
+        avatar_video_poster_url: null,
+        avatar_video_updated_at: null,
+        updated_at: updatedAt,
+      })
+      .eq('id', currentUser.id)
+
+    if (profileUpdate.error) {
+      setAuthNotice(friendlyErrorMessage(profileUpdate.error.message, '无法移除视频头像。'))
+      return
+    }
+
+    setAuthNotice('已移除视频头像。')
   }
 
   async function createGroup() {
@@ -2487,12 +2693,19 @@ export function useChatApp() {
     updateGroupAnnouncement,
     updateProfile,
     updateProfileAvatar,
+    updateProfileVideoAvatar,
     updateGroupMemberRole,
     updateWorkspaceMemberRole,
+    removeProfileVideoAvatar,
     user,
     visibleConversations,
     workspaceMembers,
   }
+}
+
+interface AvatarVideoAnalysis {
+  duration: number
+  posterBlob: Blob
 }
 
 function upsertMessage(messages: Message[], incoming: Message) {
@@ -2505,8 +2718,100 @@ function upsertMessage(messages: Message[], incoming: Message) {
 function upsertProfile(profiles: Profile[], incoming: Profile) {
   const exists = profiles.some((profile) => profile.id === incoming.id)
   return exists
-    ? profiles.map((profile) => (profile.id === incoming.id ? incoming : profile))
+    ? profiles.map((profile) => {
+        if (profile.id !== incoming.id) return profile
+        const shouldPreserveVideo =
+          profile.avatarMediaType === 'video' &&
+          incoming.avatarMediaType === 'image' &&
+          !incoming.avatarVideoUrl &&
+          incoming.avatarUrl === profile.avatarUrl
+
+        return shouldPreserveVideo
+          ? {
+              ...profile,
+              ...incoming,
+              avatarMediaType: profile.avatarMediaType,
+              avatarVideoUrl: profile.avatarVideoUrl,
+              avatarVideoPosterUrl: profile.avatarVideoPosterUrl,
+              avatarVideoUpdatedAt: profile.avatarVideoUpdatedAt,
+            }
+          : incoming
+      })
     : [...profiles, incoming]
+}
+
+function analyzeAvatarVideo(file: File): Promise<AvatarVideoAnalysis> {
+  return new Promise((resolve, reject) => {
+    const videoUrl = URL.createObjectURL(file)
+    const video = document.createElement('video')
+    const canvas = document.createElement('canvas')
+    let didFinish = false
+
+    function cleanup() {
+      URL.revokeObjectURL(videoUrl)
+      video.removeAttribute('src')
+      video.load()
+    }
+
+    function fail() {
+      if (didFinish) return
+      didFinish = true
+      cleanup()
+      reject(new Error('invalid-video'))
+    }
+
+    const timeout = window.setTimeout(fail, 8000)
+
+    video.preload = 'metadata'
+    video.muted = true
+    video.playsInline = true
+    video.src = videoUrl
+
+    video.onloadedmetadata = () => {
+      if (!Number.isFinite(video.duration) || video.duration <= 0) {
+        fail()
+        return
+      }
+      video.currentTime = Math.min(0.1, video.duration / 2)
+    }
+
+    video.onseeked = () => {
+      if (didFinish) return
+      const sourceSize = Math.min(video.videoWidth, video.videoHeight)
+      if (sourceSize <= 0) {
+        fail()
+        return
+      }
+
+      const sourceX = Math.max(0, (video.videoWidth - sourceSize) / 2)
+      const sourceY = Math.max(0, (video.videoHeight - sourceSize) / 2)
+      canvas.width = 512
+      canvas.height = 512
+      const context = canvas.getContext('2d')
+      if (!context) {
+        fail()
+        return
+      }
+
+      context.drawImage(video, sourceX, sourceY, sourceSize, sourceSize, 0, 0, 512, 512)
+      canvas.toBlob(
+        (posterBlob) => {
+          window.clearTimeout(timeout)
+          if (!posterBlob) {
+            fail()
+            return
+          }
+          didFinish = true
+          cleanup()
+          resolve({ duration: video.duration, posterBlob })
+        },
+        'image/jpeg',
+        0.82,
+      )
+    }
+
+    video.onerror = fail
+  })
 }
 
 function upsertContact(contacts: ContactRequest[], incoming: ContactRequest) {
@@ -2837,10 +3142,17 @@ function withNewMessage(state: ChatState, message: Message): ChatState {
 }
 
 function mapProfile(row: Record<string, unknown>): Profile {
+  const avatarVideoUrl = String(row.avatar_video_url ?? '')
+  const avatarVideoPosterUrl = String(row.avatar_video_poster_url ?? '')
+
   return {
     id: String(row.id),
     displayName: String(row.display_name ?? '成员'),
     avatarUrl: String(row.avatar_url ?? ''),
+    avatarMediaType: row.avatar_media_type === 'video' || avatarVideoUrl ? 'video' : 'image',
+    avatarVideoUrl,
+    avatarVideoPosterUrl,
+    avatarVideoUpdatedAt: String(row.avatar_video_updated_at ?? ''),
     avatarTone: (row.avatar_tone as Profile['avatarTone']) ?? 'blue',
     bio: String(row.bio ?? ''),
     status: (row.status as Profile['status']) ?? 'offline',

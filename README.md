@@ -42,16 +42,19 @@ VITE_SUPABASE_URL=
 VITE_SUPABASE_ANON_KEY=
 VITE_SUPABASE_CHAT_BUCKET=chat-uploads
 VITE_SUPABASE_AVATAR_BUCKET=profile-avatars
+VITE_SUPABASE_AVATAR_VIDEO_BUCKET=profile-avatar-videos
 VITE_VAPID_PUBLIC_KEY=
 ```
 
-Allowed attachment types are PNG, JPEG, WebP, PDF, plain text, and Markdown. The migrations configure the private `chat-uploads` bucket with the same 10 MB limit used by the client, plus the public `profile-avatars` bucket for 2 MB profile images.
+Allowed attachment types are PNG, JPEG, WebP, PDF, plain text, and Markdown. The migrations configure the private `chat-uploads` bucket with the same 10 MB limit used by the client, the public `profile-avatars` bucket for 2 MB profile images, and the public `profile-avatar-videos` bucket for 5 MB MP4/WebM video avatars.
 
 v0.3 工作区功能需要运行 `supabase/migrations/20260618000000_workspaces.sql`。运行后新用户会自动拥有默认工作区，新建群聊会归属当前工作区。
 
 v0.3 登录设备管理需要继续运行 `supabase/migrations/20260618010000_device_sessions.sql`。运行后个人资料页会显示“登录设备”，用户可以退出其他设备或移除单台设备。
 
 v0.4 稳定化日志需要运行 `supabase/migrations/20260618020000_operational_logs.sql`。运行后 owner/admin 可以在个人资料页看到最近管理员操作和关键错误。
+
+v0.5 视频动态头像需要运行 `supabase/migrations/20260618100000_video_avatars.sql`。运行后用户可上传 5 秒内、5 MB 内的 MP4/WebM 视频头像；聊天列表仍使用静态封面头像。
 
 ## Web Push Setup
 
@@ -119,4 +122,4 @@ Use `docs/deployment-checklist.md` before promoting a Preview deployment to Prod
 
 所有反馈统一进入 GitHub Issues，使用已有的缺陷反馈、体验反馈和功能建议模板。
 
-已知 beta 限制：暂不支持端到端加密、原生移动 App、语音/视频通话和服务端全文搜索。当前产品路线图不包含频道和机器人。Web Push 第一版重点支持 Chrome/Edge 和 Android Chrome，iOS/Safari 需要单独验收。
+已知 beta 限制：暂不支持端到端加密、原生移动 App、语音/视频通话和服务端全文搜索。视频动态头像不等于语音/视频通话。当前产品路线图不包含频道和机器人。Web Push 第一版重点支持 Chrome/Edge 和 Android Chrome，iOS/Safari 需要单独验收。

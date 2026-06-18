@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
   MAX_ATTACHMENT_SIZE_BYTES,
+  MAX_AVATAR_VIDEO_SIZE_BYTES,
   validateAttachment,
   validateAvatar,
+  validateAvatarVideo,
 } from './attachments'
 
 describe('validateAttachment', () => {
@@ -55,6 +57,24 @@ describe('validateAvatar', () => {
     expect(validateAvatar({ size: 24_000, type: 'text/plain' })).toEqual({
       ok: false,
       reason: '头像仅支持 PNG、JPEG 或 WebP。',
+    })
+  })
+})
+
+describe('validateAvatarVideo', () => {
+  it('allows supported video avatars under 5 MB', () => {
+    expect(validateAvatarVideo({ size: 48_000, type: 'video/mp4' })).toEqual({ ok: true })
+    expect(validateAvatarVideo({ size: 48_000, type: 'video/webm' })).toEqual({ ok: true })
+  })
+
+  it('rejects oversized or unsupported video avatars with Chinese errors', () => {
+    expect(validateAvatarVideo({ size: MAX_AVATAR_VIDEO_SIZE_BYTES + 1, type: 'video/mp4' })).toEqual({
+      ok: false,
+      reason: '视频头像不能超过 5 MB。',
+    })
+    expect(validateAvatarVideo({ size: 48_000, type: 'video/quicktime' })).toEqual({
+      ok: false,
+      reason: '视频头像仅支持 MP4 或 WebM。',
     })
   })
 })

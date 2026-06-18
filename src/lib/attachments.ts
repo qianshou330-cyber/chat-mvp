@@ -11,10 +11,19 @@ export const ALLOWED_ATTACHMENT_MIME_TYPES = [
 
 export const MAX_AVATAR_SIZE_BYTES = 2 * 1024 * 1024
 
+export const MAX_AVATAR_VIDEO_SIZE_BYTES = 5 * 1024 * 1024
+
+export const MAX_AVATAR_VIDEO_DURATION_SECONDS = 5
+
 export const AVATAR_MIME_EXTENSIONS: Record<string, string> = {
   'image/png': 'png',
   'image/jpeg': 'jpg',
   'image/webp': 'webp',
+}
+
+export const AVATAR_VIDEO_MIME_EXTENSIONS: Record<string, string> = {
+  'video/mp4': 'mp4',
+  'video/webm': 'webm',
 }
 
 export type AttachmentValidationResult =
@@ -62,4 +71,26 @@ export function validateAvatar(
 
 export function avatarFileExtension(file: Pick<File, 'type'>) {
   return AVATAR_MIME_EXTENSIONS[file.type] ?? 'png'
+}
+
+export function validateAvatarVideo(
+  file: Pick<File, 'size' | 'type'>,
+): AttachmentValidationResult {
+  if (file.size <= 0) {
+    return { ok: false, reason: '请选择头像视频。' }
+  }
+
+  if (file.size > MAX_AVATAR_VIDEO_SIZE_BYTES) {
+    return { ok: false, reason: '视频头像不能超过 5 MB。' }
+  }
+
+  if (!AVATAR_VIDEO_MIME_EXTENSIONS[file.type]) {
+    return { ok: false, reason: '视频头像仅支持 MP4 或 WebM。' }
+  }
+
+  return { ok: true }
+}
+
+export function avatarVideoFileExtension(file: Pick<File, 'type'>) {
+  return AVATAR_VIDEO_MIME_EXTENSIONS[file.type] ?? 'mp4'
 }

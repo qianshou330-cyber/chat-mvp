@@ -23,6 +23,10 @@ export interface Profile {
   id: string
   displayName: string
   avatarUrl: string
+  avatarMediaType: 'image' | 'video'
+  avatarVideoUrl: string
+  avatarVideoPosterUrl: string
+  avatarVideoUpdatedAt: string
   avatarTone: 'blue' | 'green' | 'amber' | 'rose' | 'slate'
   bio: string
   status: ProfileStatus

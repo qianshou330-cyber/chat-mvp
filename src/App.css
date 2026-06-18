@@ -709,7 +709,8 @@ mark {
   width: 42px;
 }
 
-.avatar img {
+.avatar img,
+.avatar video {
   border-radius: inherit;
   height: 100%;
   object-fit: cover;
@@ -1260,15 +1261,22 @@ mark {
 }
 
 .profile-hero {
+  gap: 12px;
   position: relative;
 }
 
-.camera-button {
-  background: var(--accent);
-  bottom: 18px;
-  color: #ffffff;
-  position: absolute;
-  right: calc(50% - 58px);
+.profile-avatar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  max-width: 300px;
+}
+
+.profile-avatar-actions button {
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 10px;
 }
 
 .profile-form {

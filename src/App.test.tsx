@@ -150,6 +150,10 @@ describe('聊天 MVP', () => {
     fireEvent.click(screen.getByRole('button', { name: '使用 Demo 账号' }))
     fireEvent.click(await screen.findByRole('button', { name: '打开个人资料' }))
 
+    expect(screen.getByRole('button', { name: '上传图片头像' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '上传视频头像' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '移除视频头像' })).not.toBeInTheDocument()
+
     const avatar = new File(['avatar'], 'avatar.png', { type: 'image/png' })
     fireEvent.change(screen.getByLabelText('头像文件'), {
       target: { files: [avatar] },

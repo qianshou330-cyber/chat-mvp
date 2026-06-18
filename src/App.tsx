@@ -4,7 +4,6 @@ import {
   ArrowLeft,
   Bell,
   Building2,
-  Camera,
   Check,
   CheckCheck,
   ExternalLink,
@@ -24,6 +23,7 @@ import {
   Trash2,
   UserPlus,
   Users,
+  Video,
 } from 'lucide-react'
 import './App.css'
 import { useChatApp } from './hooks/useChatApp'
@@ -197,7 +197,9 @@ function App() {
             profile={chat.me}
             onBack={() => setScreen('list')}
             onAvatarUpload={chat.updateProfileAvatar}
+            onAvatarVideoUpload={chat.updateProfileVideoAvatar}
             onRefreshDeviceSessions={chat.refreshDeviceSessions}
+            onRemoveVideoAvatar={chat.removeProfileVideoAvatar}
             onRevokeDeviceSession={chat.revokeDeviceSession}
             onRevokeOtherDevices={chat.revokeOtherDevices}
             onSave={chat.updateProfile}
@@ -756,7 +758,12 @@ function ChatView({
           <ArrowLeft size={22} />
         </button>
         <button className="chat-identity" onClick={onOpenInfo} type="button">
-          <Avatar profile={conversation.type === 'direct' ? otherProfile : undefined} title={title} variant={conversation.type} />
+          <Avatar
+            allowMotion
+            profile={conversation.type === 'direct' ? otherProfile : undefined}
+            title={title}
+            variant={conversation.type}
+          />
           <span>
             <strong>{title}</strong>
             <small>
@@ -1474,8 +1481,10 @@ function ProfileSettings({
   deviceSessions,
   email,
   onAvatarUpload,
+  onAvatarVideoUpload,
   onBack,
   onRefreshDeviceSessions,
+  onRemoveVideoAvatar,
   onRevokeDeviceSession,
   onRevokeOtherDevices,
   onSave,
@@ -1488,8 +1497,10 @@ function ProfileSettings({
   deviceSessions: DeviceSession[]
   email: string
   onAvatarUpload: (file: File) => Promise<void>
+  onAvatarVideoUpload: (file: File) => Promise<void>
   onBack: () => void
   onRefreshDeviceSessions: () => Promise<void>
+  onRemoveVideoAvatar: () => Promise<void>
   onRevokeDeviceSession: (deviceId: string) => Promise<boolean>
   onRevokeOtherDevices: () => Promise<boolean>
   onSave: (profile: Pick<Profile, 'displayName' | 'bio'>) => void
@@ -1500,6 +1511,7 @@ function ProfileSettings({
   const [bio, setBio] = useState(profile.bio)
   const [isDeviceBusy, setIsDeviceBusy] = useState(false)
   const avatarInputRef = useRef<HTMLInputElement | null>(null)
+  const avatarVideoInputRef = useRef<HTMLInputElement | null>(null)
   const pushNotifications = usePushNotifications(profile.id, activeWorkspace?.id)
 
   async function handleRevokeOtherDevices() {
@@ -1530,7 +1542,7 @@ function ProfileSettings({
       </header>
 
       <section className="profile-hero">
-        <Avatar profile={profile} size="large" />
+        <Avatar allowMotion profile={profile} size="large" />
         <input
           ref={avatarInputRef}
           accept="image/png,image/jpeg,image/webp"
@@ -1543,14 +1555,47 @@ function ProfileSettings({
           }}
           type="file"
         />
-        <button
-          aria-label="更换头像"
-          className="camera-button"
-          onClick={() => avatarInputRef.current?.click()}
-          type="button"
-        >
-          <Camera size={18} />
-        </button>
+        <input
+          ref={avatarVideoInputRef}
+          accept="video/mp4,video/webm"
+          aria-label="视频头像文件"
+          className="file-input"
+          onChange={(event) => {
+            const file = event.target.files?.[0]
+            if (file) void onAvatarVideoUpload(file)
+            event.target.value = ''
+          }}
+          type="file"
+        />
+        <div className="profile-avatar-actions">
+          <button
+            className="secondary-button compact-button"
+            onClick={() => avatarInputRef.current?.click()}
+            type="button"
+          >
+            <ImageIcon size={16} />
+            上传图片头像
+          </button>
+          <button
+            className="secondary-button compact-button"
+            onClick={() => avatarVideoInputRef.current?.click()}
+            type="button"
+          >
+            <Video size={16} />
+            上传视频头像
+          </button>
+          {profile.avatarMediaType === 'video' && (
+            <button
+              className="ghost-button compact-button"
+              onClick={() => {
+                void onRemoveVideoAvatar()
+              }}
+              type="button"
+            >
+              移除视频头像
+            </button>
+          )}
+        </div>
       </section>
 
       <form
@@ -1955,16 +2000,19 @@ function WorkspaceManagement({
 }
 
 function Avatar({
+  allowMotion = false,
   profile,
   size = 'default',
   title,
   variant = 'direct',
 }: {
+  allowMotion?: boolean
   profile?: Profile | null
   size?: 'small' | 'default' | 'large'
   title?: string
   variant?: 'direct' | 'group'
 }) {
+  const [failedVideoUrl, setFailedVideoUrl] = useState('')
   const label = profile?.displayName ?? title ?? '群聊'
   const initials = label
     .split(' ')
@@ -1972,10 +2020,28 @@ function Avatar({
     .map((part) => part[0])
     .join('')
     .toUpperCase()
+  const avatarVideoUrl = profile?.avatarVideoUrl ?? ''
+  const shouldShowVideo =
+    allowMotion &&
+    failedVideoUrl !== avatarVideoUrl &&
+    !prefersReducedMotion() &&
+    profile?.avatarMediaType === 'video' &&
+    Boolean(avatarVideoUrl)
 
   return (
     <span className={`avatar ${profile?.avatarTone ?? (variant === 'group' ? 'slate' : 'blue')} ${size}`}>
-      {profile?.avatarUrl ? (
+      {shouldShowVideo ? (
+        <video
+          aria-label={`${label} 的视频头像`}
+          autoPlay
+          loop
+          muted
+          onError={() => setFailedVideoUrl(avatarVideoUrl)}
+          playsInline
+          poster={profile?.avatarVideoPosterUrl || profile?.avatarUrl}
+          src={avatarVideoUrl}
+        />
+      ) : profile?.avatarUrl ? (
         <img alt="" src={profile.avatarUrl} />
       ) : variant === 'group' && !profile ? (
         <Users size={size === 'large' ? 34 : 20} />
@@ -1983,6 +2049,13 @@ function Avatar({
         initials
       )}
     </span>
+  )
+}
+
+function prefersReducedMotion() {
+  return (
+    typeof window !== 'undefined' &&
+    window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
   )
 }
 
