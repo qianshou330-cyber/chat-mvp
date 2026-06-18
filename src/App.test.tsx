@@ -3,6 +3,11 @@ import { describe, expect, it } from 'vitest'
 import App from './App'
 
 describe('聊天 MVP', () => {
+  async function openWorkspaceManagement() {
+    fireEvent.click(await screen.findByRole('button', { name: '打开操作菜单' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: '工作区管理' }))
+  }
+
   it('starts in demo login mode and opens the chat list', async () => {
     render(<App />)
 
@@ -60,6 +65,7 @@ describe('聊天 MVP', () => {
     expect(screen.getByRole('menu', { name: '聊天操作' })).toBeInTheDocument()
     expect(screen.getByRole('menuitem', { name: '新建群聊' })).toBeInTheDocument()
     expect(screen.getByRole('menuitem', { name: '发送好友申请' })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: '工作区管理' })).toBeInTheDocument()
     expect(screen.getByRole('menuitem', { name: '退出登录' })).toBeInTheDocument()
 
     fireEvent.keyDown(document, { key: 'Escape' })
@@ -162,11 +168,18 @@ describe('聊天 MVP', () => {
     expect(screen.getByRole('button', { name: '开启通知' })).toBeDisabled()
   })
 
-  it('shows workspace management in the profile screen', async () => {
+  it('keeps workspace management out of profile and opens it from the menu', async () => {
     render(<App />)
 
     fireEvent.click(screen.getByRole('button', { name: '使用 Demo 账号' }))
     fireEvent.click(await screen.findByRole('button', { name: '打开个人资料' }))
+
+    expect(screen.getByRole('heading', { name: '个人资料' })).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: '工作区管理' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: '管理员记录' })).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: '返回聊天列表' }))
+    await openWorkspaceManagement()
 
     expect(screen.getByRole('region', { name: '工作区管理' })).toBeInTheDocument()
     expect(screen.getByText('启明团队')).toBeInTheDocument()
@@ -203,7 +216,7 @@ describe('聊天 MVP', () => {
     render(<App />)
 
     fireEvent.click(screen.getByRole('button', { name: '使用 Demo 账号' }))
-    fireEvent.click(await screen.findByRole('button', { name: '打开个人资料' }))
+    await openWorkspaceManagement()
     fireEvent.change(screen.getByLabelText('添加成员邮箱'), {
       target: { value: 'zoe@example.com' },
     })
@@ -217,7 +230,7 @@ describe('聊天 MVP', () => {
     render(<App />)
 
     fireEvent.click(screen.getByRole('button', { name: '使用 Demo 账号' }))
-    fireEvent.click(await screen.findByRole('button', { name: '打开个人资料' }))
+    await openWorkspaceManagement()
     fireEvent.click(screen.getByRole('button', { name: '移除 周一凡' }))
 
     expect(await screen.findByText('成员已移除。')).toBeInTheDocument()
@@ -320,6 +333,23 @@ describe('聊天 MVP', () => {
 
     expect(await screen.findByRole('link', { name: 'notes.txt' })).toHaveAttribute(
       'href',
+      'blob:test-attachment',
+    )
+  })
+
+  it('shows a demo image attachment as a thumbnail after upload', async () => {
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: '使用 Demo 账号' }))
+    fireEvent.click(await screen.findByText('林小米'))
+
+    const attachment = new File(['image'], 'photo.png', { type: 'image/png' })
+    fireEvent.change(screen.getByLabelText('文件附件'), {
+      target: { files: [attachment] },
+    })
+
+    expect(await screen.findByRole('img', { name: 'photo.png' })).toHaveAttribute(
+      'src',
       'blob:test-attachment',
     )
   })

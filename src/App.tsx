@@ -44,7 +44,7 @@ import type {
   WorkspaceRole,
 } from './types'
 
-type Screen = 'login' | 'list' | 'chat' | 'group' | 'profile'
+type Screen = 'login' | 'list' | 'chat' | 'group' | 'profile' | 'workspace'
 const APP_DISPLAY_NAME = '聊天 MVP'
 
 function App() {
@@ -134,6 +134,7 @@ function App() {
               setScreen('chat')
             }}
             onOpenProfile={() => setScreen('profile')}
+            onOpenWorkspaceManagement={() => setScreen('workspace')}
             onOpenSearchResult={(result) => {
               chat.setActiveConversationId(result.conversationId)
               setScreen('chat')
@@ -188,27 +189,35 @@ function App() {
         )}
         {activeScreen === 'profile' && chat.me && (
           <ProfileSettings
-            adminActivityLogs={chat.adminActivityLogs}
             activeWorkspace={chat.activeWorkspace}
-            activeWorkspaceRole={chat.activeWorkspaceRole}
-            appErrorEvents={chat.appErrorEvents}
             authNotice={chat.authNotice}
             currentDeviceId={chat.currentDeviceId}
             deviceSessions={chat.deviceSessions}
             email={chat.user?.email ?? ''}
             profile={chat.me}
-            workspaceMembers={chat.workspaceMembers}
-            getProfile={chat.getProfile}
-            onAddWorkspaceMember={chat.addWorkspaceMemberByEmail}
             onBack={() => setScreen('list')}
             onAvatarUpload={chat.updateProfileAvatar}
-            onRemoveWorkspaceMember={chat.removeWorkspaceMember}
             onRefreshDeviceSessions={chat.refreshDeviceSessions}
             onRevokeDeviceSession={chat.revokeDeviceSession}
             onRevokeOtherDevices={chat.revokeOtherDevices}
             onSave={chat.updateProfile}
             onSignOut={handleSignOut}
+          />
+        )}
+        {activeScreen === 'workspace' && (
+          <WorkspaceManagement
+            adminActivityLogs={chat.adminActivityLogs}
+            activeWorkspace={chat.activeWorkspace}
+            activeWorkspaceRole={chat.activeWorkspaceRole}
+            appErrorEvents={chat.appErrorEvents}
+            authNotice={chat.authNotice}
+            currentUserId={chat.user?.id ?? ''}
+            getProfile={chat.getProfile}
+            onAddWorkspaceMember={chat.addWorkspaceMemberByEmail}
+            onBack={() => setScreen('list')}
+            onRemoveWorkspaceMember={chat.removeWorkspaceMember}
             onUpdateWorkspaceMemberRole={chat.updateWorkspaceMemberRole}
+            workspaceMembers={chat.workspaceMembers}
           />
         )}
       </section>
@@ -340,6 +349,7 @@ function ConversationList({
   onCreateGroup,
   onOpenConversation,
   onOpenProfile,
+  onOpenWorkspaceManagement,
   onOpenSearchResult,
   onQueryChange,
   onRespondToContactRequest,
@@ -357,6 +367,7 @@ function ConversationList({
   onCreateGroup: () => void
   onOpenConversation: (id: string) => void
   onOpenProfile: () => void
+  onOpenWorkspaceManagement: () => void
   onOpenSearchResult: (result: SearchResult) => void
   onQueryChange: (query: string) => void
   onRespondToContactRequest: (
@@ -428,6 +439,11 @@ function ConversationList({
     setIsContactFormOpen(true)
   }
 
+  function handleOpenWorkspaceManagement() {
+    setIsMenuOpen(false)
+    onOpenWorkspaceManagement()
+  }
+
   function handleSignOut() {
     setIsMenuOpen(false)
     onSignOut()
@@ -456,6 +472,10 @@ function ConversationList({
               <button className="menu-item" onClick={handleOpenContactForm} role="menuitem" type="button">
                 <UserPlus size={18} />
                 <span>发送好友申请</span>
+              </button>
+              <button className="menu-item" onClick={handleOpenWorkspaceManagement} role="menuitem" type="button">
+                <Building2 size={18} />
+                <span>工作区管理</span>
               </button>
               <button className="menu-item danger" onClick={handleSignOut} role="menuitem" type="button">
                 <LogOut size={18} />
@@ -985,10 +1005,7 @@ function MessageBubble({
             {message.attachment?.deletedAt ? (
               <p className="deleted-message">此附件已被管理员隐藏</p>
             ) : message.attachment ? (
-              <a className="attachment" href={message.attachment.url} rel="noreferrer" target="_blank">
-                {message.type === 'image' ? <ImageIcon size={18} /> : <FileText size={18} />}
-                <span>{message.attachment.fileName}</span>
-              </a>
+              <AttachmentPreview message={message} />
             ) : null}
             {!message.attachment?.deletedAt && <p>{message.body}</p>}
           </>
@@ -1013,6 +1030,34 @@ function MessageBubble({
         )}
       </div>
     </article>
+  )
+}
+
+function AttachmentPreview({ message }: { message: Message }) {
+  const [didImageFail, setDidImageFail] = useState(false)
+  const attachment = message.attachment
+  if (!attachment) return null
+
+  const shouldShowImage = message.type === 'image' && !didImageFail
+
+  if (shouldShowImage) {
+    return (
+      <a className="image-attachment" href={attachment.url} rel="noreferrer" target="_blank">
+        <img
+          alt={attachment.fileName}
+          loading="lazy"
+          onError={() => setDidImageFail(true)}
+          src={attachment.url}
+        />
+      </a>
+    )
+  }
+
+  return (
+    <a className="attachment" href={attachment.url} rel="noreferrer" target="_blank">
+      {message.type === 'image' ? <ImageIcon size={18} /> : <FileText size={18} />}
+      <span>{attachment.fileName}</span>
+    </a>
   )
 }
 
@@ -1332,7 +1377,7 @@ function GroupInfo({
 
               return (
                 <div className="group-file-row" key={attachment.id}>
-                  <FileText size={18} />
+                  {attachment.mimeType.startsWith('image/') ? <ImageIcon size={18} /> : <FileText size={18} />}
                   <span>
                     <strong>{attachment.fileName}</strong>
                     <small>
@@ -1421,87 +1466,39 @@ function GroupInfo({
 }
 
 function ProfileSettings({
-  adminActivityLogs,
   activeWorkspace,
-  activeWorkspaceRole,
-  appErrorEvents,
   authNotice,
   currentDeviceId,
   deviceSessions,
   email,
-  getProfile,
-  onAddWorkspaceMember,
   onAvatarUpload,
   onBack,
   onRefreshDeviceSessions,
-  onRemoveWorkspaceMember,
   onRevokeDeviceSession,
   onRevokeOtherDevices,
   onSave,
   onSignOut,
-  onUpdateWorkspaceMemberRole,
   profile,
-  workspaceMembers,
 }: {
-  adminActivityLogs: AdminActivityLog[]
   activeWorkspace: Workspace | null
-  activeWorkspaceRole: WorkspaceRole
-  appErrorEvents: AppErrorEvent[]
   authNotice: string
   currentDeviceId: string
   deviceSessions: DeviceSession[]
   email: string
-  getProfile: (profileId: string) => Profile | undefined
-  onAddWorkspaceMember: (email: string, role: WorkspaceRole) => Promise<boolean>
   onAvatarUpload: (file: File) => Promise<void>
   onBack: () => void
   onRefreshDeviceSessions: () => Promise<void>
-  onRemoveWorkspaceMember: (memberUserId: string) => Promise<boolean>
   onRevokeDeviceSession: (deviceId: string) => Promise<boolean>
   onRevokeOtherDevices: () => Promise<boolean>
   onSave: (profile: Pick<Profile, 'displayName' | 'bio'>) => void
   onSignOut: () => void
-  onUpdateWorkspaceMemberRole: (memberUserId: string, role: WorkspaceRole) => Promise<boolean>
   profile: Profile
-  workspaceMembers: WorkspaceMember[]
 }) {
   const [displayName, setDisplayName] = useState(profile.displayName)
   const [bio, setBio] = useState(profile.bio)
-  const [memberEmail, setMemberEmail] = useState('')
-  const [memberRole, setMemberRole] = useState<WorkspaceRole>('member')
-  const [isMemberBusy, setIsMemberBusy] = useState(false)
   const [isDeviceBusy, setIsDeviceBusy] = useState(false)
   const avatarInputRef = useRef<HTMLInputElement | null>(null)
   const pushNotifications = usePushNotifications(profile.id, activeWorkspace?.id)
-  const canManageWorkspace = activeWorkspaceRole === 'owner' || activeWorkspaceRole === 'admin'
-
-  async function submitWorkspaceMember() {
-    setIsMemberBusy(true)
-    try {
-      const added = await onAddWorkspaceMember(memberEmail, memberRole)
-      if (added) setMemberEmail('')
-    } finally {
-      setIsMemberBusy(false)
-    }
-  }
-
-  async function handleRemoveWorkspaceMember(memberUserId: string) {
-    setIsMemberBusy(true)
-    try {
-      await onRemoveWorkspaceMember(memberUserId)
-    } finally {
-      setIsMemberBusy(false)
-    }
-  }
-
-  async function handleUpdateWorkspaceMemberRole(memberUserId: string, role: WorkspaceRole) {
-    setIsMemberBusy(true)
-    try {
-      await onUpdateWorkspaceMemberRole(memberUserId, role)
-    } finally {
-      setIsMemberBusy(false)
-    }
-  }
 
   async function handleRevokeOtherDevices() {
     setIsDeviceBusy(true)
@@ -1574,187 +1571,6 @@ function ProfileSettings({
           <span>邮箱</span>
           <strong>{email}</strong>
         </div>
-        <section className="workspace-card" aria-label="工作区管理">
-          <div className="workspace-card-header">
-            <span className="notification-icon">
-              <Building2 size={20} />
-            </span>
-            <div>
-              <strong>{activeWorkspace?.name ?? '我的工作区'}</strong>
-              <p>
-                {workspaceMembers.length} 名成员 · 我的角色：
-                {formatWorkspaceRole(activeWorkspaceRole)}
-              </p>
-            </div>
-          </div>
-
-          {canManageWorkspace && (
-            <div className="workspace-member-form">
-              <label htmlFor="workspaceMemberEmail">添加成员邮箱</label>
-              <input
-                id="workspaceMemberEmail"
-                inputMode="email"
-                onChange={(event) => setMemberEmail(event.target.value)}
-                placeholder="member@example.com"
-                type="email"
-                value={memberEmail}
-              />
-              <label htmlFor="workspaceMemberRole">角色</label>
-              <div className="workspace-member-controls">
-                <select
-                  id="workspaceMemberRole"
-                  disabled={isMemberBusy}
-                  onChange={(event) => setMemberRole(event.target.value as WorkspaceRole)}
-                  value={memberRole}
-                >
-                  <option value="member">成员</option>
-                  <option value="admin">管理员</option>
-                </select>
-                <button
-                  className="secondary-button"
-                  disabled={isMemberBusy || !memberEmail.trim()}
-                  onClick={submitWorkspaceMember}
-                  type="button"
-                >
-                  {isMemberBusy ? '添加中' : '添加成员'}
-                </button>
-              </div>
-              <p className="form-hint">对方需要先完成注册，才能被添加到工作区。</p>
-            </div>
-          )}
-
-          <div className="workspace-member-list">
-            {workspaceMembers.map((member) => {
-              const memberProfile = getProfile(member.userId)
-              const isSelf = member.userId === profile.id
-              const canEditMember =
-                canManageWorkspace && !isSelf && member.role !== 'owner'
-
-              return (
-                <div className="workspace-member-row" key={`${member.workspaceId}-${member.userId}`}>
-                  <Avatar profile={memberProfile} />
-                  <span>
-                    <strong>{memberProfile?.displayName ?? '成员'}</strong>
-                    <small>{formatWorkspaceRole(member.role)}</small>
-                  </span>
-                  {canEditMember ? (
-                    <div className="workspace-row-actions">
-                      <select
-                        aria-label={`${memberProfile?.displayName ?? '成员'} 的角色`}
-                        disabled={isMemberBusy}
-                        onChange={(event) => {
-                          void handleUpdateWorkspaceMemberRole(
-                            member.userId,
-                            event.target.value as WorkspaceRole,
-                          )
-                        }}
-                        value={member.role}
-                      >
-                        <option value="member">成员</option>
-                        <option value="admin">管理员</option>
-                      </select>
-                      <button
-                        aria-label={`移除 ${memberProfile?.displayName ?? '成员'}`}
-                        className="icon-button danger-icon-button"
-                        disabled={isMemberBusy}
-                        onClick={() => {
-                          void handleRemoveWorkspaceMember(member.userId)
-                        }}
-                        type="button"
-                      >
-                        <Trash2 size={18} />
-                      </button>
-                    </div>
-                  ) : (
-                    <span className="role-badge">{formatWorkspaceRole(member.role)}</span>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-
-          <div className="profile-links">
-            <a
-              className="feedback-link"
-              href="https://github.com/qianshou330-cyber/chat-mvp/issues/new/choose"
-              rel="noreferrer"
-              target="_blank"
-            >
-              <ExternalLink size={16} />
-              反馈问题
-            </a>
-            <a
-              className="feedback-link"
-              href="https://github.com/qianshou330-cyber/chat-mvp/blob/main/docs/company-trial-safety.md"
-              rel="noreferrer"
-              target="_blank"
-            >
-              <ExternalLink size={16} />
-              试用说明
-            </a>
-          </div>
-        </section>
-        {canManageWorkspace && (
-          <section className="admin-log-card" aria-label="管理员记录">
-            <div className="workspace-card-header">
-              <span className="notification-icon">
-                <ShieldCheck size={20} />
-              </span>
-              <div>
-                <strong>管理员记录</strong>
-                <p>最近的成员操作和关键错误，方便试用期间排查问题。</p>
-              </div>
-            </div>
-
-            <div className="admin-log-list">
-              {adminActivityLogs.length === 0 ? (
-                <p className="device-note">
-                  暂无管理员操作记录。添加成员、移除成员或调整角色后会显示在这里。
-                </p>
-              ) : (
-                adminActivityLogs.slice(0, 4).map((log) => {
-                  const actor = getProfile(log.actorId)
-                  const target = getProfile(log.targetUserId)
-
-                  return (
-                    <div className="admin-log-row" key={log.id}>
-                      <span>
-                        <strong>{formatAdminActivity(log.action)}</strong>
-                        <small>
-                          {actor?.displayName ?? '管理员'} · {target?.displayName ?? '目标成员'} ·{' '}
-                          {formatShortDateTime(log.createdAt)}
-                        </small>
-                      </span>
-                      <span className={log.result === 'success' ? 'role-badge' : 'error-badge'}>
-                        {log.result === 'success' ? '成功' : '失败'}
-                      </span>
-                    </div>
-                  )
-                })
-              )}
-            </div>
-
-            <div className="admin-log-list">
-              {appErrorEvents.length === 0 ? (
-                <p className="device-note">
-                  暂无关键错误记录。登录、消息、附件、通知或成员管理失败时会显示脱敏记录。
-                </p>
-              ) : (
-                appErrorEvents.slice(0, 3).map((event) => (
-                  <div className="admin-log-row" key={event.id}>
-                    <span>
-                      <strong>{formatErrorModule(event.module)}</strong>
-                      <small>
-                        {event.message} · {formatShortDateTime(event.createdAt)}
-                      </small>
-                    </span>
-                    <span className="error-badge">错误</span>
-                  </div>
-                ))
-              )}
-            </div>
-          </section>
-        )}
         <section className="device-card" aria-label="登录设备">
           <div className="workspace-card-header">
             <span className="notification-icon">
@@ -1868,6 +1684,270 @@ function ProfileSettings({
         </button>
         {authNotice && <p className="notice">{authNotice}</p>}
       </form>
+    </section>
+  )
+}
+
+function WorkspaceManagement({
+  adminActivityLogs,
+  activeWorkspace,
+  activeWorkspaceRole,
+  appErrorEvents,
+  authNotice,
+  currentUserId,
+  getProfile,
+  onAddWorkspaceMember,
+  onBack,
+  onRemoveWorkspaceMember,
+  onUpdateWorkspaceMemberRole,
+  workspaceMembers,
+}: {
+  adminActivityLogs: AdminActivityLog[]
+  activeWorkspace: Workspace | null
+  activeWorkspaceRole: WorkspaceRole
+  appErrorEvents: AppErrorEvent[]
+  authNotice: string
+  currentUserId: string
+  getProfile: (profileId: string) => Profile | undefined
+  onAddWorkspaceMember: (email: string, role: WorkspaceRole) => Promise<boolean>
+  onBack: () => void
+  onRemoveWorkspaceMember: (memberUserId: string) => Promise<boolean>
+  onUpdateWorkspaceMemberRole: (memberUserId: string, role: WorkspaceRole) => Promise<boolean>
+  workspaceMembers: WorkspaceMember[]
+}) {
+  const [memberEmail, setMemberEmail] = useState('')
+  const [memberRole, setMemberRole] = useState<WorkspaceRole>('member')
+  const [isMemberBusy, setIsMemberBusy] = useState(false)
+  const canManageWorkspace = activeWorkspaceRole === 'owner' || activeWorkspaceRole === 'admin'
+
+  async function submitWorkspaceMember() {
+    setIsMemberBusy(true)
+    try {
+      const added = await onAddWorkspaceMember(memberEmail, memberRole)
+      if (added) setMemberEmail('')
+    } finally {
+      setIsMemberBusy(false)
+    }
+  }
+
+  async function handleRemoveWorkspaceMember(memberUserId: string) {
+    setIsMemberBusy(true)
+    try {
+      await onRemoveWorkspaceMember(memberUserId)
+    } finally {
+      setIsMemberBusy(false)
+    }
+  }
+
+  async function handleUpdateWorkspaceMemberRole(memberUserId: string, role: WorkspaceRole) {
+    setIsMemberBusy(true)
+    try {
+      await onUpdateWorkspaceMemberRole(memberUserId, role)
+    } finally {
+      setIsMemberBusy(false)
+    }
+  }
+
+  return (
+    <section className="screen">
+      <header className="topbar">
+        <button aria-label="返回聊天列表" className="icon-button" onClick={onBack} type="button">
+          <ArrowLeft size={22} />
+        </button>
+        <div>
+          <p className="eyebrow">工作区</p>
+          <h1>工作区管理</h1>
+        </div>
+        <span className="icon-button passive-icon">
+          <Building2 size={22} />
+        </span>
+      </header>
+
+      <div className="workspace-management">
+        <section className="workspace-card" aria-label="工作区管理">
+          <div className="workspace-card-header">
+            <span className="notification-icon">
+              <Building2 size={20} />
+            </span>
+            <div>
+              <strong>{activeWorkspace?.name ?? '我的工作区'}</strong>
+              <p>
+                {workspaceMembers.length} 名成员 · 我的角色：
+                {formatWorkspaceRole(activeWorkspaceRole)}
+              </p>
+            </div>
+          </div>
+
+          {canManageWorkspace && (
+            <div className="workspace-member-form">
+              <label htmlFor="workspaceMemberEmail">添加成员邮箱</label>
+              <input
+                id="workspaceMemberEmail"
+                inputMode="email"
+                onChange={(event) => setMemberEmail(event.target.value)}
+                placeholder="member@example.com"
+                type="email"
+                value={memberEmail}
+              />
+              <label htmlFor="workspaceMemberRole">角色</label>
+              <div className="workspace-member-controls">
+                <select
+                  id="workspaceMemberRole"
+                  disabled={isMemberBusy}
+                  onChange={(event) => setMemberRole(event.target.value as WorkspaceRole)}
+                  value={memberRole}
+                >
+                  <option value="member">成员</option>
+                  <option value="admin">管理员</option>
+                </select>
+                <button
+                  className="secondary-button"
+                  disabled={isMemberBusy || !memberEmail.trim()}
+                  onClick={submitWorkspaceMember}
+                  type="button"
+                >
+                  {isMemberBusy ? '添加中' : '添加成员'}
+                </button>
+              </div>
+              <p className="form-hint">对方需要先完成注册，才能被添加到工作区。</p>
+            </div>
+          )}
+
+          {authNotice && <p className="notice">{authNotice}</p>}
+
+          <div className="workspace-member-list">
+            {workspaceMembers.map((member) => {
+              const memberProfile = getProfile(member.userId)
+              const isSelf = member.userId === currentUserId
+              const canEditMember = canManageWorkspace && !isSelf && member.role !== 'owner'
+
+              return (
+                <div className="workspace-member-row" key={`${member.workspaceId}-${member.userId}`}>
+                  <Avatar profile={memberProfile} />
+                  <span>
+                    <strong>{memberProfile?.displayName ?? '成员'}</strong>
+                    <small>{formatWorkspaceRole(member.role)}</small>
+                  </span>
+                  {canEditMember ? (
+                    <div className="workspace-row-actions">
+                      <select
+                        aria-label={`${memberProfile?.displayName ?? '成员'} 的角色`}
+                        disabled={isMemberBusy}
+                        onChange={(event) => {
+                          void handleUpdateWorkspaceMemberRole(
+                            member.userId,
+                            event.target.value as WorkspaceRole,
+                          )
+                        }}
+                        value={member.role}
+                      >
+                        <option value="member">成员</option>
+                        <option value="admin">管理员</option>
+                      </select>
+                      <button
+                        aria-label={`移除 ${memberProfile?.displayName ?? '成员'}`}
+                        className="icon-button danger-icon-button"
+                        disabled={isMemberBusy}
+                        onClick={() => {
+                          void handleRemoveWorkspaceMember(member.userId)
+                        }}
+                        type="button"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </div>
+                  ) : (
+                    <span className="role-badge">{formatWorkspaceRole(member.role)}</span>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+
+          <div className="profile-links">
+            <a
+              className="feedback-link"
+              href="https://github.com/qianshou330-cyber/chat-mvp/issues/new/choose"
+              rel="noreferrer"
+              target="_blank"
+            >
+              <ExternalLink size={16} />
+              反馈问题
+            </a>
+            <a
+              className="feedback-link"
+              href="https://github.com/qianshou330-cyber/chat-mvp/blob/main/docs/company-trial-safety.md"
+              rel="noreferrer"
+              target="_blank"
+            >
+              <ExternalLink size={16} />
+              试用说明
+            </a>
+          </div>
+        </section>
+
+        {canManageWorkspace && (
+          <section className="admin-log-card" aria-label="管理员记录">
+            <div className="workspace-card-header">
+              <span className="notification-icon">
+                <ShieldCheck size={20} />
+              </span>
+              <div>
+                <strong>管理员记录</strong>
+                <p>最近的成员操作和关键错误，方便试用期间排查问题。</p>
+              </div>
+            </div>
+
+            <div className="admin-log-list">
+              {adminActivityLogs.length === 0 ? (
+                <p className="device-note">
+                  暂无管理员操作记录。添加成员、移除成员或调整角色后会显示在这里。
+                </p>
+              ) : (
+                adminActivityLogs.slice(0, 4).map((log) => {
+                  const actor = getProfile(log.actorId)
+                  const target = getProfile(log.targetUserId)
+
+                  return (
+                    <div className="admin-log-row" key={log.id}>
+                      <span>
+                        <strong>{formatAdminActivity(log.action)}</strong>
+                        <small>
+                          {actor?.displayName ?? '管理员'} · {target?.displayName ?? '目标成员'} ·{' '}
+                          {formatShortDateTime(log.createdAt)}
+                        </small>
+                      </span>
+                      <span className={log.result === 'success' ? 'role-badge' : 'error-badge'}>
+                        {log.result === 'success' ? '成功' : '失败'}
+                      </span>
+                    </div>
+                  )
+                })
+              )}
+            </div>
+
+            <div className="admin-log-list">
+              {appErrorEvents.length === 0 ? (
+                <p className="device-note">
+                  暂无关键错误记录。登录、消息、附件、通知或成员管理失败时会显示脱敏记录。
+                </p>
+              ) : (
+                appErrorEvents.slice(0, 3).map((event) => (
+                  <div className="admin-log-row" key={event.id}>
+                    <span>
+                      <strong>{formatErrorModule(event.module)}</strong>
+                      <small>
+                        {event.message} · {formatShortDateTime(event.createdAt)}
+                      </small>
+                    </span>
+                    <span className="error-badge">错误</span>
+                  </div>
+                ))
+              )}
+            </div>
+          </section>
+        )}
+      </div>
     </section>
   )
 }
