@@ -111,6 +111,8 @@ Use `docs/deployment-checklist.md` before promoting a Preview deployment to Prod
 使用 `docs/backup-restore-checklist.md` 做试用前备份、恢复和云端配置检查。
 使用 `docs/trial-daily-report-template.md` 记录 5 人先导和 20-30 人试用日报。
 
+使用 `docs/5-person-pilot-kickoff.md` 启动 5 人先导试用，登记试用用户、Day 1 必测路径和扩容闸门。
+
 使用 `docs/2026-07-company-trial-plan.md` 执行 2026 年 7 月公司内部试用和 v0.4.x 稳定化计划。
 
 所有反馈统一进入 GitHub Issues，使用已有的缺陷反馈、体验反馈和功能建议模板。

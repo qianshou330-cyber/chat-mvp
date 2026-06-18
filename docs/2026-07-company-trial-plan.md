@@ -8,6 +8,7 @@
 
 - 创建 1 个正式试用工作区，由 owner/admin 添加 5 个核心用户。
 - 每天使用 `docs/trial-daily-report-template.md` 记录核心路径状态。
+- 启动前按 `docs/5-person-pilot-kickoff.md` 完成管理员、试用用户和 Day 1 检查准备。
 - 所有反馈进入 GitHub Issues，并按 P0/P1/P2/P3 分类。
 - P0/P1 只修稳定性、权限、通知、附件和成员管理问题，不夹带新功能。
 
