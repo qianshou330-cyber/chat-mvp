@@ -110,4 +110,4 @@ Use `docs/deployment-checklist.md` before promoting a Preview deployment to Prod
 
 所有反馈统一进入 GitHub Issues，使用已有的缺陷反馈、体验反馈和功能建议模板。
 
-已知 beta 限制：暂不支持端到端加密、原生移动 App、语音/视频通话、频道、机器人和服务端全文搜索。Web Push 第一版重点支持 Chrome/Edge 和 Android Chrome，iOS/Safari 需要单独验收。
+已知 beta 限制：暂不支持端到端加密、原生移动 App、语音/视频通话和服务端全文搜索。当前产品路线图不包含频道和机器人。Web Push 第一版重点支持 Chrome/Edge 和 Android Chrome，iOS/Safari 需要单独验收。
