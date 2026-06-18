@@ -70,6 +70,6 @@ https://github.com/qianshou330-cyber/chat-mvp/issues
 
 ## 跟踪 Issue
 
-- 外测执行：https://github.com/qianshou330-cyber/chat-mvp/issues/1
-- 反馈分诊与总结：https://github.com/qianshou330-cyber/chat-mvp/issues/2
-- v0.3 公司试用规划：https://github.com/qianshou330-cyber/chat-mvp/issues/3
+- 外测执行：https://github.com/qianshou330-cyber/chat-mvp/issues/4
+- 反馈分诊与总结：https://github.com/qianshou330-cyber/chat-mvp/issues/5
+- v0.3 公司试用规划：https://github.com/qianshou330-cyber/chat-mvp/issues/6

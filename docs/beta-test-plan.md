@@ -8,7 +8,7 @@
 - 生产地址：`https://chat-mvp-tau.vercel.app`
 - 主分支：`main`
 - 目标测试者：3 到 5 名邀请用户
-- 跟踪 Issue：https://github.com/qianshou330-cyber/chat-mvp/issues/1
+- 跟踪 Issue：https://github.com/qianshou330-cyber/chat-mvp/issues/4
 
 ## 测试者准备
 
