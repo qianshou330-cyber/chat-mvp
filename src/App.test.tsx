@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import App from './App'
 
@@ -222,6 +222,69 @@ describe('聊天 MVP', () => {
 
     expect(await screen.findByText('成员已移除。')).toBeInTheDocument()
     expect(screen.queryByText('周一凡')).not.toBeInTheDocument()
+  })
+
+  it('manages demo group members and group title', async () => {
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: '使用 Demo 账号' }))
+    fireEvent.click(await screen.findByText('上线准备群'))
+    fireEvent.click(screen.getByRole('button', { name: /上线准备群/ }))
+
+    expect(await screen.findByRole('button', { name: '编辑群名' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '编辑群名' }))
+    fireEvent.change(screen.getByLabelText('群名称'), {
+      target: { value: '试用管理群' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: '保存群名' }))
+
+    expect((await screen.findAllByText('试用管理群')).length).toBeGreaterThan(0)
+
+    fireEvent.change(screen.getByLabelText('周一凡 的群角色'), {
+      target: { value: 'admin' },
+    })
+
+    expect(screen.getByDisplayValue('群管理员')).toBeInTheDocument()
+
+    const removeNoraButton = screen.getByRole('button', { name: '移出群聊 李诺拉' })
+    await waitFor(() => {
+      expect(removeNoraButton).not.toBeDisabled()
+    })
+    fireEvent.click(removeNoraButton)
+
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: '移出群聊 李诺拉' })).not.toBeInTheDocument()
+    })
+    expect(screen.getByRole('option', { name: '李诺拉' })).toBeInTheDocument()
+  })
+
+  it('manages demo group announcements, pinned messages, and deleted messages', async () => {
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: '使用 Demo 账号' }))
+    fireEvent.click(await screen.findByText('上线准备群'))
+    fireEvent.click(screen.getByRole('button', { name: /上线准备群/ }))
+
+    fireEvent.change(await screen.findByLabelText('群公告'), {
+      target: { value: '明天 10 点同步上线风险。' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: '保存公告' }))
+    fireEvent.click(screen.getByRole('button', { name: '返回聊天' }))
+
+    expect(await screen.findByText('明天 10 点同步上线风险。')).toBeInTheDocument()
+
+    fireEvent.click(screen.getAllByRole('button', { name: '置顶' })[0])
+    expect(await screen.findByText('置顶消息')).toBeInTheDocument()
+    expect(screen.getAllByText(/RLS 需要按会话成员关系/).length).toBeGreaterThan(1)
+
+    fireEvent.click(screen.getAllByRole('button', { name: '取消置顶' })[0])
+    await waitFor(() => {
+      expect(screen.queryByText('置顶消息')).not.toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getAllByRole('button', { name: '删除' })[0])
+    expect(await screen.findByText('此消息已删除')).toBeInTheDocument()
+    expect(screen.queryByText('RLS 需要按会话成员关系限制每一条消息。')).not.toBeInTheDocument()
   })
 
   it('shows a demo attachment link after upload', async () => {

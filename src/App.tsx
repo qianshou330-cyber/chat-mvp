@@ -33,7 +33,9 @@ import type {
   AppErrorEvent,
   ContactRequest,
   Conversation,
+  ConversationMember,
   DeviceSession,
+  MemberRole,
   Message,
   Profile,
   SearchResult,
@@ -152,13 +154,17 @@ function App() {
         {activeScreen === 'chat' && chat.activeConversation && (
           <ChatView
             conversation={chat.activeConversation}
+            conversationMembers={chat.state.members}
             getProfile={chat.getProfile}
             messages={chat.activeMessages}
             myUserId={chat.user?.id ?? ''}
             onBack={() => setScreen('list')}
+            onDeleteMessage={chat.deleteGroupMessage}
             onOpenInfo={() => setScreen(chat.activeConversation?.type === 'group' ? 'group' : 'profile')}
+            onPinMessage={chat.pinGroupMessage}
             onSendFile={chat.sendFile}
             onSendText={chat.sendText}
+            onUnpinMessage={chat.unpinGroupMessage}
             title={activeTitle}
           />
         )}
@@ -166,8 +172,16 @@ function App() {
           <GroupInfo
             activeWorkspace={chat.activeWorkspace}
             conversation={chat.activeConversation}
+            currentUserId={chat.user?.id ?? ''}
             getProfile={chat.getProfile}
+            members={chat.state.members}
             onBack={() => setScreen('chat')}
+            onAddGroupMember={chat.addGroupMember}
+            onRemoveGroupMember={chat.removeGroupMember}
+            onRenameGroup={chat.renameGroup}
+            onUpdateAnnouncement={chat.updateGroupAnnouncement}
+            onUpdateGroupMemberRole={chat.updateGroupMemberRole}
+            workspaceMembers={chat.workspaceMembers}
           />
         )}
         {activeScreen === 'profile' && chat.me && (
@@ -660,23 +674,31 @@ function SearchResults({
 
 function ChatView({
   conversation,
+  conversationMembers,
   getProfile,
   messages,
   myUserId,
   onBack,
+  onDeleteMessage,
   onOpenInfo,
+  onPinMessage,
   onSendFile,
   onSendText,
+  onUnpinMessage,
   title,
 }: {
   conversation: Conversation
+  conversationMembers: ConversationMember[]
   getProfile: (profileId: string) => Profile | undefined
   messages: Message[]
   myUserId: string
   onBack: () => void
+  onDeleteMessage: (conversationId: string, messageId: string) => Promise<boolean>
   onOpenInfo: () => void
+  onPinMessage: (conversationId: string, messageId: string) => Promise<boolean>
   onSendFile: (file: File) => void
   onSendText: (body: string) => void
+  onUnpinMessage: (conversationId: string) => Promise<boolean>
   title: string
 }) {
   const [draft, setDraft] = useState('')
@@ -685,14 +707,15 @@ function ChatView({
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const otherMemberId = conversation.memberIds.find((id) => id !== myUserId)
   const otherProfile = getProfile(otherMemberId ?? '')
+  const currentMember = conversationMembers.find(
+    (member) => member.conversationId === conversation.id && member.userId === myUserId,
+  )
+  const isGroupManager = currentMember?.role === 'owner' || currentMember?.role === 'admin'
+  const pinnedMessage = conversation.pinnedMessageId
+    ? messages.find((message) => message.id === conversation.pinnedMessageId && !message.deletedAt)
+    : undefined
   const messageSearchResults = useMemo(
-    () =>
-      buildConversationMessageResults(
-        messageSearchQuery,
-        conversation,
-        messages,
-        getProfile,
-      ),
+    () => buildConversationMessageResults(messageSearchQuery, conversation, messages, getProfile),
     [conversation, getProfile, messageSearchQuery, messages],
   )
 
@@ -766,6 +789,33 @@ function ChatView({
         </section>
       )}
 
+      {conversation.type === 'group' && conversation.announcement && (
+        <section className="conversation-notice" aria-label="群公告">
+          <strong>群公告</strong>
+          <p>{conversation.announcement}</p>
+        </section>
+      )}
+
+      {conversation.type === 'group' && pinnedMessage && (
+        <section className="conversation-notice pinned" aria-label="置顶消息">
+          <strong>置顶消息</strong>
+          <div className="pinned-message-button">
+            {getProfile(pinnedMessage.senderId)?.displayName ?? '成员'}：{pinnedMessage.body}
+          </div>
+          {isGroupManager && (
+            <button
+              className="ghost-button compact-button"
+              onClick={() => {
+                void onUnpinMessage(conversation.id)
+              }}
+              type="button"
+            >
+              取消置顶
+            </button>
+          )}
+        </section>
+      )}
+
       <div className="message-list" role="log">
         {messages.length === 0 ? (
           <EmptyState
@@ -776,9 +826,26 @@ function ChatView({
         ) : (
           messages.map((message) => (
             <MessageBubble
+              canDelete={canDeleteGroupMessageFromView(
+                conversation,
+                conversationMembers,
+                message,
+                myUserId,
+              )}
+              canPin={conversation.type === 'group' && isGroupManager && !message.deletedAt}
               isMine={message.senderId === myUserId}
+              isPinned={conversation.pinnedMessageId === message.id}
               key={message.id}
               message={message}
+              onDelete={() => {
+                void onDeleteMessage(conversation.id, message.id)
+              }}
+              onPin={() => {
+                void onPinMessage(conversation.id, message.id)
+              }}
+              onUnpin={() => {
+                void onUnpinMessage(conversation.id)
+              }}
               sender={getProfile(message.senderId)}
             />
           ))
@@ -868,7 +935,7 @@ function buildConversationMessageResults(
   if (!normalizedQuery) return []
 
   return messages
-    .filter((message) => message.body.toLocaleLowerCase('zh-CN').includes(normalizedQuery))
+    .filter((message) => !message.deletedAt && message.body.toLocaleLowerCase('zh-CN').includes(normalizedQuery))
     .map((message) => ({
       id: `current-message-${message.id}`,
       conversationId: conversation.id,
@@ -883,51 +950,207 @@ function buildConversationMessageResults(
 }
 
 function MessageBubble({
+  canDelete,
+  canPin,
   isMine,
+  isPinned,
   message,
+  onDelete,
+  onPin,
+  onUnpin,
   sender,
 }: {
+  canDelete: boolean
+  canPin: boolean
   isMine: boolean
+  isPinned: boolean
   message: Message
+  onDelete: () => void
+  onPin: () => void
+  onUnpin: () => void
   sender: Profile | undefined
 }) {
   return (
-    <article className={`message ${isMine ? 'mine' : 'theirs'}`}>
+    <article className={`message ${isMine ? 'mine' : 'theirs'} ${message.deletedAt ? 'deleted' : ''}`}>
       {!isMine && <Avatar profile={sender} size="small" />}
       <div className="bubble">
         {!isMine && <span className="sender-name">{sender?.displayName ?? '成员'}</span>}
-        {message.attachment && (
+        {isPinned && !message.deletedAt && <span className="pin-label">已置顶</span>}
+        {message.deletedAt ? (
+          <p className="deleted-message">此消息已删除</p>
+        ) : (
+          <>
+            {message.attachment && (
           <a className="attachment" href={message.attachment.url} rel="noreferrer" target="_blank">
             {message.type === 'image' ? <ImageIcon size={18} /> : <FileText size={18} />}
             <span>{message.attachment.fileName}</span>
           </a>
+            )}
+            <p>{message.body}</p>
+          </>
         )}
-        <p>{message.body}</p>
         <span className="message-meta">
           {formatTime(message.createdAt)}
           {isMine && (message.status === 'read' ? <CheckCheck size={15} /> : <Check size={15} />)}
         </span>
+        {!message.deletedAt && (canDelete || canPin) && (
+          <div className="message-actions">
+            {canPin && (
+              <button className="text-action" onClick={isPinned ? onUnpin : onPin} type="button">
+                {isPinned ? '取消置顶' : '置顶'}
+              </button>
+            )}
+            {canDelete && (
+              <button className="text-action danger" onClick={onDelete} type="button">
+                删除
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </article>
   )
 }
 
+function canDeleteGroupMessageFromView(
+  conversation: Conversation,
+  members: ConversationMember[],
+  message: Message,
+  currentUserId: string,
+) {
+  if (conversation.type !== 'group' || message.deletedAt) return false
+
+  const currentMember = members.find(
+    (member) => member.conversationId === conversation.id && member.userId === currentUserId,
+  )
+  const senderMember = members.find(
+    (member) => member.conversationId === conversation.id && member.userId === message.senderId,
+  )
+  const isOwnRecent =
+    message.senderId === currentUserId &&
+    Date.now() - Date.parse(message.createdAt) <= 2 * 60 * 1000
+
+  return isOwnRecent || ((currentMember?.role === 'owner' || currentMember?.role === 'admin') && senderMember?.role === 'member')
+}
+
 function GroupInfo({
   activeWorkspace,
   conversation,
+  currentUserId,
   getProfile,
+  members: allConversationMembers,
+  onAddGroupMember,
   onBack,
+  onRemoveGroupMember,
+  onRenameGroup,
+  onUpdateAnnouncement,
+  onUpdateGroupMemberRole,
+  workspaceMembers,
 }: {
   activeWorkspace: Workspace | null
   conversation: Conversation
+  currentUserId: string
   getProfile: (profileId: string) => Profile | undefined
+  members: ConversationMember[]
+  onAddGroupMember: (conversationId: string, memberUserId: string) => Promise<boolean>
   onBack: () => void
+  onRemoveGroupMember: (conversationId: string, memberUserId: string) => Promise<boolean>
+  onRenameGroup: (conversationId: string, title: string) => Promise<boolean>
+  onUpdateAnnouncement: (conversationId: string, announcement: string) => Promise<boolean>
+  onUpdateGroupMemberRole: (
+    conversationId: string,
+    memberUserId: string,
+    role: Extract<MemberRole, 'admin' | 'member'>,
+  ) => Promise<boolean>
+  workspaceMembers: WorkspaceMember[]
 }) {
-  const members = useMemo(
-    () => conversation.memberIds.map((id) => getProfile(id)).filter(Boolean) as Profile[],
-    [conversation.memberIds, getProfile],
-  )
   const title = displayConversationTitle(conversation.title)
+  const [selectedMemberId, setSelectedMemberId] = useState('')
+  const [isBusy, setIsBusy] = useState(false)
+  const [editingConversationId, setEditingConversationId] = useState('')
+  const [titleDraftState, setTitleDraftState] = useState({
+    conversationId: conversation.id,
+    value: conversation.title,
+  })
+  const [announcementDraftState, setAnnouncementDraftState] = useState({
+    conversationId: conversation.id,
+    value: conversation.announcement ?? '',
+  })
+  const conversationMembers = useMemo(() => {
+    const storedMembers = allConversationMembers.filter(
+      (member) => member.conversationId === conversation.id,
+    )
+    if (storedMembers.length > 0) return storedMembers
+
+    return conversation.memberIds.map((userId, index) => ({
+      conversationId: conversation.id,
+      userId,
+      role: index === 0 ? 'owner' as const : 'member' as const,
+      joinedAt: '',
+    }))
+  }, [allConversationMembers, conversation.id, conversation.memberIds])
+  const currentMember = conversationMembers.find((member) => member.userId === currentUserId)
+  const canManageGroup = currentMember?.role === 'owner' || currentMember?.role === 'admin'
+  const canManageRoles = currentMember?.role === 'owner'
+  const isEditingTitle = editingConversationId === conversation.id
+  const titleDraft =
+    titleDraftState.conversationId === conversation.id
+      ? titleDraftState.value
+      : conversation.title
+  const announcementDraft =
+    announcementDraftState.conversationId === conversation.id
+      ? announcementDraftState.value
+      : (conversation.announcement ?? '')
+  const workspaceCandidates = workspaceMembers
+    .filter((member) => !conversation.memberIds.includes(member.userId))
+    .map((member) => getProfile(member.userId))
+    .filter(Boolean) as Profile[]
+
+  function updateTitleDraft(value: string) {
+    setTitleDraftState({ conversationId: conversation.id, value })
+  }
+
+  function updateAnnouncementDraft(value: string) {
+    setAnnouncementDraftState({ conversationId: conversation.id, value })
+  }
+
+  async function submitGroupMember() {
+    if (!selectedMemberId) return
+    setIsBusy(true)
+    const ok = await onAddGroupMember(conversation.id, selectedMemberId)
+    if (ok) setSelectedMemberId('')
+    setIsBusy(false)
+  }
+
+  async function submitTitleUpdate() {
+    const nextTitle = titleDraft.trim()
+    if (!nextTitle) return
+    setIsBusy(true)
+    const ok = await onRenameGroup(conversation.id, nextTitle)
+    if (ok) setEditingConversationId('')
+    setIsBusy(false)
+  }
+
+  async function submitAnnouncementUpdate() {
+    setIsBusy(true)
+    await onUpdateAnnouncement(conversation.id, announcementDraft)
+    setIsBusy(false)
+  }
+
+  async function removeMember(memberUserId: string) {
+    setIsBusy(true)
+    await onRemoveGroupMember(conversation.id, memberUserId)
+    setIsBusy(false)
+  }
+
+  async function updateMemberRole(
+    memberUserId: string,
+    role: Extract<MemberRole, 'admin' | 'member'>,
+  ) {
+    setIsBusy(true)
+    await onUpdateGroupMemberRole(conversation.id, memberUserId, role)
+    setIsBusy(false)
+  }
 
   return (
     <section className="screen">
@@ -948,9 +1171,83 @@ function GroupInfo({
         <Avatar title={title} variant="group" size="large" />
         <h2>{title}</h2>
         <p>{conversation.memberCount} 名成员</p>
+        {canManageGroup && (
+          <div className="group-title-editor">
+            {isEditingTitle ? (
+              <>
+                <input
+                  aria-label="群名称"
+                  disabled={isBusy}
+                  maxLength={80}
+                  onChange={(event) => updateTitleDraft(event.target.value)}
+                  value={titleDraft}
+                />
+                <button
+                  className="secondary-button"
+                  disabled={isBusy || !titleDraft.trim()}
+                  onClick={() => {
+                    void submitTitleUpdate()
+                  }}
+                  type="button"
+                >
+                  保存群名
+                </button>
+                <button
+                  className="ghost-button"
+                  disabled={isBusy}
+                  onClick={() => {
+                    updateTitleDraft(conversation.title)
+                    setEditingConversationId('')
+                  }}
+                  type="button"
+                >
+                  取消
+                </button>
+              </>
+            ) : (
+              <button
+                className="secondary-button compact-button"
+                onClick={() => setEditingConversationId(conversation.id)}
+                type="button"
+              >
+                编辑群名
+              </button>
+            )}
+          </div>
+        )}
       </section>
 
       <div className="settings-list">
+        <div className="group-announcement-editor">
+          <span>
+            <strong>群公告</strong>
+            <small>显示在聊天页顶部，第一版仅支持纯文本。</small>
+          </span>
+          {canManageGroup ? (
+            <>
+              <textarea
+                aria-label="群公告"
+                disabled={isBusy}
+                maxLength={500}
+                onChange={(event) => updateAnnouncementDraft(event.target.value)}
+                placeholder="输入群公告"
+                value={announcementDraft}
+              />
+              <button
+                className="secondary-button compact-button"
+                disabled={isBusy}
+                onClick={() => {
+                  void submitAnnouncementUpdate()
+                }}
+                type="button"
+              >
+                保存公告
+              </button>
+            </>
+          ) : (
+            <p>{conversation.announcement || '暂无群公告。'}</p>
+          )}
+        </div>
         <div className="settings-row static-row">
           <Building2 size={20} />
           <span>
@@ -962,21 +1259,92 @@ function GroupInfo({
           <ShieldCheck size={20} />
           <span>
             <strong>成员权限</strong>
-            <small>请到个人资料里的工作区管理添加或移除成员</small>
+            <small>owner 可调整群管理员；owner/admin 可添加或移除普通群成员</small>
           </span>
         </div>
+        {canManageGroup && (
+          <div className="group-member-manager">
+            <label htmlFor="groupMemberSelect">从工作区添加成员</label>
+            <div className="workspace-member-controls">
+              <select
+                id="groupMemberSelect"
+                disabled={isBusy || workspaceCandidates.length === 0}
+                onChange={(event) => setSelectedMemberId(event.target.value)}
+                value={selectedMemberId}
+              >
+                <option value="">
+                  {workspaceCandidates.length === 0 ? '暂无可添加成员' : '选择成员'}
+                </option>
+                {workspaceCandidates.map((profile) => (
+                  <option key={profile.id} value={profile.id}>
+                    {profile.displayName}
+                  </option>
+                ))}
+              </select>
+              <button
+                className="secondary-button"
+                disabled={isBusy || !selectedMemberId}
+                onClick={() => {
+                  void submitGroupMember()
+                }}
+                type="button"
+              >
+                加入群聊
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="member-list">
-        {members.map((member) => (
-          <div className="member-row" key={member.id}>
-            <Avatar profile={member} />
-            <span>
-              <strong>{member.displayName}</strong>
-              <small>{formatStatus(member.status)}</small>
-            </span>
-          </div>
-        ))}
+        {conversationMembers.map((member) => {
+          const profile = getProfile(member.userId)
+          const canRemove = canManageGroup && member.role === 'member' && member.userId !== currentUserId
+          const canEditRole = canManageRoles && member.role !== 'owner'
+
+          return (
+            <div className="member-row group-member-row" key={`${member.conversationId}-${member.userId}`}>
+              <Avatar profile={profile} />
+              <span>
+                <strong>{profile?.displayName ?? '成员'}</strong>
+                <small>{formatStatus(profile?.status ?? 'offline')}</small>
+              </span>
+              <div className="group-member-actions">
+                {canEditRole ? (
+                  <select
+                    aria-label={`${profile?.displayName ?? '成员'} 的群角色`}
+                    disabled={isBusy}
+                    onChange={(event) => {
+                      void updateMemberRole(
+                        member.userId,
+                        event.target.value as Extract<MemberRole, 'admin' | 'member'>,
+                      )
+                    }}
+                    value={member.role}
+                  >
+                    <option value="member">成员</option>
+                    <option value="admin">群管理员</option>
+                  </select>
+                ) : (
+                  <span className="role-badge">{formatGroupRole(member.role)}</span>
+                )}
+                {canRemove && (
+                  <button
+                    aria-label={`移出群聊 ${profile?.displayName ?? '成员'}`}
+                    className="icon-button danger-icon-button"
+                    disabled={isBusy}
+                    onClick={() => {
+                      void removeMember(member.userId)
+                    }}
+                    type="button"
+                  >
+                    <Trash2 size={18} />
+                  </button>
+                )}
+              </div>
+            </div>
+          )
+        })}
       </div>
     </section>
   )
@@ -1486,10 +1854,24 @@ function formatWorkspaceRole(role: WorkspaceRole) {
   return '成员'
 }
 
+function formatGroupRole(role: MemberRole) {
+  if (role === 'owner') return '群 owner'
+  if (role === 'admin') return '群管理员'
+  return '成员'
+}
+
 function formatAdminActivity(action: AdminActivityLog['action']) {
   if (action === 'member_added') return '添加成员'
   if (action === 'member_removed') return '移除成员'
   if (action === 'member_role_updated') return '调整角色'
+  if (action === 'group_member_added') return '添加群成员'
+  if (action === 'group_member_removed') return '移除群成员'
+  if (action === 'group_member_role_updated') return '调整群角色'
+  if (action === 'group_renamed') return '修改群名称'
+  if (action === 'message_deleted') return '删除群消息'
+  if (action === 'group_announcement_updated') return '更新群公告'
+  if (action === 'message_pinned') return '置顶消息'
+  if (action === 'message_unpinned') return '取消置顶'
   return '退出其他设备'
 }
 

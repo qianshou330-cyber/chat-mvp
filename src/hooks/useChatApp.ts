@@ -17,7 +17,9 @@ import type {
   ContactRequest,
   ContactStatus,
   Conversation,
+  ConversationMember,
   DeviceSession,
+  MemberRole,
   Message,
   Profile,
   SearchResult,
@@ -719,6 +721,7 @@ export function useChatApp() {
       }),
       messages,
       members: memberRows.map((member) => ({
+        conversationId: member.conversation_id as string,
         userId: member.user_id as string,
         role: member.role as 'owner' | 'admin' | 'member',
         joinedAt: member.joined_at as string,
@@ -867,6 +870,9 @@ export function useChatApp() {
   useEffect(() => {
     if (!supabase || !user || !activeConversationId) return
     const client = supabase
+    const reloadState = () => {
+      void loadSupabaseState(user.id)
+    }
 
     if (currentChannel.current) {
       void client.removeChannel(currentChannel.current)
@@ -912,6 +918,36 @@ export function useChatApp() {
           })()
         },
       )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'messages',
+          filter: `conversation_id=eq.${activeConversationId}`,
+        },
+        reloadState,
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'conversations',
+          filter: `id=eq.${activeConversationId}`,
+        },
+        reloadState,
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'conversation_members',
+          filter: `conversation_id=eq.${activeConversationId}`,
+        },
+        reloadState,
+      )
       .subscribe()
 
     return () => {
@@ -920,7 +956,7 @@ export function useChatApp() {
         currentChannel.current = null
       }
     }
-  }, [activeConversationId, user])
+  }, [activeConversationId, loadSupabaseState, user])
 
   async function createAccountWithEmail(email: string, password: string) {
     const trimmed = email.trim().toLowerCase()
@@ -1369,6 +1405,7 @@ export function useChatApp() {
       setState((previous) => ({
         ...previous,
         conversations: [conversation, ...previous.conversations],
+        members: upsertMembers(previous.members, conversation.id, conversation.memberIds),
       }))
       setActiveConversationId(conversationId)
       return
@@ -1390,6 +1427,7 @@ export function useChatApp() {
     setState((previous) => ({
       ...previous,
       conversations: [conversation, ...previous.conversations],
+      members: upsertMembers(previous.members, conversation.id, conversation.memberIds),
     }))
     setActiveConversationId(groupId)
 
@@ -1590,7 +1628,7 @@ export function useChatApp() {
           { ...request, status: 'accepted' },
         ),
         conversations: upsertConversation(previous.conversations, conversation),
-        members: upsertMembers(previous.members, conversation.memberIds),
+        members: upsertMembers(previous.members, conversation.id, conversation.memberIds),
       }))
       setActiveConversationId(conversationId)
       setAuthNotice(`已同意 ${requesterProfile.displayName} 的好友申请。`)
@@ -1648,7 +1686,9 @@ export function useChatApp() {
       conversations: conversation
         ? upsertConversation(previous.conversations, conversation)
         : previous.conversations,
-      members: conversation ? upsertMembers(previous.members, conversation.memberIds) : previous.members,
+      members: conversation
+        ? upsertMembers(previous.members, conversation.id, conversation.memberIds)
+        : previous.members,
     }))
 
     if (conversationId && nextStatus === 'accepted') {
@@ -1898,6 +1938,461 @@ export function useChatApp() {
     return true
   }
 
+  async function addGroupMember(conversationId: string, memberUserId: string) {
+    const currentUser = user ?? (!supabase ? demoUser : null)
+    const conversation = state.conversations.find((item) => item.id === conversationId)
+    const targetProfile = state.profiles.find((profile) => profile.id === memberUserId)
+    if (!currentUser || !conversation || conversation.type !== 'group' || !targetProfile) return false
+
+    const currentMember = findConversationMember(state.members, conversationId, currentUser.id)
+    if (!isGroupManagerRole(currentMember?.role)) {
+      setAuthNotice('只有群 owner 或 admin 可以添加群成员。')
+      return false
+    }
+
+    if (conversation.memberIds.includes(memberUserId)) {
+      setAuthNotice('这个成员已经在群聊中。')
+      return true
+    }
+
+    if (
+      conversation.workspaceId &&
+      !state.workspaceMembers.some(
+        (member) =>
+          member.workspaceId === conversation.workspaceId && member.userId === memberUserId,
+      )
+    ) {
+      setAuthNotice('只能添加当前工作区成员进群。')
+      return false
+    }
+
+    const member: ConversationMember = {
+      conversationId,
+      userId: memberUserId,
+      role: 'member',
+      joinedAt: new Date().toISOString(),
+    }
+
+    if (!supabase) {
+      setState((previous) => ({
+        ...previous,
+        conversations: previous.conversations.map((item) =>
+          item.id === conversationId
+            ? {
+                ...item,
+                memberIds: [...item.memberIds, memberUserId],
+                memberCount: item.memberCount + 1,
+              }
+            : item,
+        ),
+        members: upsertConversationMember(previous.members, member),
+      }))
+      setAuthNotice(`已将 ${targetProfile.displayName} 加入群聊。`)
+      recordAdminActivity('group_member_added', memberUserId, 'success', { conversationId })
+      return true
+    }
+
+    const { error } = await supabase.rpc('add_group_member', {
+      conversation_id: conversationId,
+      member_user_id: memberUserId,
+    })
+
+    if (error) {
+      const notice = friendlyErrorMessage(error.message, '无法添加群成员，请稍后重试。')
+      setAuthNotice(notice)
+      recordAppError('workspace_members', notice, { conversationId, targetUserId: memberUserId })
+      return false
+    }
+
+    setState((previous) => ({
+      ...previous,
+      conversations: previous.conversations.map((item) =>
+        item.id === conversationId
+          ? {
+              ...item,
+              memberIds: item.memberIds.includes(memberUserId)
+                ? item.memberIds
+                : [...item.memberIds, memberUserId],
+              memberCount: item.memberIds.includes(memberUserId)
+                ? item.memberCount
+                : item.memberCount + 1,
+            }
+          : item,
+      ),
+      members: upsertConversationMember(previous.members, member),
+    }))
+    setAuthNotice(`已将 ${targetProfile.displayName} 加入群聊。`)
+    void loadSupabaseState(currentUser.id)
+    return true
+  }
+
+  async function removeGroupMember(conversationId: string, memberUserId: string) {
+    const currentUser = user ?? (!supabase ? demoUser : null)
+    const conversation = state.conversations.find((item) => item.id === conversationId)
+    const targetMember = findConversationMember(state.members, conversationId, memberUserId)
+    if (!currentUser || !conversation || conversation.type !== 'group' || !targetMember) return false
+
+    const currentMember = findConversationMember(state.members, conversationId, currentUser.id)
+    if (!isGroupManagerRole(currentMember?.role)) {
+      setAuthNotice('只有群 owner 或 admin 可以移除群成员。')
+      return false
+    }
+
+    if (targetMember.role !== 'member') {
+      setAuthNotice('只能移除普通群成员。')
+      return false
+    }
+
+    if (!supabase) {
+      setState((previous) => ({
+        ...previous,
+        conversations: previous.conversations.map((item) =>
+          item.id === conversationId
+            ? {
+                ...item,
+                memberIds: item.memberIds.filter((id) => id !== memberUserId),
+                memberCount: Math.max(0, item.memberCount - 1),
+              }
+            : item,
+        ),
+        members: previous.members.filter(
+          (member) =>
+            !(member.conversationId === conversationId && member.userId === memberUserId),
+        ),
+      }))
+      setAuthNotice('群成员已移除。')
+      recordAdminActivity('group_member_removed', memberUserId, 'success', { conversationId })
+      return true
+    }
+
+    const { error } = await supabase.rpc('remove_group_member', {
+      conversation_id: conversationId,
+      member_user_id: memberUserId,
+    })
+
+    if (error) {
+      const notice = friendlyErrorMessage(error.message, '无法移除群成员，请稍后重试。')
+      setAuthNotice(notice)
+      recordAppError('workspace_members', notice, { conversationId, targetUserId: memberUserId })
+      return false
+    }
+
+    setState((previous) => ({
+      ...previous,
+      conversations: previous.conversations.map((item) =>
+        item.id === conversationId
+          ? {
+              ...item,
+              memberIds: item.memberIds.filter((id) => id !== memberUserId),
+              memberCount: Math.max(0, item.memberCount - 1),
+            }
+          : item,
+      ),
+      members: previous.members.filter(
+        (member) => !(member.conversationId === conversationId && member.userId === memberUserId),
+      ),
+    }))
+    setAuthNotice('群成员已移除，刷新后对方将不能继续访问该群聊。')
+    void loadSupabaseState(currentUser.id)
+    return true
+  }
+
+  async function updateGroupMemberRole(
+    conversationId: string,
+    memberUserId: string,
+    role: Extract<MemberRole, 'admin' | 'member'>,
+  ) {
+    const currentUser = user ?? (!supabase ? demoUser : null)
+    const conversation = state.conversations.find((item) => item.id === conversationId)
+    const currentMember = currentUser
+      ? findConversationMember(state.members, conversationId, currentUser.id)
+      : undefined
+    const targetMember = findConversationMember(state.members, conversationId, memberUserId)
+    if (!currentUser || !conversation || conversation.type !== 'group' || !targetMember) return false
+
+    if (currentMember?.role !== 'owner') {
+      setAuthNotice('只有群 owner 可以调整群管理员。')
+      return false
+    }
+
+    if (targetMember.role === 'owner') {
+      setAuthNotice('不能调整群 owner 的角色。')
+      return false
+    }
+
+    if (!supabase) {
+      setState((previous) => ({
+        ...previous,
+        members: previous.members.map((member) =>
+          member.conversationId === conversationId && member.userId === memberUserId
+            ? { ...member, role }
+            : member,
+        ),
+      }))
+      setAuthNotice('群成员角色已更新。')
+      recordAdminActivity('group_member_role_updated', memberUserId, 'success', {
+        conversationId,
+        role,
+      })
+      return true
+    }
+
+    const { error } = await supabase.rpc('update_group_member_role', {
+      conversation_id: conversationId,
+      member_user_id: memberUserId,
+      role,
+    })
+
+    if (error) {
+      const notice = friendlyErrorMessage(error.message, '无法更新群成员角色，请稍后重试。')
+      setAuthNotice(notice)
+      recordAppError('workspace_members', notice, { conversationId, targetUserId: memberUserId, role })
+      return false
+    }
+
+    setState((previous) => ({
+      ...previous,
+      members: previous.members.map((member) =>
+        member.conversationId === conversationId && member.userId === memberUserId
+          ? { ...member, role }
+          : member,
+      ),
+    }))
+    setAuthNotice('群成员角色已更新。')
+    void loadSupabaseState(currentUser.id)
+    return true
+  }
+
+  async function renameGroup(conversationId: string, title: string) {
+    const currentUser = user ?? (!supabase ? demoUser : null)
+    const trimmed = title.trim().slice(0, 80)
+    const conversation = state.conversations.find((item) => item.id === conversationId)
+    if (!currentUser || !conversation || conversation.type !== 'group' || !trimmed) return false
+
+    const currentMember = findConversationMember(state.members, conversationId, currentUser.id)
+    if (!isGroupManagerRole(currentMember?.role)) {
+      setAuthNotice('只有群 owner 或 admin 可以修改群名称。')
+      return false
+    }
+
+    if (!supabase) {
+      setState((previous) => ({
+        ...previous,
+        conversations: previous.conversations.map((item) =>
+          item.id === conversationId ? { ...item, title: trimmed } : item,
+        ),
+      }))
+      setAuthNotice('群名称已更新。')
+      recordAdminActivity('group_renamed', currentUser.id, 'success', { conversationId })
+      return true
+    }
+
+    const { error } = await supabase.rpc('rename_group', {
+      conversation_id: conversationId,
+      title: trimmed,
+    })
+
+    if (error) {
+      const notice = friendlyErrorMessage(error.message, '无法修改群名称，请稍后重试。')
+      setAuthNotice(notice)
+      recordAppError('workspace_members', notice, { conversationId })
+      return false
+    }
+
+    setState((previous) => ({
+      ...previous,
+      conversations: previous.conversations.map((item) =>
+        item.id === conversationId ? { ...item, title: trimmed } : item,
+      ),
+    }))
+    setAuthNotice('群名称已更新。')
+    void loadSupabaseState(currentUser.id)
+    return true
+  }
+
+  async function deleteGroupMessage(conversationId: string, messageId: string) {
+    const currentUser = user ?? (!supabase ? demoUser : null)
+    const conversation = state.conversations.find((item) => item.id === conversationId)
+    const message = state.messages.find((item) => item.id === messageId)
+    if (!currentUser || !conversation || !message) return false
+
+    if (!canDeleteGroupMessage(conversation, state.members, message, currentUser.id)) {
+      setAuthNotice('你没有权限删除这条群消息，或撤回时间已超过 2 分钟。')
+      return false
+    }
+
+    const reason = message.senderId === currentUser.id ? 'recalled' : 'moderated'
+
+    if (!supabase) {
+      setState((previous) => markMessageDeleted(previous, conversationId, messageId, currentUser.id, reason))
+      setAuthNotice('消息已删除。')
+      recordAdminActivity('message_deleted', message.senderId, 'success', {
+        conversationId,
+        messageId,
+        reason,
+      })
+      return true
+    }
+
+    const { error } = await supabase.rpc('delete_group_message', {
+      target_conversation_id: conversationId,
+      target_message_id: messageId,
+    })
+
+    if (error) {
+      const notice = friendlyErrorMessage(error.message, '无法删除这条消息，请稍后重试。')
+      setAuthNotice(notice)
+      recordAppError('messages', notice, { conversationId, messageId })
+      return false
+    }
+
+    setState((previous) => markMessageDeleted(previous, conversationId, messageId, currentUser.id, reason))
+    setAuthNotice('消息已删除。')
+    void loadSupabaseState(currentUser.id)
+    return true
+  }
+
+  async function updateGroupAnnouncement(conversationId: string, announcement: string) {
+    const currentUser = user ?? (!supabase ? demoUser : null)
+    const conversation = state.conversations.find((item) => item.id === conversationId)
+    const normalized = announcement.trim().slice(0, 500)
+    if (!currentUser || !conversation || conversation.type !== 'group') return false
+
+    const currentMember = findConversationMember(state.members, conversationId, currentUser.id)
+    if (!isGroupManagerRole(currentMember?.role)) {
+      setAuthNotice('只有群 owner 或 admin 可以修改群公告。')
+      return false
+    }
+
+    if (!supabase) {
+      setState((previous) => ({
+        ...previous,
+        conversations: previous.conversations.map((item) =>
+          item.id === conversationId ? { ...item, announcement: normalized } : item,
+        ),
+      }))
+      setAuthNotice(normalized ? '群公告已更新。' : '群公告已清空。')
+      recordAdminActivity('group_announcement_updated', currentUser.id, 'success', { conversationId })
+      return true
+    }
+
+    const { error } = await supabase.rpc('update_group_announcement', {
+      target_conversation_id: conversationId,
+      next_announcement: normalized,
+    })
+
+    if (error) {
+      const notice = friendlyErrorMessage(error.message, '无法更新群公告，请稍后重试。')
+      setAuthNotice(notice)
+      recordAppError('workspace_members', notice, { conversationId })
+      return false
+    }
+
+    setState((previous) => ({
+      ...previous,
+      conversations: previous.conversations.map((item) =>
+        item.id === conversationId ? { ...item, announcement: normalized } : item,
+      ),
+    }))
+    setAuthNotice(normalized ? '群公告已更新。' : '群公告已清空。')
+    void loadSupabaseState(currentUser.id)
+    return true
+  }
+
+  async function pinGroupMessage(conversationId: string, messageId: string) {
+    const currentUser = user ?? (!supabase ? demoUser : null)
+    const conversation = state.conversations.find((item) => item.id === conversationId)
+    const message = state.messages.find((item) => item.id === messageId)
+    if (!currentUser || !conversation || conversation.type !== 'group' || !message || message.deletedAt) {
+      return false
+    }
+
+    const currentMember = findConversationMember(state.members, conversationId, currentUser.id)
+    if (!isGroupManagerRole(currentMember?.role)) {
+      setAuthNotice('只有群 owner 或 admin 可以置顶消息。')
+      return false
+    }
+
+    if (!supabase) {
+      setState((previous) => ({
+        ...previous,
+        conversations: previous.conversations.map((item) =>
+          item.id === conversationId ? { ...item, pinnedMessageId: messageId } : item,
+        ),
+      }))
+      setAuthNotice('消息已置顶。')
+      recordAdminActivity('message_pinned', currentUser.id, 'success', { conversationId, messageId })
+      return true
+    }
+
+    const { error } = await supabase.rpc('pin_group_message', {
+      target_conversation_id: conversationId,
+      target_message_id: messageId,
+    })
+
+    if (error) {
+      const notice = friendlyErrorMessage(error.message, '无法置顶消息，请稍后重试。')
+      setAuthNotice(notice)
+      recordAppError('messages', notice, { conversationId, messageId })
+      return false
+    }
+
+    setState((previous) => ({
+      ...previous,
+      conversations: previous.conversations.map((item) =>
+        item.id === conversationId ? { ...item, pinnedMessageId: messageId } : item,
+      ),
+    }))
+    setAuthNotice('消息已置顶。')
+    void loadSupabaseState(currentUser.id)
+    return true
+  }
+
+  async function unpinGroupMessage(conversationId: string) {
+    const currentUser = user ?? (!supabase ? demoUser : null)
+    const conversation = state.conversations.find((item) => item.id === conversationId)
+    if (!currentUser || !conversation || conversation.type !== 'group') return false
+
+    const currentMember = findConversationMember(state.members, conversationId, currentUser.id)
+    if (!isGroupManagerRole(currentMember?.role)) {
+      setAuthNotice('只有群 owner 或 admin 可以取消置顶。')
+      return false
+    }
+
+    if (!supabase) {
+      setState((previous) => ({
+        ...previous,
+        conversations: previous.conversations.map((item) =>
+          item.id === conversationId ? { ...item, pinnedMessageId: undefined } : item,
+        ),
+      }))
+      setAuthNotice('已取消置顶。')
+      recordAdminActivity('message_unpinned', currentUser.id, 'success', { conversationId })
+      return true
+    }
+
+    const { error } = await supabase.rpc('unpin_group_message', {
+      target_conversation_id: conversationId,
+    })
+
+    if (error) {
+      const notice = friendlyErrorMessage(error.message, '无法取消置顶，请稍后重试。')
+      setAuthNotice(notice)
+      recordAppError('messages', notice, { conversationId })
+      return false
+    }
+
+    setState((previous) => ({
+      ...previous,
+      conversations: previous.conversations.map((item) =>
+        item.id === conversationId ? { ...item, pinnedMessageId: undefined } : item,
+      ),
+    }))
+    setAuthNotice('已取消置顶。')
+    void loadSupabaseState(currentUser.id)
+    return true
+  }
+
   function getProfile(profileId: string) {
     return state.profiles.find((profile) => profile.id === profileId)
   }
@@ -1908,12 +2403,14 @@ export function useChatApp() {
     activeMessages,
     activeWorkspace,
     activeWorkspaceRole,
+    addGroupMember,
     addWorkspaceMemberByEmail,
     adminActivityLogs: state.adminActivityLogs,
     appErrorEvents: state.appErrorEvents,
     authNotice,
     createGroup,
     currentDeviceId,
+    deleteGroupMessage,
     deviceSessions: state.deviceSessions,
     getProfile,
     incomingContactRequests,
@@ -1937,8 +2434,14 @@ export function useChatApp() {
     revokeDeviceSession,
     revokeOtherDevices,
     removeWorkspaceMember,
+    removeGroupMember,
+    renameGroup,
+    pinGroupMessage,
+    unpinGroupMessage,
+    updateGroupAnnouncement,
     updateProfile,
     updateProfileAvatar,
+    updateGroupMemberRole,
     updateWorkspaceMemberRole,
     user,
     visibleConversations,
@@ -2009,19 +2512,126 @@ function upsertWorkspaceMember(
     : [...members, incoming]
 }
 
-function upsertMembers(members: ChatState['members'], memberIds: string[]) {
-  const existingIds = new Set(members.map((member) => member.userId))
+function upsertMembers(
+  members: ChatState['members'],
+  conversationId: string,
+  memberIds: string[],
+) {
+  const existingIds = new Set(
+    members
+      .filter((member) => member.conversationId === conversationId)
+      .map((member) => member.userId),
+  )
   const now = new Date().toISOString()
   return [
     ...members,
     ...memberIds
       .filter((userId) => !existingIds.has(userId))
       .map((userId, index) => ({
+        conversationId,
         userId,
         role: index === 0 ? 'owner' as const : 'member' as const,
         joinedAt: now,
       })),
   ]
+}
+
+function upsertConversationMember(
+  members: ChatState['members'],
+  incoming: ConversationMember,
+) {
+  const exists = members.some(
+    (member) =>
+      member.conversationId === incoming.conversationId && member.userId === incoming.userId,
+  )
+
+  return exists
+    ? members.map((member) =>
+        member.conversationId === incoming.conversationId && member.userId === incoming.userId
+          ? { ...member, ...incoming }
+          : member,
+      )
+    : [...members, incoming]
+}
+
+function findConversationMember(
+  members: ChatState['members'],
+  conversationId: string,
+  userId: string,
+) {
+  return members.find(
+    (member) => member.conversationId === conversationId && member.userId === userId,
+  )
+}
+
+function isGroupManagerRole(role: MemberRole | undefined) {
+  return role === 'owner' || role === 'admin'
+}
+
+function canDeleteGroupMessage(
+  conversation: Conversation | undefined,
+  members: ChatState['members'],
+  message: Message | undefined,
+  currentUserId: string,
+) {
+  if (!conversation || conversation.type !== 'group' || !message || message.deletedAt) return false
+
+  const currentMember = findConversationMember(members, conversation.id, currentUserId)
+  const senderMember = findConversationMember(members, conversation.id, message.senderId)
+  const isOwnRecentMessage =
+    message.senderId === currentUserId &&
+    Date.now() - Date.parse(message.createdAt) <= 2 * 60 * 1000
+
+  return isOwnRecentMessage || (isGroupManagerRole(currentMember?.role) && senderMember?.role === 'member')
+}
+
+function latestConversationMessage(conversationId: string, messages: Message[]) {
+  return [...messages]
+    .filter((message) => message.conversationId === conversationId)
+    .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))[0]
+}
+
+function conversationLastMessageText(message: Message | undefined) {
+  if (!message) return ''
+  return message.deletedAt ? '此消息已删除' : message.body
+}
+
+function markMessageDeleted(
+  state: ChatState,
+  conversationId: string,
+  messageId: string,
+  deletedBy: string,
+  deleteReason: string,
+) {
+  const deletedAt = new Date().toISOString()
+  const messages = state.messages.map((message) =>
+    message.id === messageId
+      ? {
+          ...message,
+          deletedAt,
+          deletedBy,
+          deleteReason,
+          attachment: undefined,
+        }
+      : message,
+  )
+  const latestMessage = latestConversationMessage(conversationId, messages)
+
+  return {
+    ...state,
+    messages,
+    conversations: state.conversations.map((conversation) =>
+      conversation.id === conversationId
+        ? {
+            ...conversation,
+            pinnedMessageId:
+              conversation.pinnedMessageId === messageId ? undefined : conversation.pinnedMessageId,
+            lastMessage: conversationLastMessageText(latestMessage),
+            updatedAt: deletedAt,
+          }
+        : conversation,
+    ),
+  }
 }
 
 function findDirectConversation(conversations: Conversation[], firstUserId: string, secondUserId: string) {
@@ -2052,7 +2662,9 @@ function buildSearchResults(
   })
 
   conversations.forEach((conversation) => {
-    const conversationMessages = messagesByConversation.get(conversation.id) ?? []
+    const conversationMessages = (messagesByConversation.get(conversation.id) ?? []).filter(
+      (message) => !message.deletedAt,
+    )
     const memberNames = conversation.memberIds
       .map((memberId) => profilesById.get(memberId)?.displayName)
       .filter(Boolean)
@@ -2123,7 +2735,7 @@ function withNewMessage(state: ChatState, message: Message): ChatState {
       conversation.id === message.conversationId
         ? {
             ...conversation,
-            lastMessage: message.body,
+            lastMessage: message.deletedAt ? '此消息已删除' : message.body,
             updatedAt: message.createdAt,
             unreadCount: 0,
           }
@@ -2239,12 +2851,15 @@ function mapConversation(
     memberCount: memberIds.length,
     unreadCount: 0,
     updatedAt: String(row.updated_at ?? row.created_at ?? new Date().toISOString()),
-    lastMessage: latestMessage?.body ?? '',
+    lastMessage: latestMessage?.deletedAt ? '此消息已删除' : (latestMessage?.body ?? ''),
+    announcement: String(row.announcement ?? ''),
+    pinnedMessageId: row.pinned_message_id ? String(row.pinned_message_id) : undefined,
   }
 }
 
 async function mapMessage(row: Record<string, unknown>): Promise<Message> {
   const attachment = row.attachments as Record<string, unknown> | null
+  const deletedAt = row.deleted_at ? String(row.deleted_at) : undefined
 
   return {
     id: String(row.id),
@@ -2254,7 +2869,10 @@ async function mapMessage(row: Record<string, unknown>): Promise<Message> {
     type: (row.message_type as Message['type']) ?? 'text',
     status: (row.status as Message['status']) ?? 'sent',
     createdAt: String(row.created_at),
-    attachment: attachment
+    deletedAt,
+    deletedBy: row.deleted_by ? String(row.deleted_by) : undefined,
+    deleteReason: row.delete_reason ? String(row.delete_reason) : undefined,
+    attachment: attachment && !deletedAt
       ? {
           id: String(attachment.id),
           fileName: String(attachment.file_name),

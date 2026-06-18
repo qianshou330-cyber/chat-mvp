@@ -321,6 +321,7 @@ export const createDemoState = (): ChatState => ({
   messages: [...demoMessages],
   members: demoConversations.flatMap((conversation) =>
     conversation.memberIds.map((userId, index) => ({
+      conversationId: conversation.id,
       userId,
       role: index === 0 ? 'owner' : 'member',
       joinedAt: minutesAgo(120),

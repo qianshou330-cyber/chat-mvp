@@ -765,6 +765,32 @@ mark {
   padding: 10px 12px;
 }
 
+.conversation-notice {
+  background: #f5f9fc;
+  border-bottom: 1px solid var(--border);
+  display: grid;
+  flex: 0 0 auto;
+  gap: 5px;
+  padding: 10px 14px;
+}
+
+.conversation-notice strong {
+  color: var(--text);
+  font-size: 13px;
+}
+
+.conversation-notice p,
+.pinned-message-button {
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.conversation-notice.pinned {
+  gap: 8px;
+}
+
 .inline-results {
   display: flex;
   flex-direction: column;
@@ -822,6 +848,53 @@ mark {
   font-size: 14px;
   margin: 0;
   overflow-wrap: anywhere;
+}
+
+.message.deleted .bubble {
+  opacity: 0.78;
+}
+
+.deleted-message {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.pin-label {
+  background: #e5f4ff;
+  border-radius: 999px;
+  color: var(--primary);
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 800;
+  margin-bottom: 4px;
+  padding: 2px 7px;
+}
+
+.message-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 6px;
+}
+
+.message.theirs .message-actions {
+  justify-content: flex-start;
+}
+
+.text-action {
+  background: transparent;
+  border: 0;
+  color: var(--primary);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 0;
+}
+
+.text-action.danger {
+  color: #d84b4b;
 }
 
 .sender-name {
@@ -912,6 +985,27 @@ mark {
   margin: 0;
 }
 
+.group-title-editor {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+  width: min(100%, 280px);
+}
+
+.group-title-editor input {
+  background: var(--surface-soft);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  min-height: 42px;
+  padding: 0 12px;
+  text-align: center;
+}
+
+.compact-button {
+  min-height: 38px;
+}
+
 .settings-list {
   display: flex;
   flex-direction: column;
@@ -956,8 +1050,84 @@ mark {
   font-size: 12px;
 }
 
+.group-member-manager {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+}
+
+.group-member-manager label {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.group-announcement-editor {
+  background: #f8fbfe;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+}
+
+.group-announcement-editor span {
+  display: grid;
+  gap: 3px;
+}
+
+.group-announcement-editor strong {
+  color: var(--text);
+  font-size: 14px;
+}
+
+.group-announcement-editor small,
+.group-announcement-editor p {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.group-announcement-editor p {
+  margin: 0;
+}
+
+.group-announcement-editor textarea {
+  background: var(--surface-soft);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font: inherit;
+  min-height: 78px;
+  padding: 10px;
+  resize: vertical;
+}
+
 .member-row {
   grid-template-columns: 48px 1fr;
+}
+
+.group-member-row {
+  grid-template-columns: 48px minmax(0, 1fr) auto;
+}
+
+.group-member-actions {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.group-member-actions select {
+  background: var(--surface-soft);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  min-height: 36px;
+  max-width: 116px;
+  padding: 0 8px;
 }
 
 .profile-hero {

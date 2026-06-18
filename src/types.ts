@@ -54,10 +54,14 @@ export interface Message {
   type: MessageType
   status: MessageStatus
   createdAt: string
+  deletedAt?: string
+  deletedBy?: string
+  deleteReason?: string
   attachment?: Attachment
 }
 
 export interface ConversationMember {
+  conversationId: string
   userId: string
   role: MemberRole
   joinedAt: string
@@ -73,6 +77,8 @@ export interface Conversation {
   unreadCount: number
   updatedAt: string
   lastMessage: string
+  announcement?: string
+  pinnedMessageId?: string
 }
 
 export interface Workspace {
@@ -125,6 +131,14 @@ export type AdminActivityAction =
   | 'member_removed'
   | 'member_role_updated'
   | 'other_devices_revoked'
+  | 'group_member_added'
+  | 'group_member_removed'
+  | 'group_member_role_updated'
+  | 'group_renamed'
+  | 'message_deleted'
+  | 'group_announcement_updated'
+  | 'message_pinned'
+  | 'message_unpinned'
 
 export interface AdminActivityLog {
   id: string
