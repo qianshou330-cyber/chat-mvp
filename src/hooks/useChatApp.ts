@@ -16,6 +16,9 @@ import type {
   Message,
   Profile,
   SearchResult,
+  Workspace,
+  WorkspaceMember,
+  WorkspaceRole,
 } from '../types'
 
 const initialState = createDemoState()
@@ -83,6 +86,19 @@ function friendlyErrorMessage(message: string | undefined, fallback: string) {
   }
 
   if (
+    normalized.includes('workspace admin') ||
+    normalized.includes('not a workspace member') ||
+    normalized.includes('member role') ||
+    normalized.includes('cannot remove')
+  ) {
+    return '你没有权限管理这个工作区成员。'
+  }
+
+  if (normalized.includes('workspace member already exists')) {
+    return '这个用户已经在当前工作区。'
+  }
+
+  if (
     normalized.includes('row-level security') ||
     normalized.includes('permission denied') ||
     normalized.includes('not authorized') ||
@@ -92,6 +108,18 @@ function friendlyErrorMessage(message: string | undefined, fallback: string) {
   }
 
   return fallback
+}
+
+function isMissingWorkspaceSchema(message: string | undefined) {
+  const normalized = (message ?? '').toLowerCase()
+  return (
+    normalized.includes('ensure_default_workspace') ||
+    normalized.includes('workspace_members') ||
+    normalized.includes('workspaces') ||
+    normalized.includes('schema cache') ||
+    normalized.includes('could not find the function') ||
+    normalized.includes('does not exist')
+  )
 }
 
 export function useChatApp() {
@@ -145,6 +173,25 @@ export function useChatApp() {
   )
 
   const me = user ? state.profiles.find((profile) => profile.id === user.id) : null
+
+  const activeWorkspace = useMemo(
+    () =>
+      state.workspaces.find((workspace) => workspace.id === state.activeWorkspaceId) ??
+      state.workspaces[0] ??
+      null,
+    [state.activeWorkspaceId, state.workspaces],
+  )
+
+  const workspaceMembers = useMemo(
+    () =>
+      state.workspaceMembers
+        .filter((member) => !activeWorkspace || member.workspaceId === activeWorkspace.id)
+        .sort((a, b) => workspaceRoleRank(a.role) - workspaceRoleRank(b.role)),
+    [activeWorkspace, state.workspaceMembers],
+  )
+
+  const activeWorkspaceRole =
+    workspaceMembers.find((member) => member.userId === user?.id)?.role ?? 'member'
 
   const incomingContactRequests = useMemo(
     () =>
@@ -218,6 +265,82 @@ export function useChatApp() {
       }
     }
 
+    let workspaceRows: Record<string, unknown>[] = []
+    let workspaceMemberRows: Record<string, unknown>[] = []
+    let activeWorkspaceId = ''
+    let hasWorkspaceSchema = true
+
+    const defaultWorkspaceResult = await supabase
+      .rpc('ensure_default_workspace')
+      .maybeSingle()
+
+    if (defaultWorkspaceResult.error) {
+      hasWorkspaceSchema = false
+      if (!isMissingWorkspaceSchema(defaultWorkspaceResult.error.message)) {
+        setAuthNotice(
+          friendlyErrorMessage(
+            defaultWorkspaceResult.error.message,
+            '无法加载工作区，请确认 v0.3 migration 已运行。',
+          ),
+        )
+      }
+    } else if (defaultWorkspaceResult.data) {
+      const row = defaultWorkspaceResult.data as Record<string, unknown>
+      activeWorkspaceId = String(row.workspace_id ?? '')
+    }
+
+    if (hasWorkspaceSchema) {
+      const workspaceMembershipResult = await supabase
+        .from('workspace_members')
+        .select('*')
+        .eq('user_id', userId)
+
+      if (workspaceMembershipResult.error) {
+        setAuthNotice(
+          friendlyErrorMessage(
+            workspaceMembershipResult.error.message,
+            '无法加载工作区成员关系，请刷新后重试。',
+          ),
+        )
+      }
+
+      const workspaceMembershipRows = workspaceMembershipResult.data ?? []
+      if (!activeWorkspaceId) {
+        activeWorkspaceId = String(workspaceMembershipRows[0]?.workspace_id ?? '')
+      }
+
+      const workspaceIds = new Set<string>()
+      if (activeWorkspaceId) workspaceIds.add(activeWorkspaceId)
+      workspaceMembershipRows.forEach((member) => workspaceIds.add(member.workspace_id as string))
+
+      if (workspaceIds.size > 0) {
+        const [workspacesResult, workspaceMembersResult] = await Promise.all([
+          supabase.from('workspaces').select('*').in('id', [...workspaceIds]),
+          activeWorkspaceId
+            ? supabase.from('workspace_members').select('*').eq('workspace_id', activeWorkspaceId)
+            : Promise.resolve({ data: workspaceMembershipRows, error: null }),
+        ])
+
+        if (workspacesResult.error) {
+          setAuthNotice(
+            friendlyErrorMessage(workspacesResult.error.message, '无法加载工作区，请刷新后重试。'),
+          )
+        }
+
+        if (workspaceMembersResult.error) {
+          setAuthNotice(
+            friendlyErrorMessage(
+              workspaceMembersResult.error.message,
+              '无法加载工作区成员，请刷新后重试。',
+            ),
+          )
+        }
+
+        workspaceRows = workspacesResult.data ?? []
+        workspaceMemberRows = workspaceMembersResult.data ?? workspaceMembershipRows
+      }
+    }
+
     const conversationIds =
       memberResult.data?.map((member) => member.conversation_id as string) ?? []
     const contactRows = contactsResult.data ?? []
@@ -270,6 +393,7 @@ export function useChatApp() {
       profileIds.add(contact.contact_id as string)
     })
     memberRows.forEach((member) => profileIds.add(member.user_id as string))
+    workspaceMemberRows.forEach((member) => profileIds.add(member.user_id as string))
 
     const profilesResult =
       profileIds.size > 0
@@ -306,6 +430,9 @@ export function useChatApp() {
         role: member.role as 'owner' | 'admin' | 'member',
         joinedAt: member.joined_at as string,
       })),
+      workspaces: workspaceRows.map(mapWorkspace),
+      workspaceMembers: workspaceMemberRows.map(mapWorkspaceMember),
+      activeWorkspaceId,
     })
     setActiveConversationId((previous) =>
       conversationIds.includes(previous) ? previous : (conversationIds[0] ?? ''),
@@ -386,6 +513,16 @@ export function useChatApp() {
           event: 'INSERT',
           schema: 'public',
           table: 'conversation_members',
+          filter: `user_id=eq.${user.id}`,
+        },
+        reloadState,
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'workspace_members',
           filter: `user_id=eq.${user.id}`,
         },
         reloadState,
@@ -735,6 +872,7 @@ export function useChatApp() {
       id: groupId,
       type: 'group',
       title: '新群聊',
+      workspaceId: state.activeWorkspaceId || undefined,
       memberIds: [user.id],
       memberCount: 1,
       unreadCount: 0,
@@ -750,12 +888,17 @@ export function useChatApp() {
 
     if (!supabase) return
 
-    const { error } = await supabase.from('conversations').insert({
+    const conversationInsert: Record<string, unknown> = {
       id: groupId,
       type: 'group',
       title: conversation.title,
       created_by: user.id,
-    })
+    }
+    if (state.activeWorkspaceId) {
+      conversationInsert.workspace_id = state.activeWorkspaceId
+    }
+
+    const { error } = await supabase.from('conversations').insert(conversationInsert)
 
     if (!error) {
       await supabase.from('conversation_members').insert({
@@ -1034,6 +1177,199 @@ export function useChatApp() {
     return null
   }
 
+  async function addWorkspaceMemberByEmail(email: string, role: WorkspaceRole = 'member') {
+    const trimmed = email.trim().toLowerCase()
+    const currentUser = user ?? (!supabase ? demoUser : null)
+    if (!trimmed || !currentUser || !activeWorkspace) return false
+
+    if (trimmed === currentUser.email.toLowerCase()) {
+      setAuthNotice('你已经在当前工作区。')
+      return false
+    }
+
+    if (!isWorkspaceManager(activeWorkspaceRole)) {
+      setAuthNotice('只有 owner 或 admin 可以添加工作区成员。')
+      return false
+    }
+
+    if (!supabase) {
+      const targetProfileId = demoProfileEmails[trimmed]
+      const targetProfile = state.profiles.find((profile) => profile.id === targetProfileId)
+
+      if (!targetProfile) {
+        setAuthNotice('没有找到使用这个邮箱注册的用户。')
+        return false
+      }
+
+      const exists = state.workspaceMembers.some(
+        (member) =>
+          member.workspaceId === activeWorkspace.id && member.userId === targetProfile.id,
+      )
+      if (exists) {
+        setAuthNotice('这个用户已经在当前工作区。')
+        return true
+      }
+
+      const workspaceMember: WorkspaceMember = {
+        workspaceId: activeWorkspace.id,
+        userId: targetProfile.id,
+        role,
+        joinedAt: new Date().toISOString(),
+      }
+
+      setState((previous) => ({
+        ...previous,
+        workspaceMembers: upsertWorkspaceMember(previous.workspaceMembers, workspaceMember),
+      }))
+      setAuthNotice(`已将 ${targetProfile.displayName} 加入 ${activeWorkspace.name}。`)
+      return true
+    }
+
+    const { data, error } = await supabase
+      .rpc('add_workspace_member_by_email', {
+        search_email: trimmed,
+        requested_role: role,
+      })
+      .single()
+
+    if (error) {
+      setAuthNotice(
+        friendlyErrorMessage(error.message, '无法添加工作区成员，请检查邮箱后重试。'),
+      )
+      return false
+    }
+
+    const row = data as Record<string, unknown>
+    const profile = mapProfile({
+      id: row.member_user_id,
+      display_name: row.member_display_name,
+      avatar_url: row.member_avatar_url,
+      avatar_tone: row.member_avatar_tone,
+      bio: row.member_bio,
+      status: row.member_status,
+      last_seen: row.member_last_seen,
+    })
+    const workspaceMember = mapWorkspaceMember({
+      workspace_id: row.workspace_id,
+      user_id: row.member_user_id,
+      role: row.member_role,
+      joined_at: row.joined_at,
+    })
+
+    setState((previous) => ({
+      ...previous,
+      profiles: upsertProfile(previous.profiles, profile),
+      workspaceMembers: upsertWorkspaceMember(previous.workspaceMembers, workspaceMember),
+    }))
+    setAuthNotice(`已将 ${profile.displayName} 加入当前工作区。`)
+    void loadSupabaseState(currentUser.id)
+    return true
+  }
+
+  async function removeWorkspaceMember(memberUserId: string) {
+    const currentUser = user ?? (!supabase ? demoUser : null)
+    if (!currentUser || !activeWorkspace) return false
+
+    if (memberUserId === currentUser.id) {
+      setAuthNotice('不能在这里移除自己。')
+      return false
+    }
+
+    if (!isWorkspaceManager(activeWorkspaceRole)) {
+      setAuthNotice('只有 owner 或 admin 可以移除工作区成员。')
+      return false
+    }
+
+    const targetMember = state.workspaceMembers.find(
+      (member) => member.workspaceId === activeWorkspace.id && member.userId === memberUserId,
+    )
+    if (!targetMember) {
+      setAuthNotice('没有找到这个工作区成员。')
+      return false
+    }
+
+    if (targetMember.role === 'owner') {
+      setAuthNotice('不能移除工作区 owner。')
+      return false
+    }
+
+    if (!supabase) {
+      setState((previous) => ({
+        ...previous,
+        workspaceMembers: previous.workspaceMembers.filter(
+          (member) =>
+            !(member.workspaceId === activeWorkspace.id && member.userId === memberUserId),
+        ),
+        conversations: previous.conversations.map((conversation) =>
+          conversation.workspaceId === activeWorkspace.id
+            ? {
+                ...conversation,
+                memberIds: conversation.memberIds.filter((id) => id !== memberUserId),
+                memberCount: conversation.memberIds.filter((id) => id !== memberUserId).length,
+              }
+            : conversation,
+        ),
+      }))
+      setAuthNotice('成员已移除。')
+      return true
+    }
+
+    const { error } = await supabase.rpc('remove_workspace_member', {
+      member_user_id: memberUserId,
+    })
+
+    if (error) {
+      setAuthNotice(friendlyErrorMessage(error.message, '无法移除工作区成员，请重试。'))
+      return false
+    }
+
+    setAuthNotice('成员已移除。')
+    void loadSupabaseState(currentUser.id)
+    return true
+  }
+
+  async function updateWorkspaceMemberRole(memberUserId: string, role: WorkspaceRole) {
+    const currentUser = user ?? (!supabase ? demoUser : null)
+    if (!currentUser || !activeWorkspace) return false
+
+    if (!isWorkspaceManager(activeWorkspaceRole)) {
+      setAuthNotice('只有 owner 或 admin 可以调整工作区成员角色。')
+      return false
+    }
+
+    if (role === 'owner') {
+      setAuthNotice('当前版本暂不支持转移 owner。')
+      return false
+    }
+
+    if (!supabase) {
+      setState((previous) => ({
+        ...previous,
+        workspaceMembers: previous.workspaceMembers.map((member) =>
+          member.workspaceId === activeWorkspace.id && member.userId === memberUserId
+            ? { ...member, role }
+            : member,
+        ),
+      }))
+      setAuthNotice('成员角色已更新。')
+      return true
+    }
+
+    const { error } = await supabase.rpc('update_workspace_member_role', {
+      member_user_id: memberUserId,
+      member_role: role,
+    })
+
+    if (error) {
+      setAuthNotice(friendlyErrorMessage(error.message, '无法更新成员角色，请重试。'))
+      return false
+    }
+
+    setAuthNotice('成员角色已更新。')
+    void loadSupabaseState(currentUser.id)
+    return true
+  }
+
   function getProfile(profileId: string) {
     return state.profiles.find((profile) => profile.id === profileId)
   }
@@ -1042,6 +1378,9 @@ export function useChatApp() {
     activeConversation,
     activeConversationId,
     activeMessages,
+    activeWorkspace,
+    activeWorkspaceRole,
+    addWorkspaceMemberByEmail,
     authNotice,
     createGroup,
     getProfile,
@@ -1062,10 +1401,13 @@ export function useChatApp() {
     signOut,
     state,
     respondToContactRequest,
+    removeWorkspaceMember,
     updateProfile,
     updateProfileAvatar,
+    updateWorkspaceMemberRole,
     user,
     visibleConversations,
+    workspaceMembers,
   }
 }
 
@@ -1113,6 +1455,23 @@ function upsertConversation(conversations: Conversation[], incoming: Conversatio
           : conversation,
       )
     : [incoming, ...conversations]
+}
+
+function upsertWorkspaceMember(
+  members: WorkspaceMember[],
+  incoming: WorkspaceMember,
+) {
+  const exists = members.some(
+    (member) =>
+      member.workspaceId === incoming.workspaceId && member.userId === incoming.userId,
+  )
+  return exists
+    ? members.map((member) =>
+        member.workspaceId === incoming.workspaceId && member.userId === incoming.userId
+          ? { ...member, ...incoming }
+          : member,
+      )
+    : [...members, incoming]
 }
 
 function upsertMembers(members: ChatState['members'], memberIds: string[]) {
@@ -1211,6 +1570,16 @@ function matchesSearch(value: string, normalizedQuery: string) {
   return normalizeSearch(value).includes(normalizedQuery)
 }
 
+function isWorkspaceManager(role: WorkspaceRole) {
+  return role === 'owner' || role === 'admin'
+}
+
+function workspaceRoleRank(role: WorkspaceRole) {
+  if (role === 'owner') return 0
+  if (role === 'admin') return 1
+  return 2
+}
+
 function withNewMessage(state: ChatState, message: Message): ChatState {
   return {
     ...state,
@@ -1254,6 +1623,25 @@ function mapContact(row: Record<string, unknown>, currentUserId: string): Contac
   }
 }
 
+function mapWorkspace(row: Record<string, unknown>): Workspace {
+  return {
+    id: String(row.id),
+    name: String(row.name ?? '我的工作区'),
+    createdBy: String(row.created_by ?? ''),
+    createdAt: String(row.created_at ?? new Date().toISOString()),
+    updatedAt: String(row.updated_at ?? row.created_at ?? new Date().toISOString()),
+  }
+}
+
+function mapWorkspaceMember(row: Record<string, unknown>): WorkspaceMember {
+  return {
+    workspaceId: String(row.workspace_id),
+    userId: String(row.user_id),
+    role: (row.role as WorkspaceRole) ?? 'member',
+    joinedAt: String(row.joined_at ?? new Date().toISOString()),
+  }
+}
+
 function mapConversation(
   row: Record<string, unknown>,
   memberIds: string[],
@@ -1274,6 +1662,7 @@ function mapConversation(
     id: String(row.id),
     type,
     title: String(row.title ?? fallbackTitle ?? '会话'),
+    workspaceId: row.workspace_id ? String(row.workspace_id) : undefined,
     memberIds,
     memberCount: memberIds.length,
     unreadCount: 0,

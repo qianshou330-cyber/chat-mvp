@@ -1,4 +1,13 @@
-import type { AppUser, ChatState, ContactRequest, Conversation, Message, Profile } from '../types'
+import type {
+  AppUser,
+  ChatState,
+  ContactRequest,
+  Conversation,
+  Message,
+  Profile,
+  Workspace,
+  WorkspaceMember,
+} from '../types'
 
 const now = new Date()
 
@@ -92,6 +101,43 @@ export const demoContacts: ContactRequest[] = [
   },
 ]
 
+export const demoWorkspaces: Workspace[] = [
+  {
+    id: 'workspace-demo',
+    name: '启明团队',
+    createdBy: 'user-me',
+    createdAt: minutesAgo(360),
+    updatedAt: minutesAgo(12),
+  },
+]
+
+export const demoWorkspaceMembers: WorkspaceMember[] = [
+  {
+    workspaceId: 'workspace-demo',
+    userId: 'user-me',
+    role: 'owner',
+    joinedAt: minutesAgo(360),
+  },
+  {
+    workspaceId: 'workspace-demo',
+    userId: 'user-mira',
+    role: 'admin',
+    joinedAt: minutesAgo(340),
+  },
+  {
+    workspaceId: 'workspace-demo',
+    userId: 'user-ian',
+    role: 'member',
+    joinedAt: minutesAgo(330),
+  },
+  {
+    workspaceId: 'workspace-demo',
+    userId: 'user-nora',
+    role: 'member',
+    joinedAt: minutesAgo(320),
+  },
+]
+
 export const demoConversations: Conversation[] = [
   {
     id: 'conv-mira',
@@ -107,6 +153,7 @@ export const demoConversations: Conversation[] = [
     id: 'conv-launch',
     type: 'group',
     title: '上线准备群',
+    workspaceId: 'workspace-demo',
     memberIds: ['user-me', 'user-mira', 'user-ian', 'user-nora'],
     memberCount: 4,
     unreadCount: 5,
@@ -217,6 +264,9 @@ export const createDemoState = (): ChatState => ({
       userId,
       role: index === 0 ? 'owner' : 'member',
       joinedAt: minutesAgo(120),
-    })),
+      })),
   ),
+  workspaces: [...demoWorkspaces],
+  workspaceMembers: [...demoWorkspaceMembers],
+  activeWorkspaceId: demoWorkspaces[0]?.id ?? '',
 })

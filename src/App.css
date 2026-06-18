@@ -141,8 +141,10 @@
 .search-box,
 .profile-form input,
 .profile-form textarea,
+.profile-form select,
 .readonly-field,
-.notification-card {
+.notification-card,
+.workspace-card {
   background: var(--surface-soft);
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -932,6 +934,27 @@ mark {
   color: var(--accent-strong);
 }
 
+.settings-row.static-row {
+  border: 1px solid var(--border);
+  grid-template-columns: 28px 1fr;
+}
+
+.settings-row.static-row span {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.settings-row.static-row strong {
+  color: var(--text);
+  font-size: 14px;
+}
+
+.settings-row.static-row small {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
 .member-row {
   grid-template-columns: 48px 1fr;
 }
@@ -953,10 +976,15 @@ mark {
 }
 
 .profile-form input,
-.profile-form textarea {
+.profile-form textarea,
+.profile-form select {
   color: var(--text);
   outline: 0;
   padding: 12px 14px;
+}
+
+.profile-form select {
+  min-height: 46px;
 }
 
 .profile-form textarea {
@@ -980,6 +1008,111 @@ mark {
 
 .readonly-field strong {
   font-size: 14px;
+}
+
+.workspace-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+}
+
+.workspace-card-header {
+  align-items: center;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 42px 1fr;
+}
+
+.workspace-card-header p {
+  color: var(--text-muted);
+  font-size: 13px;
+  margin: 4px 0 0;
+}
+
+.workspace-member-form {
+  display: grid;
+  gap: 8px;
+}
+
+.workspace-member-controls {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 1fr auto;
+}
+
+.workspace-member-controls .secondary-button {
+  min-height: 46px;
+  white-space: nowrap;
+}
+
+.workspace-member-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.workspace-member-row {
+  align-items: center;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 42px 1fr auto;
+  min-height: 56px;
+}
+
+.workspace-member-row > span {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.workspace-member-row strong {
+  color: var(--text);
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-member-row small {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.workspace-row-actions {
+  align-items: center;
+  display: flex;
+  gap: 6px;
+}
+
+.workspace-row-actions select {
+  min-height: 38px;
+  max-width: 92px;
+  padding: 8px;
+}
+
+.role-badge {
+  background: #edf9ff;
+  border-radius: 999px;
+  color: var(--accent-strong);
+  font-size: 12px;
+  font-weight: 800;
+  padding: 6px 8px;
+  white-space: nowrap;
+}
+
+.danger-icon-button {
+  color: #c2410c;
+}
+
+.feedback-link {
+  align-items: center;
+  color: var(--accent-strong);
+  display: inline-flex;
+  font-size: 13px;
+  font-weight: 800;
+  gap: 6px;
+  text-decoration: none;
 }
 
 @media (max-width: 480px) {

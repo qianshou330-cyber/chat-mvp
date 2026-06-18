@@ -3,10 +3,11 @@ import type { FormEvent, ReactNode } from 'react'
 import {
   ArrowLeft,
   Bell,
+  Building2,
   Camera,
   Check,
   CheckCheck,
-  ChevronRight,
+  ExternalLink,
   FileText,
   Image as ImageIcon,
   Lock,
@@ -19,13 +20,23 @@ import {
   SendHorizontal,
   Settings,
   ShieldCheck,
+  Trash2,
   UserPlus,
   Users,
 } from 'lucide-react'
 import './App.css'
 import { useChatApp } from './hooks/useChatApp'
 import { usePushNotifications } from './hooks/usePushNotifications'
-import type { ContactRequest, Conversation, Message, Profile, SearchResult } from './types'
+import type {
+  ContactRequest,
+  Conversation,
+  Message,
+  Profile,
+  SearchResult,
+  Workspace,
+  WorkspaceMember,
+  WorkspaceRole,
+} from './types'
 
 type Screen = 'login' | 'list' | 'chat' | 'group' | 'profile'
 const APP_DISPLAY_NAME = '聊天 MVP'
@@ -149,6 +160,7 @@ function App() {
         )}
         {activeScreen === 'group' && chat.activeConversation && (
           <GroupInfo
+            activeWorkspace={chat.activeWorkspace}
             conversation={chat.activeConversation}
             getProfile={chat.getProfile}
             onBack={() => setScreen('chat')}
@@ -156,13 +168,20 @@ function App() {
         )}
         {activeScreen === 'profile' && chat.me && (
           <ProfileSettings
+            activeWorkspace={chat.activeWorkspace}
+            activeWorkspaceRole={chat.activeWorkspaceRole}
             authNotice={chat.authNotice}
             email={chat.user?.email ?? ''}
             profile={chat.me}
+            workspaceMembers={chat.workspaceMembers}
+            getProfile={chat.getProfile}
+            onAddWorkspaceMember={chat.addWorkspaceMemberByEmail}
             onBack={() => setScreen('list')}
             onAvatarUpload={chat.updateProfileAvatar}
+            onRemoveWorkspaceMember={chat.removeWorkspaceMember}
             onSave={chat.updateProfile}
             onSignOut={handleSignOut}
+            onUpdateWorkspaceMemberRole={chat.updateWorkspaceMemberRole}
           />
         )}
       </section>
@@ -883,10 +902,12 @@ function MessageBubble({
 }
 
 function GroupInfo({
+  activeWorkspace,
   conversation,
   getProfile,
   onBack,
 }: {
+  activeWorkspace: Workspace | null
   conversation: Conversation
   getProfile: (profileId: string) => Profile | undefined
   onBack: () => void
@@ -919,16 +940,20 @@ function GroupInfo({
       </section>
 
       <div className="settings-list">
-        <button className="settings-row" type="button">
-          <UserPlus size={20} />
-          <span>添加成员</span>
-          <ChevronRight size={19} />
-        </button>
-        <button className="settings-row" type="button">
+        <div className="settings-row static-row">
+          <Building2 size={20} />
+          <span>
+            <strong>所属工作区</strong>
+            <small>{activeWorkspace?.name ?? '暂无工作区'}</small>
+          </span>
+        </div>
+        <div className="settings-row static-row">
           <ShieldCheck size={20} />
-          <span>权限设置</span>
-          <ChevronRight size={19} />
-        </button>
+          <span>
+            <strong>成员权限</strong>
+            <small>请到个人资料里的工作区管理添加或移除成员</small>
+          </span>
+        </div>
       </div>
 
       <div className="member-list">
@@ -947,26 +972,51 @@ function GroupInfo({
 }
 
 function ProfileSettings({
+  activeWorkspace,
+  activeWorkspaceRole,
   authNotice,
   email,
+  getProfile,
+  onAddWorkspaceMember,
   onAvatarUpload,
   onBack,
+  onRemoveWorkspaceMember,
   onSave,
   onSignOut,
+  onUpdateWorkspaceMemberRole,
   profile,
+  workspaceMembers,
 }: {
+  activeWorkspace: Workspace | null
+  activeWorkspaceRole: WorkspaceRole
   authNotice: string
   email: string
+  getProfile: (profileId: string) => Profile | undefined
+  onAddWorkspaceMember: (email: string, role: WorkspaceRole) => Promise<boolean>
   onAvatarUpload: (file: File) => Promise<void>
   onBack: () => void
+  onRemoveWorkspaceMember: (memberUserId: string) => Promise<boolean>
   onSave: (profile: Pick<Profile, 'displayName' | 'bio'>) => void
   onSignOut: () => void
+  onUpdateWorkspaceMemberRole: (memberUserId: string, role: WorkspaceRole) => Promise<boolean>
   profile: Profile
+  workspaceMembers: WorkspaceMember[]
 }) {
   const [displayName, setDisplayName] = useState(profile.displayName)
   const [bio, setBio] = useState(profile.bio)
+  const [memberEmail, setMemberEmail] = useState('')
+  const [memberRole, setMemberRole] = useState<WorkspaceRole>('member')
+  const [isMemberBusy, setIsMemberBusy] = useState(false)
   const avatarInputRef = useRef<HTMLInputElement | null>(null)
   const pushNotifications = usePushNotifications(profile.id)
+  const canManageWorkspace = activeWorkspaceRole === 'owner' || activeWorkspaceRole === 'admin'
+
+  async function submitWorkspaceMember() {
+    setIsMemberBusy(true)
+    const added = await onAddWorkspaceMember(memberEmail, memberRole)
+    if (added) setMemberEmail('')
+    setIsMemberBusy(false)
+  }
 
   return (
     <section className="screen">
@@ -1027,6 +1077,111 @@ function ProfileSettings({
           <span>邮箱</span>
           <strong>{email}</strong>
         </div>
+        <section className="workspace-card" aria-label="工作区管理">
+          <div className="workspace-card-header">
+            <span className="notification-icon">
+              <Building2 size={20} />
+            </span>
+            <div>
+              <strong>{activeWorkspace?.name ?? '我的工作区'}</strong>
+              <p>
+                {workspaceMembers.length} 名成员 · 我的角色：
+                {formatWorkspaceRole(activeWorkspaceRole)}
+              </p>
+            </div>
+          </div>
+
+          {canManageWorkspace && (
+            <div className="workspace-member-form">
+              <label htmlFor="workspaceMemberEmail">添加成员邮箱</label>
+              <input
+                id="workspaceMemberEmail"
+                inputMode="email"
+                onChange={(event) => setMemberEmail(event.target.value)}
+                placeholder="member@example.com"
+                type="email"
+                value={memberEmail}
+              />
+              <label htmlFor="workspaceMemberRole">角色</label>
+              <div className="workspace-member-controls">
+                <select
+                  id="workspaceMemberRole"
+                  onChange={(event) => setMemberRole(event.target.value as WorkspaceRole)}
+                  value={memberRole}
+                >
+                  <option value="member">成员</option>
+                  <option value="admin">管理员</option>
+                </select>
+                <button
+                  className="secondary-button"
+                  disabled={isMemberBusy || !memberEmail.trim()}
+                  onClick={submitWorkspaceMember}
+                  type="button"
+                >
+                  {isMemberBusy ? '添加中' : '添加成员'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          <div className="workspace-member-list">
+            {workspaceMembers.map((member) => {
+              const memberProfile = getProfile(member.userId)
+              const isSelf = member.userId === profile.id
+              const canEditMember =
+                canManageWorkspace && !isSelf && member.role !== 'owner'
+
+              return (
+                <div className="workspace-member-row" key={`${member.workspaceId}-${member.userId}`}>
+                  <Avatar profile={memberProfile} />
+                  <span>
+                    <strong>{memberProfile?.displayName ?? '成员'}</strong>
+                    <small>{formatWorkspaceRole(member.role)}</small>
+                  </span>
+                  {canEditMember ? (
+                    <div className="workspace-row-actions">
+                      <select
+                        aria-label={`${memberProfile?.displayName ?? '成员'} 的角色`}
+                        onChange={(event) => {
+                          void onUpdateWorkspaceMemberRole(
+                            member.userId,
+                            event.target.value as WorkspaceRole,
+                          )
+                        }}
+                        value={member.role}
+                      >
+                        <option value="member">成员</option>
+                        <option value="admin">管理员</option>
+                      </select>
+                      <button
+                        aria-label={`移除 ${memberProfile?.displayName ?? '成员'}`}
+                        className="icon-button danger-icon-button"
+                        onClick={() => {
+                          void onRemoveWorkspaceMember(member.userId)
+                        }}
+                        type="button"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </div>
+                  ) : (
+                    <span className="role-badge">{formatWorkspaceRole(member.role)}</span>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+
+          <a
+            className="feedback-link"
+            href="https://github.com/qianshou330-cyber/chat-mvp/issues/new/choose"
+            rel="noreferrer"
+            target="_blank"
+          >
+            <ExternalLink size={16} />
+            反馈问题
+          </a>
+        </section>
         <section className="notification-card" aria-label="消息通知">
           <span className="notification-icon">
             <Bell size={20} />
@@ -1113,6 +1268,12 @@ function formatStatus(status: Profile['status']) {
   if (status === 'online') return '在线'
   if (status === 'away') return '暂离'
   return '离线'
+}
+
+function formatWorkspaceRole(role: WorkspaceRole) {
+  if (role === 'owner') return '所有者'
+  if (role === 'admin') return '管理员'
+  return '成员'
 }
 
 function displayConversationTitle(title: string) {

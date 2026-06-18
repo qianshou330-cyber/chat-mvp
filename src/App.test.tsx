@@ -152,6 +152,43 @@ describe('聊天 MVP', () => {
     expect(screen.getByRole('button', { name: '开启通知' })).toBeDisabled()
   })
 
+  it('shows workspace management in the profile screen', async () => {
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: '使用 Demo 账号' }))
+    fireEvent.click(await screen.findByRole('button', { name: '打开个人资料' }))
+
+    expect(screen.getByRole('region', { name: '工作区管理' })).toBeInTheDocument()
+    expect(screen.getByText('启明团队')).toBeInTheDocument()
+    expect(screen.getByText(/我的角色：所有者/)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '反馈问题' })).toBeInTheDocument()
+  })
+
+  it('adds a demo workspace member by email', async () => {
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: '使用 Demo 账号' }))
+    fireEvent.click(await screen.findByRole('button', { name: '打开个人资料' }))
+    fireEvent.change(screen.getByLabelText('添加成员邮箱'), {
+      target: { value: 'zoe@example.com' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: '添加成员' }))
+
+    expect(await screen.findByText('宋知夏')).toBeInTheDocument()
+    expect(screen.getByText('已将 宋知夏 加入 启明团队。')).toBeInTheDocument()
+  })
+
+  it('removes a demo workspace member', async () => {
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: '使用 Demo 账号' }))
+    fireEvent.click(await screen.findByRole('button', { name: '打开个人资料' }))
+    fireEvent.click(screen.getByRole('button', { name: '移除 周一凡' }))
+
+    expect(await screen.findByText('成员已移除。')).toBeInTheDocument()
+    expect(screen.queryByText('周一凡')).not.toBeInTheDocument()
+  })
+
   it('shows a demo attachment link after upload', async () => {
     render(<App />)
 

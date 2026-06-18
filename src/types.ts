@@ -6,6 +6,8 @@ export type MessageStatus = 'sending' | 'sent' | 'read'
 
 export type MemberRole = 'owner' | 'admin' | 'member'
 
+export type WorkspaceRole = MemberRole
+
 export type ProfileStatus = 'online' | 'away' | 'offline'
 
 export type ContactStatus = 'pending' | 'accepted' | 'declined'
@@ -65,11 +67,27 @@ export interface Conversation {
   id: string
   type: ConversationType
   title: string
+  workspaceId?: string
   memberIds: string[]
   memberCount: number
   unreadCount: number
   updatedAt: string
   lastMessage: string
+}
+
+export interface Workspace {
+  id: string
+  name: string
+  createdBy: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface WorkspaceMember {
+  workspaceId: string
+  userId: string
+  role: WorkspaceRole
+  joinedAt: string
 }
 
 export interface SearchResult {
@@ -89,4 +107,7 @@ export interface ChatState {
   conversations: Conversation[]
   messages: Message[]
   members: ConversationMember[]
+  workspaces: Workspace[]
+  workspaceMembers: WorkspaceMember[]
+  activeWorkspaceId: string
 }
