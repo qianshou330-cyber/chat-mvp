@@ -1114,6 +1114,10 @@ export function useChatApp() {
     if (error) {
       const notice = friendlyErrorMessage(error.message, '消息发送失败，请重试。')
       setAuthNotice(notice)
+      setState((previous) => ({
+        ...previous,
+        messages: previous.messages.filter((message) => message.id !== optimisticMessage.id),
+      }))
       recordAppError('messages', notice, { conversationId: activeConversation.id })
     } else {
       setState((previous) => ({
@@ -1165,6 +1169,10 @@ export function useChatApp() {
     if (upload.error) {
       const notice = friendlyErrorMessage(upload.error.message, '文件上传失败，请重试。')
       setAuthNotice(notice)
+      setState((previous) => ({
+        ...previous,
+        messages: previous.messages.filter((item) => item.id !== message.id),
+      }))
       recordAppError('attachments', notice, {
         conversationId: activeConversation.id,
         sizeBytes: file.size,
@@ -1191,6 +1199,10 @@ export function useChatApp() {
         '无法保存文件信息，请重试。',
       )
       setAuthNotice(notice)
+      setState((previous) => ({
+        ...previous,
+        messages: previous.messages.filter((item) => item.id !== message.id),
+      }))
       recordAppError('attachments', notice, {
         conversationId: activeConversation.id,
         sizeBytes: file.size,
@@ -1211,10 +1223,21 @@ export function useChatApp() {
     if (messageInsert.error) {
       const notice = friendlyErrorMessage(messageInsert.error.message, '文件消息发送失败，请重试。')
       setAuthNotice(notice)
+      setState((previous) => ({
+        ...previous,
+        messages: previous.messages.filter((item) => item.id !== message.id),
+      }))
       recordAppError('attachments', notice, {
         conversationId: activeConversation.id,
         sizeBytes: file.size,
       })
+    } else {
+      setState((previous) => ({
+        ...previous,
+        messages: previous.messages.map((item) =>
+          item.id === message.id ? { ...item, status: 'sent' } : item,
+        ),
+      }))
     }
   }
 
@@ -1773,7 +1796,23 @@ export function useChatApp() {
       return false
     }
 
-    setAuthNotice('成员已移除。')
+    setState((previous) => ({
+      ...previous,
+      workspaceMembers: previous.workspaceMembers.filter(
+        (member) =>
+          !(member.workspaceId === activeWorkspace.id && member.userId === memberUserId),
+      ),
+      conversations: previous.conversations.map((conversation) =>
+        conversation.workspaceId === activeWorkspace.id
+          ? {
+              ...conversation,
+              memberIds: conversation.memberIds.filter((id) => id !== memberUserId),
+              memberCount: conversation.memberIds.filter((id) => id !== memberUserId).length,
+            }
+          : conversation,
+      ),
+    }))
+    setAuthNotice('成员已移除，受影响用户刷新后将无法继续访问该工作区群聊。')
     recordAdminActivity('member_removed', memberUserId, 'success')
     void loadSupabaseState(currentUser.id)
     return true
@@ -1823,6 +1862,14 @@ export function useChatApp() {
       return false
     }
 
+    setState((previous) => ({
+      ...previous,
+      workspaceMembers: previous.workspaceMembers.map((member) =>
+        member.workspaceId === activeWorkspace.id && member.userId === memberUserId
+          ? { ...member, role }
+          : member,
+      ),
+    }))
     setAuthNotice('成员角色已更新。')
     recordAdminActivity('member_role_updated', memberUserId, 'success', { role })
     void loadSupabaseState(currentUser.id)

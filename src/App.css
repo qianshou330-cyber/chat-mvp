@@ -1065,6 +1065,13 @@ mark {
   white-space: nowrap;
 }
 
+.form-hint {
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.45;
+  margin: 0;
+}
+
 .workspace-member-list {
   display: flex;
   flex-direction: column;

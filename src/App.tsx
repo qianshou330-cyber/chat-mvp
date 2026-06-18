@@ -1039,9 +1039,30 @@ function ProfileSettings({
 
   async function submitWorkspaceMember() {
     setIsMemberBusy(true)
-    const added = await onAddWorkspaceMember(memberEmail, memberRole)
-    if (added) setMemberEmail('')
-    setIsMemberBusy(false)
+    try {
+      const added = await onAddWorkspaceMember(memberEmail, memberRole)
+      if (added) setMemberEmail('')
+    } finally {
+      setIsMemberBusy(false)
+    }
+  }
+
+  async function handleRemoveWorkspaceMember(memberUserId: string) {
+    setIsMemberBusy(true)
+    try {
+      await onRemoveWorkspaceMember(memberUserId)
+    } finally {
+      setIsMemberBusy(false)
+    }
+  }
+
+  async function handleUpdateWorkspaceMemberRole(memberUserId: string, role: WorkspaceRole) {
+    setIsMemberBusy(true)
+    try {
+      await onUpdateWorkspaceMemberRole(memberUserId, role)
+    } finally {
+      setIsMemberBusy(false)
+    }
   }
 
   async function handleRevokeOtherDevices() {
@@ -1144,6 +1165,7 @@ function ProfileSettings({
               <div className="workspace-member-controls">
                 <select
                   id="workspaceMemberRole"
+                  disabled={isMemberBusy}
                   onChange={(event) => setMemberRole(event.target.value as WorkspaceRole)}
                   value={memberRole}
                 >
@@ -1159,6 +1181,7 @@ function ProfileSettings({
                   {isMemberBusy ? '添加中' : '添加成员'}
                 </button>
               </div>
+              <p className="form-hint">对方需要先完成注册，才能被添加到工作区。</p>
             </div>
           )}
 
@@ -1180,8 +1203,9 @@ function ProfileSettings({
                     <div className="workspace-row-actions">
                       <select
                         aria-label={`${memberProfile?.displayName ?? '成员'} 的角色`}
+                        disabled={isMemberBusy}
                         onChange={(event) => {
-                          void onUpdateWorkspaceMemberRole(
+                          void handleUpdateWorkspaceMemberRole(
                             member.userId,
                             event.target.value as WorkspaceRole,
                           )
@@ -1194,8 +1218,9 @@ function ProfileSettings({
                       <button
                         aria-label={`移除 ${memberProfile?.displayName ?? '成员'}`}
                         className="icon-button danger-icon-button"
+                        disabled={isMemberBusy}
                         onClick={() => {
-                          void onRemoveWorkspaceMember(member.userId)
+                          void handleRemoveWorkspaceMember(member.userId)
                         }}
                         type="button"
                       >
@@ -1245,7 +1270,9 @@ function ProfileSettings({
 
             <div className="admin-log-list">
               {adminActivityLogs.length === 0 ? (
-                <p className="device-note">暂无管理员操作记录。</p>
+                <p className="device-note">
+                  暂无管理员操作记录。添加成员、移除成员或调整角色后会显示在这里。
+                </p>
               ) : (
                 adminActivityLogs.slice(0, 4).map((log) => {
                   const actor = getProfile(log.actorId)
@@ -1271,7 +1298,9 @@ function ProfileSettings({
 
             <div className="admin-log-list">
               {appErrorEvents.length === 0 ? (
-                <p className="device-note">暂无关键错误记录。</p>
+                <p className="device-note">
+                  暂无关键错误记录。登录、消息、附件、通知或成员管理失败时会显示脱敏记录。
+                </p>
               ) : (
                 appErrorEvents.slice(0, 3).map((event) => (
                   <div className="admin-log-row" key={event.id}>

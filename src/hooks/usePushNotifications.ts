@@ -115,7 +115,7 @@ export function usePushNotifications(userId?: string, workspaceId?: string) {
       await saveSubscription(subscription)
       setIsSubscribed(true)
     } catch (error) {
-      const message = error instanceof Error ? error.message : '通知开启失败，请稍后重试。'
+      const message = formatPushError(error, '通知开启失败，请稍后重试。')
       setErrorMessage(message)
       recordNotificationError(userId, workspaceId, message)
     } finally {
@@ -142,7 +142,7 @@ export function usePushNotifications(userId?: string, workspaceId?: string) {
       setIsSubscribed(false)
       setPermission(getNotificationPermission())
     } catch (error) {
-      const message = error instanceof Error ? error.message : '通知关闭失败，请稍后重试。'
+      const message = formatPushError(error, '通知关闭失败，请稍后重试。')
       setErrorMessage(message)
       recordNotificationError(userId, workspaceId, message)
     } finally {
@@ -252,6 +252,59 @@ function getPushStatusMessage(status: PushStatus, errorMessage: string) {
   if (status === 'enabled') return '消息通知已开启。'
   if (status === 'error') return errorMessage || '通知设置更新失败，请稍后重试。'
   return '开启后，新消息会通过浏览器通知提醒你。通知内容不会显示消息正文。'
+}
+
+function formatPushError(error: unknown, fallback: string) {
+  const message = error instanceof Error ? error.message : ''
+  const normalized = message.toLowerCase()
+
+  if (!message) return fallback
+
+  if (
+    normalized.includes('failed to fetch') ||
+    normalized.includes('networkerror') ||
+    normalized.includes('load failed')
+  ) {
+    return '通知服务连接失败，请检查网络后重试。'
+  }
+
+  if (
+    normalized.includes('permission') ||
+    normalized.includes('denied') ||
+    normalized.includes('not allowed')
+  ) {
+    return '浏览器没有授予通知权限，请在浏览器设置中开启。'
+  }
+
+  if (
+    normalized.includes('vapid') ||
+    normalized.includes('applicationserverkey') ||
+    normalized.includes('invalid character') ||
+    normalized.includes('push subscription')
+  ) {
+    return '通知订阅配置异常，请联系管理员检查 VAPID 公钥。'
+  }
+
+  if (
+    normalized.includes('upsert_push_subscription') ||
+    normalized.includes('disable_push_subscription') ||
+    normalized.includes('push_subscriptions') ||
+    normalized.includes('schema cache') ||
+    normalized.includes('could not find the function')
+  ) {
+    return '通知数据表或 RPC 尚未部署，请联系管理员检查 Supabase 配置。'
+  }
+
+  if (
+    normalized.includes('row-level security') ||
+    normalized.includes('permission denied') ||
+    normalized.includes('unauthorized') ||
+    normalized.includes('not authorized')
+  ) {
+    return '你没有权限更新通知订阅，请重新登录后再试。'
+  }
+
+  return fallback
 }
 
 function urlBase64ToUint8Array(base64String: string) {

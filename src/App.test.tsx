@@ -161,6 +161,7 @@ describe('聊天 MVP', () => {
     expect(screen.getByRole('region', { name: '工作区管理' })).toBeInTheDocument()
     expect(screen.getByText('启明团队')).toBeInTheDocument()
     expect(screen.getByText(/我的角色：所有者/)).toBeInTheDocument()
+    expect(screen.getByText('对方需要先完成注册，才能被添加到工作区。')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: '反馈问题' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: '试用说明' })).toHaveAttribute(
       'href',
