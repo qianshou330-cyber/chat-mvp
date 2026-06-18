@@ -518,6 +518,8 @@ begin
 end;
 $$;
 
+drop function if exists public.update_workspace_member_role(uuid, public.member_role);
+
 create or replace function public.update_workspace_member_role(
   member_user_id uuid,
   requested_role public.member_role
