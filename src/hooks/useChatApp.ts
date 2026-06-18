@@ -2393,6 +2393,51 @@ export function useChatApp() {
     return true
   }
 
+  async function hideGroupAttachment(conversationId: string, attachmentId: string) {
+    const currentUser = user ?? (!supabase ? demoUser : null)
+    const conversation = state.conversations.find((item) => item.id === conversationId)
+    const message = state.messages.find(
+      (item) => item.conversationId === conversationId && item.attachment?.id === attachmentId,
+    )
+    if (!currentUser || !conversation || conversation.type !== 'group' || !message?.attachment) {
+      return false
+    }
+
+    const currentMember = findConversationMember(state.members, conversationId, currentUser.id)
+    if (!isGroupManagerRole(currentMember?.role)) {
+      setAuthNotice('只有群 owner 或 admin 可以隐藏群文件。')
+      return false
+    }
+
+    if (!supabase) {
+      setState((previous) => markAttachmentHidden(previous, conversationId, attachmentId, currentUser.id))
+      setAuthNotice('群文件已隐藏。')
+      recordAdminActivity('attachment_hidden', message.senderId, 'success', {
+        conversationId,
+        messageId: message.id,
+        attachmentId,
+      })
+      return true
+    }
+
+    const { error } = await supabase.rpc('hide_group_attachment', {
+      target_conversation_id: conversationId,
+      target_attachment_id: attachmentId,
+    })
+
+    if (error) {
+      const notice = friendlyErrorMessage(error.message, '无法隐藏这个文件，请稍后重试。')
+      setAuthNotice(notice)
+      recordAppError('attachments', notice, { conversationId, attachmentId })
+      return false
+    }
+
+    setState((previous) => markAttachmentHidden(previous, conversationId, attachmentId, currentUser.id))
+    setAuthNotice('群文件已隐藏。')
+    void loadSupabaseState(currentUser.id)
+    return true
+  }
+
   function getProfile(profileId: string) {
     return state.profiles.find((profile) => profile.id === profileId)
   }
@@ -2413,6 +2458,7 @@ export function useChatApp() {
     deleteGroupMessage,
     deviceSessions: state.deviceSessions,
     getProfile,
+    hideGroupAttachment,
     incomingContactRequests,
     isLoading,
     isSupabaseConfigured,
@@ -2629,6 +2675,38 @@ function markMessageDeleted(
             lastMessage: conversationLastMessageText(latestMessage),
             updatedAt: deletedAt,
           }
+        : conversation,
+    ),
+  }
+}
+
+function markAttachmentHidden(
+  state: ChatState,
+  conversationId: string,
+  attachmentId: string,
+  deletedBy: string,
+) {
+  const deletedAt = new Date().toISOString()
+
+  return {
+    ...state,
+    messages: state.messages.map((message) =>
+      message.conversationId === conversationId && message.attachment?.id === attachmentId
+        ? {
+            ...message,
+            attachment: {
+              ...message.attachment,
+              url: '#',
+              deletedAt,
+              deletedBy,
+              deleteReason: 'hidden',
+            },
+          }
+        : message,
+    ),
+    conversations: state.conversations.map((conversation) =>
+      conversation.id === conversationId
+        ? { ...conversation, updatedAt: deletedAt }
         : conversation,
     ),
   }
@@ -2860,6 +2938,7 @@ function mapConversation(
 async function mapMessage(row: Record<string, unknown>): Promise<Message> {
   const attachment = row.attachments as Record<string, unknown> | null
   const deletedAt = row.deleted_at ? String(row.deleted_at) : undefined
+  const attachmentDeletedAt = attachment?.deleted_at ? String(attachment.deleted_at) : undefined
 
   return {
     id: String(row.id),
@@ -2878,7 +2957,10 @@ async function mapMessage(row: Record<string, unknown>): Promise<Message> {
           fileName: String(attachment.file_name),
           mimeType: String(attachment.mime_type),
           sizeBytes: Number(attachment.size_bytes ?? 0),
-          url: await createSignedAttachmentUrl(attachment),
+          url: attachmentDeletedAt ? '#' : await createSignedAttachmentUrl(attachment),
+          deletedAt: attachmentDeletedAt,
+          deletedBy: attachment.deleted_by ? String(attachment.deleted_by) : undefined,
+          deleteReason: attachment.delete_reason ? String(attachment.delete_reason) : undefined,
         }
       : undefined,
   }

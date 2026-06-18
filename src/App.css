@@ -1065,6 +1065,82 @@ mark {
   font-weight: 800;
 }
 
+.group-files-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+}
+
+.panel-heading {
+  display: grid;
+  gap: 2px;
+}
+
+.panel-heading strong {
+  color: var(--text);
+  font-size: 14px;
+}
+
+.panel-heading small,
+.empty-inline {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.empty-inline {
+  margin: 0;
+}
+
+.group-file-row {
+  align-items: center;
+  background: var(--surface-soft);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 24px minmax(0, 1fr) auto auto;
+  min-height: 58px;
+  padding: 8px 10px;
+}
+
+.group-file-row > svg {
+  color: var(--accent-strong);
+}
+
+.group-file-row span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.group-file-row strong,
+.group-file-row small,
+.group-file-row em {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.group-file-row strong {
+  color: var(--text);
+  font-size: 13px;
+}
+
+.group-file-row small,
+.group-file-row em {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.group-file-row em {
+  color: #d84b4b;
+  font-style: normal;
+  font-weight: 700;
+}
+
 .group-announcement-editor {
   background: #f8fbfe;
   border: 1px solid var(--border);

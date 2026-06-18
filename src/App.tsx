@@ -174,9 +174,11 @@ function App() {
             conversation={chat.activeConversation}
             currentUserId={chat.user?.id ?? ''}
             getProfile={chat.getProfile}
+            messages={chat.activeMessages}
             members={chat.state.members}
             onBack={() => setScreen('chat')}
             onAddGroupMember={chat.addGroupMember}
+            onHideGroupAttachment={chat.hideGroupAttachment}
             onRemoveGroupMember={chat.removeGroupMember}
             onRenameGroup={chat.renameGroup}
             onUpdateAnnouncement={chat.updateGroupAnnouncement}
@@ -980,13 +982,15 @@ function MessageBubble({
           <p className="deleted-message">此消息已删除</p>
         ) : (
           <>
-            {message.attachment && (
-          <a className="attachment" href={message.attachment.url} rel="noreferrer" target="_blank">
-            {message.type === 'image' ? <ImageIcon size={18} /> : <FileText size={18} />}
-            <span>{message.attachment.fileName}</span>
-          </a>
-            )}
-            <p>{message.body}</p>
+            {message.attachment?.deletedAt ? (
+              <p className="deleted-message">此附件已被管理员隐藏</p>
+            ) : message.attachment ? (
+              <a className="attachment" href={message.attachment.url} rel="noreferrer" target="_blank">
+                {message.type === 'image' ? <ImageIcon size={18} /> : <FileText size={18} />}
+                <span>{message.attachment.fileName}</span>
+              </a>
+            ) : null}
+            {!message.attachment?.deletedAt && <p>{message.body}</p>}
           </>
         )}
         <span className="message-meta">
@@ -1038,9 +1042,11 @@ function GroupInfo({
   conversation,
   currentUserId,
   getProfile,
+  messages,
   members: allConversationMembers,
   onAddGroupMember,
   onBack,
+  onHideGroupAttachment,
   onRemoveGroupMember,
   onRenameGroup,
   onUpdateAnnouncement,
@@ -1051,9 +1057,11 @@ function GroupInfo({
   conversation: Conversation
   currentUserId: string
   getProfile: (profileId: string) => Profile | undefined
+  messages: Message[]
   members: ConversationMember[]
   onAddGroupMember: (conversationId: string, memberUserId: string) => Promise<boolean>
   onBack: () => void
+  onHideGroupAttachment: (conversationId: string, attachmentId: string) => Promise<boolean>
   onRemoveGroupMember: (conversationId: string, memberUserId: string) => Promise<boolean>
   onRenameGroup: (conversationId: string, title: string) => Promise<boolean>
   onUpdateAnnouncement: (conversationId: string, announcement: string) => Promise<boolean>
@@ -1105,6 +1113,14 @@ function GroupInfo({
     .filter((member) => !conversation.memberIds.includes(member.userId))
     .map((member) => getProfile(member.userId))
     .filter(Boolean) as Profile[]
+  const groupFiles = useMemo(
+    () =>
+      messages
+        .filter((message) => message.conversationId === conversation.id && message.attachment)
+        .filter((message) => canManageGroup || (!message.deletedAt && !message.attachment?.deletedAt))
+        .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)),
+    [canManageGroup, conversation.id, messages],
+  )
 
   function updateTitleDraft(value: string) {
     setTitleDraftState({ conversationId: conversation.id, value })
@@ -1149,6 +1165,12 @@ function GroupInfo({
   ) {
     setIsBusy(true)
     await onUpdateGroupMemberRole(conversation.id, memberUserId, role)
+    setIsBusy(false)
+  }
+
+  async function hideAttachment(attachmentId: string) {
+    setIsBusy(true)
+    await onHideGroupAttachment(conversation.id, attachmentId)
     setIsBusy(false)
   }
 
@@ -1294,6 +1316,54 @@ function GroupInfo({
             </div>
           </div>
         )}
+        <div className="group-files-panel">
+          <span className="panel-heading">
+            <strong>群文件</strong>
+            <small>{groupFiles.length === 0 ? '暂无群文件' : `${groupFiles.length} 个文件`}</small>
+          </span>
+          {groupFiles.length === 0 ? (
+            <p className="empty-inline">暂无群文件。</p>
+          ) : (
+            groupFiles.map((message) => {
+              const attachment = message.attachment
+              if (!attachment) return null
+              const profile = getProfile(message.senderId)
+              const isHidden = Boolean(message.deletedAt || attachment.deletedAt)
+
+              return (
+                <div className="group-file-row" key={attachment.id}>
+                  <FileText size={18} />
+                  <span>
+                    <strong>{attachment.fileName}</strong>
+                    <small>
+                      {profile?.displayName ?? '成员'} · {formatFileSize(attachment.sizeBytes)} · {formatTime(message.createdAt)}
+                    </small>
+                    {isHidden && <em>{message.deletedAt ? '消息已删除，文件已隐藏' : '文件已隐藏'}</em>}
+                  </span>
+                  {!isHidden ? (
+                    <a className="text-action" href={attachment.url} rel="noreferrer" target="_blank">
+                      打开
+                    </a>
+                  ) : (
+                    <span className="role-badge">已隐藏</span>
+                  )}
+                  {canManageGroup && !attachment.deletedAt && !message.deletedAt && (
+                    <button
+                      className="text-action danger"
+                      disabled={isBusy}
+                      onClick={() => {
+                        void hideAttachment(attachment.id)
+                      }}
+                      type="button"
+                    >
+                      隐藏
+                    </button>
+                  )}
+                </div>
+              )
+            })
+          )}
+        </div>
       </div>
 
       <div className="member-list">
@@ -1842,6 +1912,12 @@ function formatTime(value: string) {
   }).format(new Date(value))
 }
 
+function formatFileSize(sizeBytes: number) {
+  if (sizeBytes < 1024) return `${sizeBytes} B`
+  if (sizeBytes < 1024 * 1024) return `${Math.round(sizeBytes / 1024)} KB`
+  return `${(sizeBytes / 1024 / 1024).toFixed(1)} MB`
+}
+
 function formatStatus(status: Profile['status']) {
   if (status === 'online') return '在线'
   if (status === 'away') return '暂离'
@@ -1872,6 +1948,7 @@ function formatAdminActivity(action: AdminActivityLog['action']) {
   if (action === 'group_announcement_updated') return '更新群公告'
   if (action === 'message_pinned') return '置顶消息'
   if (action === 'message_unpinned') return '取消置顶'
+  if (action === 'attachment_hidden') return '隐藏群文件'
   return '退出其他设备'
 }
 

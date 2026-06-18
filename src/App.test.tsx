@@ -287,6 +287,26 @@ describe('聊天 MVP', () => {
     expect(screen.queryByText('RLS 需要按会话成员关系限制每一条消息。')).not.toBeInTheDocument()
   })
 
+  it('shows and hides demo group files', async () => {
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: '使用 Demo 账号' }))
+    fireEvent.click(await screen.findByText('上线准备群'))
+    fireEvent.click(screen.getByRole('button', { name: /上线准备群/ }))
+
+    expect(await screen.findByText('群文件')).toBeInTheDocument()
+    expect(screen.getByText('rls-checklist.md')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '打开' })).toHaveAttribute('href', '#')
+
+    fireEvent.click(screen.getByRole('button', { name: '隐藏' }))
+    expect(await screen.findByText('文件已隐藏')).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: '打开' })).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: '返回聊天' }))
+    expect(await screen.findByText('此附件已被管理员隐藏')).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'rls-checklist.md' })).not.toBeInTheDocument()
+  })
+
   it('shows a demo attachment link after upload', async () => {
     render(<App />)
 

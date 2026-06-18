@@ -44,6 +44,9 @@ export interface Attachment {
   mimeType: string
   sizeBytes: number
   url: string
+  deletedAt?: string
+  deletedBy?: string
+  deleteReason?: string
 }
 
 export interface Message {
@@ -139,6 +142,7 @@ export type AdminActivityAction =
   | 'group_announcement_updated'
   | 'message_pinned'
   | 'message_unpinned'
+  | 'attachment_hidden'
 
 export interface AdminActivityLog {
   id: string
