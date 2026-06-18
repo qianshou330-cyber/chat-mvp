@@ -1357,7 +1357,7 @@ export function useChatApp() {
 
     const { error } = await supabase.rpc('update_workspace_member_role', {
       member_user_id: memberUserId,
-      member_role: role,
+      requested_role: role,
     })
 
     if (error) {

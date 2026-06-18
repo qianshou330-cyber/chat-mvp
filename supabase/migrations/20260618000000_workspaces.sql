@@ -354,11 +354,11 @@ begin
     result_workspace_role := 'owner';
   end if;
 
-  update public.conversations
+  update public.conversations as conversation
   set workspace_id = result_workspace_id
-  where created_by = current_user_id
-    and type = 'group'
-    and workspace_id is null;
+  where conversation.created_by = current_user_id
+    and conversation.type = 'group'
+    and conversation.workspace_id is null;
 
   return query
   select result_workspace_id, result_workspace_name, result_workspace_role;
@@ -520,7 +520,7 @@ $$;
 
 create or replace function public.update_workspace_member_role(
   member_user_id uuid,
-  member_role public.member_role
+  requested_role public.member_role
 )
 returns void
 language plpgsql
@@ -536,7 +536,7 @@ begin
     raise exception 'Not authorized';
   end if;
 
-  if member_role = 'owner' then
+  if requested_role = 'owner' then
     raise exception 'Invalid member role';
   end if;
 
@@ -564,7 +564,7 @@ begin
   end if;
 
   update public.workspace_members wm
-  set role = member_role
+  set role = requested_role
   where wm.workspace_id = target_workspace_id
     and wm.user_id = member_user_id;
 end;
