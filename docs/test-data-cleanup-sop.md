@@ -13,6 +13,10 @@
 - 已完成 v0.4.1 后端 smoke：默认工作区、成员管理、管理员记录、群聊消息、移除后不可读、push subscription RLS 均通过。
 - v0.4.1 smoke 使用的 9 个 `codex.v04.smoke.*@example.com` 临时 Auth 用户已删除，复验数量为 0。
 - Supabase 阻止直接 SQL 删除 `storage.objects`；测试 Storage 对象需按本 SOP 在 Storage 控制台删除。
+- v0.4.2 smoke 使用 `codex.v042.*@example.com` 和 `codex.v042.notify.*@example.com` 临时 Auth 用户；清理前必须先预览命中列表。
+- v0.4.2 smoke 可能留下 `codex-v042-` 测试附件；必须通过 Storage 控制台删除，不能直接 SQL 删除 `storage.objects`。
+- v0.4.2 smoke 使用的 6 个 `codex.v042.*@example.com` 临时 Auth 用户已在 Supabase 控制台删除，复验数量为 0。
+- v0.4.2 smoke 的 `chat-uploads` bucket 已按 `codex-v042` 搜索复验，测试附件数量为 0。
 
 ## 测试前缀
 
@@ -22,11 +26,13 @@
 - `codex.v03.`
 - `codex.v031.`
 - `codex.v04.`
+- `codex.v042.`
 - `codex.push.`
 - `codex.browserpush.`
 - `codex.directpush.`
 - `codex-smoke-`
 - `codex-v03-`
+- `codex-v042-`
 - `device-smoke-`
 - `workspace-smoke-`
 
@@ -42,6 +48,7 @@ with test_users as (
      or email like 'codex.v03.%@example.com'
      or email like 'codex.v031.%@example.com'
      or email like 'codex.v04.%@example.com'
+     or email like 'codex.v042.%@example.com'
      or email like 'codex.push.%@example.com'
      or email like 'codex.browserpush.%@example.com'
      or email like 'codex.directpush.%@example.com'
@@ -53,6 +60,7 @@ select 'storage.objects', count(*)
 from storage.objects objects
 where objects.name ilike '%device-smoke-%'
    or objects.name ilike '%codex-smoke-%'
+   or objects.name ilike '%codex-v042-%'
    or exists (
      select 1 from test_users
      where objects.owner_id = test_users.id::text
@@ -78,6 +86,7 @@ where users.email like 'codex.v02.%@example.com'
    or users.email like 'codex.v03.%@example.com'
    or users.email like 'codex.v031.%@example.com'
    or users.email like 'codex.v04.%@example.com'
+   or users.email like 'codex.v042.%@example.com'
    or users.email like 'codex.push.%@example.com'
    or users.email like 'codex.browserpush.%@example.com'
    or users.email like 'codex.directpush.%@example.com'
@@ -90,6 +99,7 @@ Storage 清理不要直接删除 `storage.objects`。Supabase 会阻止这类 SQ
 - `device-smoke-`
 - `codex-smoke-`
 - `codex-v03-`
+- `codex-v042-`
 - `workspace-smoke-`
 
 ## 安全边界
