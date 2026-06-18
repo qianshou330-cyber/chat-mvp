@@ -218,7 +218,7 @@ export const demoConversations: Conversation[] = [
     memberCount: 4,
     unreadCount: 5,
     updatedAt: minutesAgo(7),
-    lastMessage: '李诺拉分享了 RLS 检查清单。',
+    lastMessage: '文件：rls-checklist.md',
   },
   {
     id: 'conv-ian',

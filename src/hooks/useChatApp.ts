@@ -2639,7 +2639,15 @@ function latestConversationMessage(conversationId: string, messages: Message[]) 
 
 function conversationLastMessageText(message: Message | undefined) {
   if (!message) return ''
-  return message.deletedAt ? '此消息已删除' : message.body
+  if (message.deletedAt) return '已删除消息'
+  if (message.attachment?.deletedAt) return '附件已隐藏'
+  if (message.type === 'image') {
+    return message.body && message.body !== '图片' ? `图片：${message.body}` : '图片'
+  }
+  if (message.type === 'file') {
+    return `文件：${message.attachment?.fileName ?? message.body}`
+  }
+  return message.body
 }
 
 function markMessageDeleted(
@@ -2687,26 +2695,32 @@ function markAttachmentHidden(
   deletedBy: string,
 ) {
   const deletedAt = new Date().toISOString()
+  const messages = state.messages.map((message) =>
+    message.conversationId === conversationId && message.attachment?.id === attachmentId
+      ? {
+          ...message,
+          attachment: {
+            ...message.attachment,
+            url: '#',
+            deletedAt,
+            deletedBy,
+            deleteReason: 'hidden',
+          },
+        }
+      : message,
+  )
+  const latestMessage = latestConversationMessage(conversationId, messages)
 
   return {
     ...state,
-    messages: state.messages.map((message) =>
-      message.conversationId === conversationId && message.attachment?.id === attachmentId
-        ? {
-            ...message,
-            attachment: {
-              ...message.attachment,
-              url: '#',
-              deletedAt,
-              deletedBy,
-              deleteReason: 'hidden',
-            },
-          }
-        : message,
-    ),
+    messages,
     conversations: state.conversations.map((conversation) =>
       conversation.id === conversationId
-        ? { ...conversation, updatedAt: deletedAt }
+        ? {
+            ...conversation,
+            lastMessage: conversationLastMessageText(latestMessage),
+            updatedAt: deletedAt,
+          }
         : conversation,
     ),
   }
@@ -2813,7 +2827,7 @@ function withNewMessage(state: ChatState, message: Message): ChatState {
       conversation.id === message.conversationId
         ? {
             ...conversation,
-            lastMessage: message.deletedAt ? '此消息已删除' : message.body,
+            lastMessage: conversationLastMessageText(message),
             updatedAt: message.createdAt,
             unreadCount: 0,
           }
@@ -2929,7 +2943,7 @@ function mapConversation(
     memberCount: memberIds.length,
     unreadCount: 0,
     updatedAt: String(row.updated_at ?? row.created_at ?? new Date().toISOString()),
-    lastMessage: latestMessage?.deletedAt ? '此消息已删除' : (latestMessage?.body ?? ''),
+    lastMessage: conversationLastMessageText(latestMessage),
     announcement: String(row.announcement ?? ''),
     pinnedMessageId: row.pinned_message_id ? String(row.pinned_message_id) : undefined,
   }

@@ -602,11 +602,11 @@ function ConversationList({
       ) : (
         <div className="conversation-list">
           {conversations.length === 0 ? (
-          <EmptyState
-            icon={<MessageCircle size={28} />}
-            title="暂无会话"
-            body="创建群聊或发送好友申请，等对方同意后开始聊天。"
-          />
+            <EmptyState
+              icon={<MessageCircle size={28} />}
+              title="暂无会话"
+              body="创建群聊或发送好友申请，等对方同意后开始聊天。"
+            />
           ) : (
             conversations.map((conversation) => (
               <button
@@ -627,13 +627,15 @@ function ConversationList({
                 <span className="conversation-copy">
                   <span className="row-title">
                     <span>{displayConversationTitle(conversation.title)}</span>
-                    <time>{formatTime(conversation.updatedAt)}</time>
                   </span>
                   <span className="row-preview">{conversation.lastMessage || '暂无消息'}</span>
                 </span>
-                {conversation.unreadCount > 0 && (
-                  <span className="unread-badge">{conversation.unreadCount}</span>
-                )}
+                <span className="conversation-meta">
+                  <time>{formatTime(conversation.updatedAt)}</time>
+                  {conversation.unreadCount > 0 && (
+                    <span className="unread-badge">{conversation.unreadCount}</span>
+                  )}
+                </span>
               </button>
             ))
           )}

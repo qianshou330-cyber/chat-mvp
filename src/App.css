@@ -274,8 +274,8 @@
   display: grid;
   flex: 0 0 auto;
   gap: 10px;
-  min-height: 62px;
-  padding: 9px 14px;
+  min-height: 58px;
+  padding: 7px 12px;
 }
 
 .topbar {
@@ -283,7 +283,8 @@
 }
 
 .chat-header {
-  grid-template-columns: 40px 1fr 40px;
+  background: var(--surface);
+  grid-template-columns: 40px minmax(0, 1fr) 40px;
 }
 
 .topbar h1 {
@@ -572,9 +573,9 @@ mark {
   align-items: center;
   display: grid;
   gap: 10px;
-  grid-template-columns: 48px 1fr auto;
-  min-height: 62px;
-  padding: 7px 10px;
+  grid-template-columns: 44px minmax(0, 1fr) 58px;
+  min-height: 58px;
+  padding: 6px 10px;
   width: 100%;
 }
 
@@ -635,9 +636,8 @@ mark {
 
 .row-title {
   align-items: center;
-  display: flex;
-  gap: 10px;
-  justify-content: space-between;
+  display: block;
+  min-width: 0;
 }
 
 .row-title span,
@@ -651,7 +651,6 @@ mark {
   white-space: nowrap;
 }
 
-.row-title time,
 .row-preview,
 .member-row small,
 .chat-identity small {
@@ -660,8 +659,26 @@ mark {
 }
 
 .row-preview {
+  line-height: 1.3;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.conversation-meta {
+  align-items: flex-end;
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  justify-content: center;
+  min-width: 0;
+}
+
+.conversation-meta time {
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1;
   white-space: nowrap;
 }
 
@@ -687,9 +704,9 @@ mark {
   flex: 0 0 auto;
   font-size: 14px;
   font-weight: 900;
-  height: 44px;
+  height: 42px;
   justify-content: center;
-  width: 44px;
+  width: 42px;
 }
 
 .avatar img {
@@ -734,12 +751,18 @@ mark {
 .chat-identity {
   align-items: center;
   background: transparent;
+  border-radius: 8px;
   color: inherit;
   display: flex;
   gap: 9px;
+  min-height: 44px;
   min-width: 0;
-  padding: 0;
+  padding: 3px 0;
   text-align: left;
+}
+
+.chat-identity:hover {
+  background: #f6fbff;
 }
 
 .chat-identity span {
@@ -756,10 +779,10 @@ mark {
   display: flex;
   flex: 1;
   flex-direction: column;
-  gap: 7px;
+  gap: 6px;
   min-height: 0;
   overflow: auto;
-  padding: 12px;
+  padding: 10px 12px 12px;
 }
 
 .in-chat-search {
@@ -824,8 +847,8 @@ mark {
 .message {
   align-items: end;
   display: flex;
-  gap: 8px;
-  max-width: 84%;
+  gap: 7px;
+  max-width: 82%;
 }
 
 .message.mine {
@@ -839,16 +862,17 @@ mark {
 .bubble {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 8px 8px 8px 3px;
   box-shadow: 0 2px 8px rgba(47, 79, 111, 0.06);
   color: var(--text);
   min-width: 78px;
-  padding: 7px 10px 5px;
+  padding: 7px 9px 5px;
 }
 
 .mine .bubble {
   background: #dff4ff;
   border-color: #bfe9fb;
+  border-radius: 8px 8px 3px 8px;
 }
 
 .bubble p {
@@ -920,7 +944,9 @@ mark {
   font-size: 11px;
   gap: 4px;
   justify-content: flex-end;
-  margin-top: 3px;
+  line-height: 1;
+  margin-left: 18px;
+  margin-top: 2px;
 }
 
 .attachment {
@@ -932,9 +958,9 @@ mark {
   display: flex;
   font-size: 13px;
   gap: 7px;
-  margin-bottom: 6px;
+  margin-bottom: 5px;
   max-width: 210px;
-  padding: 7px 8px;
+  padding: 6px 8px;
   text-decoration: none;
 }
 
@@ -947,7 +973,7 @@ mark {
 .image-attachment {
   border-radius: 8px;
   display: block;
-  margin-bottom: 6px;
+  margin-bottom: 5px;
   overflow: hidden;
   text-decoration: none;
 }
@@ -956,9 +982,9 @@ mark {
   aspect-ratio: 4 / 3;
   background: var(--surface-soft);
   display: block;
-  max-height: 220px;
+  max-height: 210px;
   object-fit: cover;
-  width: min(260px, 68vw);
+  width: min(252px, 68vw);
 }
 
 .composer {
@@ -969,8 +995,8 @@ mark {
   flex: 0 0 auto;
   gap: 7px;
   grid-template-columns: 40px 1fr 40px;
-  min-height: 58px;
-  padding: 7px 10px;
+  min-height: 54px;
+  padding: 6px 10px;
 }
 
 .composer input[aria-label='消息'] {
@@ -993,9 +1019,11 @@ mark {
 .group-summary,
 .profile-hero {
   align-items: center;
+  background: linear-gradient(180deg, #ffffff 0%, #f7fbff 100%);
+  border-bottom: 1px solid #edf2f7;
   display: flex;
   flex-direction: column;
-  padding: 26px 16px 20px;
+  padding: 22px 16px 18px;
   text-align: center;
 }
 
@@ -1034,18 +1062,19 @@ mark {
 .settings-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 0 16px 16px;
+  gap: 7px;
+  padding: 12px 12px 16px;
 }
 
 .settings-row {
   align-items: center;
-  background: var(--surface-soft);
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 8px;
   color: var(--text);
   display: grid;
   grid-template-columns: 28px 1fr 20px;
-  min-height: 54px;
+  min-height: 52px;
   padding: 0 12px;
   text-align: left;
 }
@@ -1055,7 +1084,6 @@ mark {
 }
 
 .settings-row.static-row {
-  border: 1px solid var(--border);
   grid-template-columns: 28px 1fr;
 }
 
@@ -1167,7 +1195,7 @@ mark {
 }
 
 .group-announcement-editor {
-  background: #f8fbfe;
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 8px;
   display: grid;

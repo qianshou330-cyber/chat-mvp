@@ -21,6 +21,7 @@ describe('聊天 MVP', () => {
 
     expect(await screen.findByRole('heading', { name: '聊天' })).toBeInTheDocument()
     expect(screen.getByText('林小米')).toBeInTheDocument()
+    expect(screen.getByText('文件：rls-checklist.md')).toBeInTheDocument()
   })
 
   it('sends a demo text message inside a conversation', async () => {
