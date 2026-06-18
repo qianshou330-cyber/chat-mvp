@@ -49,6 +49,7 @@
 - Confirm a removed workspace member cannot read workspace group messages or attachments after refresh.
 - Confirm owner/admin can see “管理员记录”, while member cannot see that region.
 - Trigger one member-management failure and confirm a sanitized error event is created without message body, attachment filename, token, or secret.
+- Run `docs/test-data-cleanup-sop.md` after smoke tests if temporary `codex.*` users or test uploads are no longer needed.
 
 ## Beta Release
 - Tag the beta-ready commit as `v0.2-beta`.
@@ -56,5 +57,6 @@
 - Tag the company-trial-ready commit as `v0.3-beta` after v0.3 smoke test passes.
 - Tag the company-trial-gate commit as `v0.3.1-beta` after the trial safety entry and smoke test pass.
 - Tag the stability baseline as `v0.4-beta` after operational logs pass production smoke test.
+- Tag the operational-maintenance baseline as `v0.4.1-beta` after cleanup SOP, backup checklist, daily report template, and production smoke test pass.
 - Use `docs/beta-test-plan.md` for tester instructions and issue triage.
 - Collect feedback through GitHub Issue templates before prioritizing the next beta scope.
