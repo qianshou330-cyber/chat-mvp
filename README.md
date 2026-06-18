@@ -4,7 +4,7 @@ Telegram-style mobile PWA MVP for chat, built with React, TypeScript, Vite, Supa
 
 生产 beta 地址：`https://chat-mvp-tau.vercel.app`
 
-当前阶段：`v0.4-beta` 公司试用运维收口，已加入基础错误记录、管理员操作记录、管理员可见记录入口和试用维护材料。
+当前阶段：`v0.4.1-beta` 公司内部试用准备完成，下一步按 2026 年 7 月计划执行 5 人先导、20-30 人扩容和 v0.4.x 稳定化。
 
 ## 已包含能力
 
@@ -110,6 +110,8 @@ Use `docs/deployment-checklist.md` before promoting a Preview deployment to Prod
 使用 `docs/test-data-cleanup-sop.md` 清理生产 smoke test 和自动外测测试数据。
 使用 `docs/backup-restore-checklist.md` 做试用前备份、恢复和云端配置检查。
 使用 `docs/trial-daily-report-template.md` 记录 5 人先导和 20-30 人试用日报。
+
+使用 `docs/2026-07-company-trial-plan.md` 执行 2026 年 7 月公司内部试用和 v0.4.x 稳定化计划。
 
 所有反馈统一进入 GitHub Issues，使用已有的缺陷反馈、体验反馈和功能建议模板。
 
