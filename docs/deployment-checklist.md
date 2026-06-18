@@ -14,7 +14,7 @@
 - Confirm RLS is enabled on all public user data tables.
 - Confirm the private `chat-uploads` bucket exists.
 - Deploy the `send-message-push` Edge Function after setting server-only secrets.
-- Create a Database Webhook for `public.messages` `INSERT` events with the `x-webhook-secret` header.
+- Create a Database Webhook for `public.messages` `INSERT` events with the `x-webhook-secret` header. If the Dashboard Webhook form fails because the internal `supabase_functions` schema is unavailable, install the reviewed `pg_net` trigger fallback that calls the same Edge Function URL with the same header.
 - Do not create or use Supabase secret keys for the frontend.
 
 ## Vercel
@@ -34,11 +34,13 @@
 - Upload an allowed attachment under 10 MB.
 - Open the uploaded attachment from another member account.
 - Enable notifications on member B, send a message from member A, and confirm B receives a generic notification.
+- Confirm `push_subscriptions.last_sent_at` updates without `last_error` after a real browser subscription receives a push.
 - Confirm the notification payload does not contain message body, attachment filename, or email.
 - Confirm a non-member cannot read conversation rows in Supabase.
 - Confirm a non-member cannot read attachment metadata or create a signed download URL.
 
 ## Beta Release
 - Tag the beta-ready commit as `v0.2-beta`.
+- Tag documentation-only follow-up releases as `v0.2.1-beta` after checks pass.
 - Use `docs/beta-test-plan.md` for tester instructions and issue triage.
 - Collect feedback through GitHub Issue templates before prioritizing the next beta scope.
