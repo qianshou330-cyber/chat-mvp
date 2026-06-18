@@ -4,7 +4,7 @@ Telegram-style mobile PWA MVP for chat, built with React, TypeScript, Vite, Supa
 
 生产 beta 地址：`https://chat-mvp-tau.vercel.app`
 
-当前阶段：`v0.2.1-beta` 已完成自动模拟外测记录，正在开发 `v0.3` 公司试用版能力：工作区、管理员成员管理和同账号多端登录管理。
+当前阶段：`v0.3-beta` 公司试用版准备完成，工作区、管理员成员管理和同账号多端登录管理已完成生产 smoke test。
 
 ## 已包含能力
 
@@ -15,7 +15,7 @@ Telegram-style mobile PWA MVP for chat, built with React, TypeScript, Vite, Supa
 - 附件类型校验和 10 MB 上传限制；头像仅支持 PNG/JPEG/WebP，限制 2 MB。
 - 客户端消息搜索：支持聊天列表搜索和当前会话搜索。
 - Web Push/PWA 通知基础设施：浏览器订阅、Supabase 订阅表、Edge Function 和隐私保护通知 payload。
-- v0.3 公司试用基础设施开发中：默认工作区、管理员成员管理、群聊工作区归属和登录设备管理。
+- v0.3 公司试用基础设施：默认工作区、管理员成员管理、群聊工作区归属和登录设备管理。
 - GitHub Actions CI、Vercel 部署配置、PWA manifest 和 app icon。
 - Figma 和 Lovable 交接文档，位于 `docs/`。
 
@@ -96,6 +96,10 @@ Use `docs/deployment-checklist.md` before promoting a Preview deployment to Prod
 使用 `docs/v0.2.1-external-test-run.md` 执行当前外测批次，记录测试者、必测路径、P0/P1 和进入 v0.3 的门槛。
 
 使用 `docs/v0.3-implementation-backlog.md` 拆分公司试用版工程任务。
+
+使用 `docs/v0.3-production-smoke-test.md` 记录 v0.3 生产 smoke test 和测试数据清理步骤。
+
+使用 `docs/company-trial-safety.md` 查看隐私说明、数据保留说明、敏感信息提示和管理员使用说明。
 
 所有反馈统一进入 GitHub Issues，使用已有的缺陷反馈、体验反馈和功能建议模板。
 
