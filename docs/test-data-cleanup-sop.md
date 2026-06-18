@@ -8,6 +8,10 @@
 
 - 已在 Supabase SQL Editor 删除 65 个测试 Auth 用户。
 - 删除后再次查询，测试 Auth 用户数量为 0。
+- 已在 Supabase Storage 控制台删除 `chat-uploads` 中的测试对象，包含 `device-smoke-`、`codex-smoke-`、`codex-v03-`、`workspace-smoke-` 和同批测试用户残留附件。
+- 已在 SQL Editor 复验，`chat-uploads` 中上述测试对象数量为 0。
+- 已完成 v0.4.1 后端 smoke：默认工作区、成员管理、管理员记录、群聊消息、移除后不可读、push subscription RLS 均通过。
+- v0.4.1 smoke 使用的 9 个 `codex.v04.smoke.*@example.com` 临时 Auth 用户已删除，复验数量为 0。
 - Supabase 阻止直接 SQL 删除 `storage.objects`；测试 Storage 对象需按本 SOP 在 Storage 控制台删除。
 
 ## 测试前缀
@@ -22,7 +26,9 @@
 - `codex.browserpush.`
 - `codex.directpush.`
 - `codex-smoke-`
+- `codex-v03-`
 - `device-smoke-`
+- `workspace-smoke-`
 
 ## 清理前预览
 
@@ -61,8 +67,8 @@ where objects.name ilike '%device-smoke-%'
 1. 先在 SQL Editor 预览命中的测试 Auth 用户和 Storage 对象。
 2. 删除测试 Auth 用户。
 3. 通过 Supabase `Storage -> chat-uploads/profile-avatars` 文件列表删除测试对象。
-3. 再次运行预览，确认匹配数量为 0。
-4. 打开生产站点做一次最小 smoke：登录、聊天列表、个人资料、管理员记录。
+4. 再次运行预览，确认匹配数量为 0。
+5. 打开生产站点做一次最小 smoke：登录、聊天列表、个人资料、管理员记录。
 
 Auth 用户清理 SQL：
 
