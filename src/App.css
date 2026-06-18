@@ -1185,6 +1185,13 @@ mark {
   color: #c2410c;
 }
 
+.profile-links {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
 .feedback-link {
   align-items: center;
   color: var(--accent-strong);

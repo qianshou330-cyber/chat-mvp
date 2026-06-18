@@ -1202,15 +1202,26 @@ function ProfileSettings({
             })}
           </div>
 
-          <a
-            className="feedback-link"
-            href="https://github.com/qianshou330-cyber/chat-mvp/issues/new/choose"
-            rel="noreferrer"
-            target="_blank"
-          >
-            <ExternalLink size={16} />
-            反馈问题
-          </a>
+          <div className="profile-links">
+            <a
+              className="feedback-link"
+              href="https://github.com/qianshou330-cyber/chat-mvp/issues/new/choose"
+              rel="noreferrer"
+              target="_blank"
+            >
+              <ExternalLink size={16} />
+              反馈问题
+            </a>
+            <a
+              className="feedback-link"
+              href="https://github.com/qianshou330-cyber/chat-mvp/blob/main/docs/company-trial-safety.md"
+              rel="noreferrer"
+              target="_blank"
+            >
+              <ExternalLink size={16} />
+              试用说明
+            </a>
+          </div>
         </section>
         <section className="device-card" aria-label="登录设备">
           <div className="workspace-card-header">

@@ -2,7 +2,7 @@
 
 ## 目标
 
-把当前 `v0.3-beta` 从功能 beta 推进到 20-30 人公司内部试用版。目标是支撑一个小团队完成日常轻量沟通、文件分享、通知提醒、基础成员管理和登录设备管理，不追求 Telegram 级完整功能。
+把当前 `v0.3.1-beta` 从功能 beta 推进到 20-30 人公司内部试用版。目标是支撑一个小团队完成日常轻量沟通、文件分享、通知提醒、基础成员管理和登录设备管理，不追求 Telegram 级完整功能。
 
 ## 公司试用最低标准
 
@@ -20,7 +20,7 @@
 - 运营能力：补生产 smoke test 清单、测试数据清理步骤、错误反馈入口和基础监控记录。
 - 安全文档：明确当前不支持端到端加密、语音/视频、频道、机器人和原生 App。
 
-工程拆分见 `docs/v0.3-implementation-backlog.md`。生产 smoke test 和测试数据清理见 `docs/v0.3-production-smoke-test.md`。公司试用安全材料见 `docs/company-trial-safety.md`。
+工程拆分见 `docs/v0.3-implementation-backlog.md`。生产 smoke test 和测试数据清理见 `docs/v0.3-production-smoke-test.md`。公司试用安全材料见 `docs/company-trial-safety.md`。试用闸门见 `docs/v0.3.1-company-trial-gate.md`。
 
 ## 暂不进入 v0.3
 

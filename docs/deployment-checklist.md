@@ -41,6 +41,7 @@
 - Confirm a non-member cannot read conversation rows in Supabase.
 - Confirm a non-member cannot read attachment metadata or create a signed download URL.
 - Confirm the profile page shows “工作区管理” and “登录设备”.
+- Confirm the profile page links to “试用说明” for company-trial safety guidance.
 - Sign in to the same account from two browsers or windows and confirm both devices are listed.
 - Use “退出其他设备” and confirm the current device remains signed in while the other device exits after refresh or heartbeat.
 - Confirm owner/admin can add and remove workspace members, while member cannot manage members.
@@ -50,5 +51,6 @@
 - Tag the beta-ready commit as `v0.2-beta`.
 - Tag documentation-only follow-up releases as `v0.2.1-beta` after checks pass.
 - Tag the company-trial-ready commit as `v0.3-beta` after v0.3 smoke test passes.
+- Tag the company-trial-gate commit as `v0.3.1-beta` after the trial safety entry and smoke test pass.
 - Use `docs/beta-test-plan.md` for tester instructions and issue triage.
 - Collect feedback through GitHub Issue templates before prioritizing the next beta scope.

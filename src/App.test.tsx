@@ -162,6 +162,10 @@ describe('聊天 MVP', () => {
     expect(screen.getByText('启明团队')).toBeInTheDocument()
     expect(screen.getByText(/我的角色：所有者/)).toBeInTheDocument()
     expect(screen.getByRole('link', { name: '反馈问题' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '试用说明' })).toHaveAttribute(
+      'href',
+      'https://github.com/qianshou330-cyber/chat-mvp/blob/main/docs/company-trial-safety.md',
+    )
   })
 
   it('shows and manages login devices in the profile screen', async () => {
