@@ -339,8 +339,7 @@ begin
     on workspace.id = wm.workspace_id
   where wm.user_id = current_user_id
   order by
-    case wm.role when 'owner' then 0 when 'admin' then 1 else 2 end,
-    wm.joined_at
+    wm.joined_at desc
   limit 1;
 
   if result_workspace_id is null then
