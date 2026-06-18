@@ -40,7 +40,8 @@ export function usePushNotifications(userId?: string, workspaceId?: string) {
 
       try {
         const subscription = await getExistingSubscription()
-        if (isActive) setIsSubscribed(Boolean(subscription))
+        const isSaved = subscription ? await hasSavedSubscription(subscription.endpoint) : false
+        if (isActive) setIsSubscribed(isSaved)
       } catch {
         if (isActive) setIsSubscribed(false)
       }
@@ -241,6 +242,20 @@ async function disableSubscription(endpoint: string) {
   })
 
   if (error) throw new Error(error.message)
+}
+
+async function hasSavedSubscription(endpoint: string) {
+  if (!supabase) return false
+
+  const { data, error } = await supabase
+    .from('push_subscriptions')
+    .select('id')
+    .eq('endpoint', endpoint)
+    .eq('enabled', true)
+    .limit(1)
+
+  if (error) throw new Error(error.message)
+  return Boolean(data?.length)
 }
 
 function getPushStatusMessage(status: PushStatus, errorMessage: string) {
