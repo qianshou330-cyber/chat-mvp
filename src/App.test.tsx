@@ -166,6 +166,9 @@ describe('聊天 MVP', () => {
       'href',
       'https://github.com/qianshou330-cyber/chat-mvp/blob/main/docs/company-trial-safety.md',
     )
+    expect(screen.getByRole('region', { name: '管理员记录' })).toBeInTheDocument()
+    expect(screen.getByText('调整角色')).toBeInTheDocument()
+    expect(screen.getByText('附件错误')).toBeInTheDocument()
   })
 
   it('shows and manages login devices in the profile screen', async () => {

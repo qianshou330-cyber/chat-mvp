@@ -29,6 +29,8 @@ import './App.css'
 import { useChatApp } from './hooks/useChatApp'
 import { usePushNotifications } from './hooks/usePushNotifications'
 import type {
+  AdminActivityLog,
+  AppErrorEvent,
   ContactRequest,
   Conversation,
   DeviceSession,
@@ -170,8 +172,10 @@ function App() {
         )}
         {activeScreen === 'profile' && chat.me && (
           <ProfileSettings
+            adminActivityLogs={chat.adminActivityLogs}
             activeWorkspace={chat.activeWorkspace}
             activeWorkspaceRole={chat.activeWorkspaceRole}
+            appErrorEvents={chat.appErrorEvents}
             authNotice={chat.authNotice}
             currentDeviceId={chat.currentDeviceId}
             deviceSessions={chat.deviceSessions}
@@ -979,8 +983,10 @@ function GroupInfo({
 }
 
 function ProfileSettings({
+  adminActivityLogs,
   activeWorkspace,
   activeWorkspaceRole,
+  appErrorEvents,
   authNotice,
   currentDeviceId,
   deviceSessions,
@@ -999,8 +1005,10 @@ function ProfileSettings({
   profile,
   workspaceMembers,
 }: {
+  adminActivityLogs: AdminActivityLog[]
   activeWorkspace: Workspace | null
   activeWorkspaceRole: WorkspaceRole
+  appErrorEvents: AppErrorEvent[]
   authNotice: string
   currentDeviceId: string
   deviceSessions: DeviceSession[]
@@ -1026,7 +1034,7 @@ function ProfileSettings({
   const [isMemberBusy, setIsMemberBusy] = useState(false)
   const [isDeviceBusy, setIsDeviceBusy] = useState(false)
   const avatarInputRef = useRef<HTMLInputElement | null>(null)
-  const pushNotifications = usePushNotifications(profile.id)
+  const pushNotifications = usePushNotifications(profile.id, activeWorkspace?.id)
   const canManageWorkspace = activeWorkspaceRole === 'owner' || activeWorkspaceRole === 'admin'
 
   async function submitWorkspaceMember() {
@@ -1223,6 +1231,63 @@ function ProfileSettings({
             </a>
           </div>
         </section>
+        {canManageWorkspace && (
+          <section className="admin-log-card" aria-label="管理员记录">
+            <div className="workspace-card-header">
+              <span className="notification-icon">
+                <ShieldCheck size={20} />
+              </span>
+              <div>
+                <strong>管理员记录</strong>
+                <p>最近的成员操作和关键错误，方便试用期间排查问题。</p>
+              </div>
+            </div>
+
+            <div className="admin-log-list">
+              {adminActivityLogs.length === 0 ? (
+                <p className="device-note">暂无管理员操作记录。</p>
+              ) : (
+                adminActivityLogs.slice(0, 4).map((log) => {
+                  const actor = getProfile(log.actorId)
+                  const target = getProfile(log.targetUserId)
+
+                  return (
+                    <div className="admin-log-row" key={log.id}>
+                      <span>
+                        <strong>{formatAdminActivity(log.action)}</strong>
+                        <small>
+                          {actor?.displayName ?? '管理员'} · {target?.displayName ?? '目标成员'} ·{' '}
+                          {formatShortDateTime(log.createdAt)}
+                        </small>
+                      </span>
+                      <span className={log.result === 'success' ? 'role-badge' : 'error-badge'}>
+                        {log.result === 'success' ? '成功' : '失败'}
+                      </span>
+                    </div>
+                  )
+                })
+              )}
+            </div>
+
+            <div className="admin-log-list">
+              {appErrorEvents.length === 0 ? (
+                <p className="device-note">暂无关键错误记录。</p>
+              ) : (
+                appErrorEvents.slice(0, 3).map((event) => (
+                  <div className="admin-log-row" key={event.id}>
+                    <span>
+                      <strong>{formatErrorModule(event.module)}</strong>
+                      <small>
+                        {event.message} · {formatShortDateTime(event.createdAt)}
+                      </small>
+                    </span>
+                    <span className="error-badge">错误</span>
+                  </div>
+                ))
+              )}
+            </div>
+          </section>
+        )}
         <section className="device-card" aria-label="登录设备">
           <div className="workspace-card-header">
             <span className="notification-icon">
@@ -1390,6 +1455,34 @@ function formatWorkspaceRole(role: WorkspaceRole) {
   if (role === 'owner') return '所有者'
   if (role === 'admin') return '管理员'
   return '成员'
+}
+
+function formatAdminActivity(action: AdminActivityLog['action']) {
+  if (action === 'member_added') return '添加成员'
+  if (action === 'member_removed') return '移除成员'
+  if (action === 'member_role_updated') return '调整角色'
+  return '退出其他设备'
+}
+
+function formatErrorModule(module: AppErrorEvent['module']) {
+  if (module === 'messages') return '消息错误'
+  if (module === 'attachments') return '附件错误'
+  if (module === 'notifications') return '通知错误'
+  if (module === 'workspace_members') return '成员管理错误'
+  if (module === 'devices') return '登录设备错误'
+  if (module === 'profile') return '资料错误'
+  return '登录错误'
+}
+
+function formatShortDateTime(value: string) {
+  const timestamp = Date.parse(value)
+  if (Number.isNaN(timestamp)) return '时间未知'
+  return new Intl.DateTimeFormat('zh-CN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(timestamp)
 }
 
 function formatDeviceStatus(lastSeenAt: string) {

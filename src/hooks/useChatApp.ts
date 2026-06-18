@@ -8,6 +8,10 @@ import {
 import { createDemoState, demoProfileEmails, demoUser } from '../data/demoData'
 import { avatarFileExtension, validateAttachment, validateAvatar } from '../lib/attachments'
 import type {
+  AdminActivityAction,
+  AdminActivityLog,
+  AppErrorEvent,
+  AppErrorModule,
   AppUser,
   ChatState,
   ContactRequest,
@@ -34,6 +38,24 @@ const DEVICE_ID_STORAGE_KEY = 'chat_mvp_device_id'
 const DEVICE_HEARTBEAT_INTERVAL_MS = 60 * 1000
 
 const safeFileName = (name: string) => name.replace(/[^a-zA-Z0-9._-]/g, '-')
+const trimLogMessage = (message: string) => message.slice(0, 500)
+
+function sanitizeLogContext(context: Record<string, unknown>) {
+  const safeContext: Record<string, string | number | boolean> = {}
+
+  Object.entries(context)
+    .filter(([key]) => !/password|token|secret|body|filename|fileName/i.test(key))
+    .slice(0, 8)
+    .forEach(([key, value]) => {
+      if (typeof value === 'string') {
+        safeContext[key] = value.slice(0, 120)
+      } else if (typeof value === 'number' || typeof value === 'boolean') {
+        safeContext[key] = value
+      }
+    })
+
+  return safeContext
+}
 
 function getOrCreateDeviceId() {
   if (typeof window === 'undefined') return 'server-device'
@@ -118,7 +140,7 @@ function friendlyErrorMessage(message: string | undefined, fallback: string) {
   }
 
   if (normalized.includes('no user found') || normalized.includes('user not found')) {
-    return '没有找到使用这个邮箱注册的用户。'
+    return '没有找到使用这个邮箱注册的用户。请确认对方已经注册。'
   }
 
   if (normalized.includes('incoming contact request already exists')) {
@@ -179,6 +201,16 @@ function isMissingDeviceSessionSchema(message: string | undefined) {
     normalized.includes('revoke_device_session') ||
     normalized.includes('schema cache') ||
     normalized.includes('could not find the function') ||
+    normalized.includes('does not exist')
+  )
+}
+
+function isMissingOperationalLogSchema(message: string | undefined) {
+  const normalized = (message ?? '').toLowerCase()
+  return (
+    normalized.includes('app_error_events') ||
+    normalized.includes('admin_activity_logs') ||
+    normalized.includes('schema cache') ||
     normalized.includes('does not exist')
   )
 }
@@ -255,6 +287,89 @@ export function useChatApp() {
 
   const activeWorkspaceRole =
     workspaceMembers.find((member) => member.userId === user?.id)?.role ?? 'member'
+
+  function recordAppError(
+    module: AppErrorModule,
+    message: string,
+    context: Record<string, unknown> = {},
+  ) {
+    const currentUser = user ?? (!supabase ? demoUser : null)
+    if (!currentUser) return
+
+    const event = {
+      id: uid(),
+      workspaceId: activeWorkspace?.id ?? '',
+      userId: currentUser.id,
+      module,
+      message: trimLogMessage(message),
+      createdAt: new Date().toISOString(),
+    }
+
+    setState((previous) => ({
+      ...previous,
+      appErrorEvents: [event, ...previous.appErrorEvents].slice(0, 20),
+    }))
+
+    if (!supabase) return
+
+    void supabase
+      .from('app_error_events')
+      .insert({
+        id: event.id,
+        workspace_id: event.workspaceId || null,
+        user_id: currentUser.id,
+        module,
+        message: event.message,
+        context: sanitizeLogContext(context),
+      })
+      .then(
+        () => undefined,
+        () => undefined,
+      )
+  }
+
+  function recordAdminActivity(
+    action: AdminActivityAction,
+    targetUserId: string,
+    result: 'success' | 'failure' = 'success',
+    details: Record<string, unknown> = {},
+  ) {
+    const currentUser = user ?? (!supabase ? demoUser : null)
+    if (!currentUser || !activeWorkspace || !isWorkspaceManager(activeWorkspaceRole)) return
+
+    const entry = {
+      id: uid(),
+      workspaceId: activeWorkspace.id,
+      actorId: currentUser.id,
+      targetUserId,
+      action,
+      result,
+      createdAt: new Date().toISOString(),
+    }
+
+    setState((previous) => ({
+      ...previous,
+      adminActivityLogs: [entry, ...previous.adminActivityLogs].slice(0, 20),
+    }))
+
+    if (!supabase) return
+
+    void supabase
+      .from('admin_activity_logs')
+      .insert({
+        id: entry.id,
+        workspace_id: activeWorkspace.id,
+        actor_id: currentUser.id,
+        target_user_id: targetUserId || null,
+        action,
+        result,
+        details: sanitizeLogContext(details),
+      })
+      .then(
+        () => undefined,
+        () => undefined,
+      )
+  }
 
   const incomingContactRequests = useMemo(
     () =>
@@ -398,6 +513,8 @@ export function useChatApp() {
 
     let workspaceRows: Record<string, unknown>[] = []
     let workspaceMemberRows: Record<string, unknown>[] = []
+    let appErrorEventRows: Record<string, unknown>[] = []
+    let adminActivityLogRows: Record<string, unknown>[] = []
     let activeWorkspaceId = ''
     let hasWorkspaceSchema = true
 
@@ -470,6 +587,43 @@ export function useChatApp() {
         workspaceRows = workspacesResult.data ?? []
         workspaceMemberRows = workspaceMembersResult.data ?? workspaceMembershipRows
       }
+    }
+
+    const currentWorkspaceRole =
+      (workspaceMemberRows.find(
+        (member) => member.workspace_id === activeWorkspaceId && member.user_id === userId,
+      )?.role as WorkspaceRole | undefined) ?? 'member'
+
+    if (activeWorkspaceId && isWorkspaceManager(currentWorkspaceRole)) {
+      const [errorEventsResult, activityLogsResult] = await Promise.all([
+        supabase
+          .from('app_error_events')
+          .select('*')
+          .eq('workspace_id', activeWorkspaceId)
+          .order('created_at', { ascending: false })
+          .limit(12),
+        supabase
+          .from('admin_activity_logs')
+          .select('*')
+          .eq('workspace_id', activeWorkspaceId)
+          .order('created_at', { ascending: false })
+          .limit(12),
+      ])
+
+      if (errorEventsResult.error && !isMissingOperationalLogSchema(errorEventsResult.error.message)) {
+        setAuthNotice(
+          friendlyErrorMessage(errorEventsResult.error.message, '无法加载错误记录，请刷新后重试。'),
+        )
+      }
+
+      if (activityLogsResult.error && !isMissingOperationalLogSchema(activityLogsResult.error.message)) {
+        setAuthNotice(
+          friendlyErrorMessage(activityLogsResult.error.message, '无法加载管理员记录，请刷新后重试。'),
+        )
+      }
+
+      appErrorEventRows = errorEventsResult.data ?? []
+      adminActivityLogRows = activityLogsResult.data ?? []
     }
 
     const deviceSessionResult = await refreshCurrentDeviceSession(
@@ -572,6 +726,8 @@ export function useChatApp() {
       workspaces: workspaceRows.map(mapWorkspace),
       workspaceMembers: workspaceMemberRows.map(mapWorkspaceMember),
       deviceSessions: deviceSessionRows.map(mapDeviceSession),
+      appErrorEvents: appErrorEventRows.map(mapAppErrorEvent),
+      adminActivityLogs: adminActivityLogRows.map(mapAdminActivityLog),
       activeWorkspaceId,
     })
     setActiveConversationId((previous) =>
@@ -870,12 +1026,15 @@ export function useChatApp() {
         ),
       }))
       setAuthNotice('其他设备已退出。')
+      recordAdminActivity('other_devices_revoked', user.id, 'success')
       return true
     }
 
     const authSignOut = await supabase.auth.signOut({ scope: 'others' })
     if (authSignOut.error) {
-      setAuthNotice(friendlyErrorMessage(authSignOut.error.message, '无法退出其他设备，请重试。'))
+      const notice = friendlyErrorMessage(authSignOut.error.message, '无法退出其他设备，请重试。')
+      setAuthNotice(notice)
+      recordAppError('devices', notice)
       return false
     }
 
@@ -884,11 +1043,14 @@ export function useChatApp() {
     })
 
     if (error) {
-      setAuthNotice(friendlyErrorMessage(error.message, '无法退出其他设备，请重试。'))
+      const notice = friendlyErrorMessage(error.message, '无法退出其他设备，请重试。')
+      setAuthNotice(notice)
+      recordAppError('devices', notice)
       return false
     }
 
     setAuthNotice('其他设备已退出。')
+    recordAdminActivity('other_devices_revoked', user.id, 'success')
     await refreshDeviceSessions()
     return true
   }
@@ -910,7 +1072,9 @@ export function useChatApp() {
     })
 
     if (error) {
-      setAuthNotice(friendlyErrorMessage(error.message, '无法移除这个设备，请重试。'))
+      const notice = friendlyErrorMessage(error.message, '无法移除这个设备，请重试。')
+      setAuthNotice(notice)
+      recordAppError('devices', notice)
       return false
     }
 
@@ -948,7 +1112,9 @@ export function useChatApp() {
     })
 
     if (error) {
-      setAuthNotice(friendlyErrorMessage(error.message, '消息发送失败，请重试。'))
+      const notice = friendlyErrorMessage(error.message, '消息发送失败，请重试。')
+      setAuthNotice(notice)
+      recordAppError('messages', notice, { conversationId: activeConversation.id })
     } else {
       setState((previous) => ({
         ...previous,
@@ -997,9 +1163,12 @@ export function useChatApp() {
     const upload = await supabase.storage.from(chatStorageBucket).upload(storagePath, file)
 
     if (upload.error) {
-      setAuthNotice(
-        friendlyErrorMessage(upload.error.message, '文件上传失败，请重试。'),
-      )
+      const notice = friendlyErrorMessage(upload.error.message, '文件上传失败，请重试。')
+      setAuthNotice(notice)
+      recordAppError('attachments', notice, {
+        conversationId: activeConversation.id,
+        sizeBytes: file.size,
+      })
       return
     }
 
@@ -1017,12 +1186,15 @@ export function useChatApp() {
       .single()
 
     if (attachmentInsert.error) {
-      setAuthNotice(
-        friendlyErrorMessage(
-          attachmentInsert.error.message,
-          '无法保存文件信息，请重试。',
-        ),
+      const notice = friendlyErrorMessage(
+        attachmentInsert.error.message,
+        '无法保存文件信息，请重试。',
       )
+      setAuthNotice(notice)
+      recordAppError('attachments', notice, {
+        conversationId: activeConversation.id,
+        sizeBytes: file.size,
+      })
       return
     }
 
@@ -1037,9 +1209,12 @@ export function useChatApp() {
     })
 
     if (messageInsert.error) {
-      setAuthNotice(
-        friendlyErrorMessage(messageInsert.error.message, '文件消息发送失败，请重试。'),
-      )
+      const notice = friendlyErrorMessage(messageInsert.error.message, '文件消息发送失败，请重试。')
+      setAuthNotice(notice)
+      recordAppError('attachments', notice, {
+        conversationId: activeConversation.id,
+        sizeBytes: file.size,
+      })
     }
   }
 
@@ -1190,7 +1365,8 @@ export function useChatApp() {
       const targetProfile = state.profiles.find((profile) => profile.id === targetProfileId)
 
       if (!targetProfile) {
-        setAuthNotice('没有找到使用这个邮箱注册的用户。')
+        const notice = '没有找到使用这个邮箱注册的用户。请确认对方已经注册。'
+        setAuthNotice(notice)
         return false
       }
 
@@ -1486,6 +1662,7 @@ export function useChatApp() {
         workspaceMembers: upsertWorkspaceMember(previous.workspaceMembers, workspaceMember),
       }))
       setAuthNotice(`已将 ${targetProfile.displayName} 加入 ${activeWorkspace.name}。`)
+      recordAdminActivity('member_added', targetProfile.id, 'success', { role })
       return true
     }
 
@@ -1497,9 +1674,13 @@ export function useChatApp() {
       .single()
 
     if (error) {
-      setAuthNotice(
-        friendlyErrorMessage(error.message, '无法添加工作区成员，请检查邮箱后重试。'),
+      const notice = friendlyErrorMessage(
+        error.message,
+        '无法添加工作区成员，请检查邮箱后重试。请确认对方已经注册。',
       )
+      setAuthNotice(notice)
+      recordAppError('workspace_members', notice, { role })
+      recordAdminActivity('member_added', '', 'failure', { role, reason: notice })
       return false
     }
 
@@ -1526,6 +1707,7 @@ export function useChatApp() {
       workspaceMembers: upsertWorkspaceMember(previous.workspaceMembers, workspaceMember),
     }))
     setAuthNotice(`已将 ${profile.displayName} 加入当前工作区。`)
+    recordAdminActivity('member_added', profile.id, 'success', { role: workspaceMember.role })
     void loadSupabaseState(currentUser.id)
     return true
   }
@@ -1575,6 +1757,7 @@ export function useChatApp() {
         ),
       }))
       setAuthNotice('成员已移除。')
+      recordAdminActivity('member_removed', memberUserId, 'success')
       return true
     }
 
@@ -1583,11 +1766,15 @@ export function useChatApp() {
     })
 
     if (error) {
-      setAuthNotice(friendlyErrorMessage(error.message, '无法移除工作区成员，请重试。'))
+      const notice = friendlyErrorMessage(error.message, '无法移除工作区成员，请重试。')
+      setAuthNotice(notice)
+      recordAppError('workspace_members', notice, { targetUserId: memberUserId })
+      recordAdminActivity('member_removed', memberUserId, 'failure', { reason: notice })
       return false
     }
 
     setAuthNotice('成员已移除。')
+    recordAdminActivity('member_removed', memberUserId, 'success')
     void loadSupabaseState(currentUser.id)
     return true
   }
@@ -1616,6 +1803,7 @@ export function useChatApp() {
         ),
       }))
       setAuthNotice('成员角色已更新。')
+      recordAdminActivity('member_role_updated', memberUserId, 'success', { role })
       return true
     }
 
@@ -1625,11 +1813,18 @@ export function useChatApp() {
     })
 
     if (error) {
-      setAuthNotice(friendlyErrorMessage(error.message, '无法更新成员角色，请重试。'))
+      const notice = friendlyErrorMessage(error.message, '无法更新成员角色，请重试。')
+      setAuthNotice(notice)
+      recordAppError('workspace_members', notice, { targetUserId: memberUserId, role })
+      recordAdminActivity('member_role_updated', memberUserId, 'failure', {
+        role,
+        reason: notice,
+      })
       return false
     }
 
     setAuthNotice('成员角色已更新。')
+    recordAdminActivity('member_role_updated', memberUserId, 'success', { role })
     void loadSupabaseState(currentUser.id)
     return true
   }
@@ -1645,6 +1840,8 @@ export function useChatApp() {
     activeWorkspace,
     activeWorkspaceRole,
     addWorkspaceMemberByEmail,
+    adminActivityLogs: state.adminActivityLogs,
+    appErrorEvents: state.appErrorEvents,
     authNotice,
     createGroup,
     currentDeviceId,
@@ -1921,6 +2118,29 @@ function mapDeviceSession(row: Record<string, unknown>): DeviceSession {
     platform: String(row.platform ?? 'Web'),
     lastSeenAt: String(row.last_seen_at ?? new Date().toISOString()),
     revokedAt: String(row.revoked_at ?? ''),
+    createdAt: String(row.created_at ?? new Date().toISOString()),
+  }
+}
+
+function mapAppErrorEvent(row: Record<string, unknown>): AppErrorEvent {
+  return {
+    id: String(row.id),
+    workspaceId: String(row.workspace_id ?? ''),
+    userId: String(row.user_id ?? ''),
+    module: (row.module as AppErrorModule) ?? 'messages',
+    message: String(row.message ?? '发生错误'),
+    createdAt: String(row.created_at ?? new Date().toISOString()),
+  }
+}
+
+function mapAdminActivityLog(row: Record<string, unknown>): AdminActivityLog {
+  return {
+    id: String(row.id),
+    workspaceId: String(row.workspace_id ?? ''),
+    actorId: String(row.actor_id ?? ''),
+    targetUserId: String(row.target_user_id ?? ''),
+    action: (row.action as AdminActivityAction) ?? 'member_added',
+    result: row.result === 'failure' ? 'failure' : 'success',
     createdAt: String(row.created_at ?? new Date().toISOString()),
   }
 }

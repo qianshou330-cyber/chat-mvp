@@ -15,6 +15,7 @@
 - Confirm the private `chat-uploads` bucket exists.
 - Confirm `workspaces`, `workspace_members`, and `device_sessions` exist after v0.3 migrations.
 - Confirm `ensure_default_workspace`, `add_workspace_member_by_email`, `remove_workspace_member`, `update_workspace_member_role`, `upsert_device_session`, `revoke_other_device_sessions`, and `revoke_device_session` exist.
+- Confirm `app_error_events` and `admin_activity_logs` exist after the v0.4 migration and RLS is enabled.
 - Deploy the `send-message-push` Edge Function after setting server-only secrets.
 - Create a Database Webhook for `public.messages` `INSERT` events with the `x-webhook-secret` header. If the Dashboard Webhook form fails because the internal `supabase_functions` schema is unavailable, install the reviewed `pg_net` trigger fallback that calls the same Edge Function URL with the same header.
 - Do not create or use Supabase secret keys for the frontend.
@@ -46,11 +47,14 @@
 - Use “退出其他设备” and confirm the current device remains signed in while the other device exits after refresh or heartbeat.
 - Confirm owner/admin can add and remove workspace members, while member cannot manage members.
 - Confirm a removed workspace member cannot read workspace group messages or attachments after refresh.
+- Confirm owner/admin can see “管理员记录”, while member cannot see that region.
+- Trigger one member-management failure and confirm a sanitized error event is created without message body, attachment filename, token, or secret.
 
 ## Beta Release
 - Tag the beta-ready commit as `v0.2-beta`.
 - Tag documentation-only follow-up releases as `v0.2.1-beta` after checks pass.
 - Tag the company-trial-ready commit as `v0.3-beta` after v0.3 smoke test passes.
 - Tag the company-trial-gate commit as `v0.3.1-beta` after the trial safety entry and smoke test pass.
+- Tag the stability baseline as `v0.4-beta` after operational logs pass production smoke test.
 - Use `docs/beta-test-plan.md` for tester instructions and issue triage.
 - Collect feedback through GitHub Issue templates before prioritizing the next beta scope.

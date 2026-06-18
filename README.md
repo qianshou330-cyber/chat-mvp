@@ -4,7 +4,7 @@ Telegram-style mobile PWA MVP for chat, built with React, TypeScript, Vite, Supa
 
 生产 beta 地址：`https://chat-mvp-tau.vercel.app`
 
-当前阶段：`v0.3.1-beta` 公司试用闸门收口，工作区、管理员成员管理、同账号多端登录管理和试用说明入口已完成。
+当前阶段：`v0.4` 稳定化开发中，已加入基础错误记录、管理员操作记录和管理员可见的最近记录入口。
 
 ## 已包含能力
 
@@ -16,6 +16,7 @@ Telegram-style mobile PWA MVP for chat, built with React, TypeScript, Vite, Supa
 - 客户端消息搜索：支持聊天列表搜索和当前会话搜索。
 - Web Push/PWA 通知基础设施：浏览器订阅、Supabase 订阅表、Edge Function 和隐私保护通知 payload。
 - v0.3 公司试用基础设施：默认工作区、管理员成员管理、群聊工作区归属和登录设备管理。
+- v0.4 稳定化基础设施：关键错误记录、管理员操作记录和管理员可见的最近记录入口。
 - GitHub Actions CI、Vercel 部署配置、PWA manifest 和 app icon。
 - Figma 和 Lovable 交接文档，位于 `docs/`。
 
@@ -49,6 +50,8 @@ Allowed attachment types are PNG, JPEG, WebP, PDF, plain text, and Markdown. The
 v0.3 工作区功能需要运行 `supabase/migrations/20260618000000_workspaces.sql`。运行后新用户会自动拥有默认工作区，新建群聊会归属当前工作区。
 
 v0.3 登录设备管理需要继续运行 `supabase/migrations/20260618010000_device_sessions.sql`。运行后个人资料页会显示“登录设备”，用户可以退出其他设备或移除单台设备。
+
+v0.4 稳定化日志需要运行 `supabase/migrations/20260618020000_operational_logs.sql`。运行后 owner/admin 可以在个人资料页看到最近管理员操作和关键错误。
 
 ## Web Push Setup
 
@@ -102,6 +105,8 @@ Use `docs/deployment-checklist.md` before promoting a Preview deployment to Prod
 使用 `docs/company-trial-safety.md` 查看隐私说明、数据保留说明、敏感信息提示和管理员使用说明。
 
 使用 `docs/v0.3.1-company-trial-gate.md` 执行 5 人先导和 20-30 人公司内部试用前的闸门检查。
+
+使用 `docs/v0.4-stability-plan.md` 查看错误记录、管理员操作记录和 v0.4 稳定化边界。
 
 所有反馈统一进入 GitHub Issues，使用已有的缺陷反馈、体验反馈和功能建议模板。
 

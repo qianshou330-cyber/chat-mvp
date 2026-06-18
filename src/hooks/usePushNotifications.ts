@@ -13,7 +13,7 @@ type PushStatus =
   | 'saving'
   | 'error'
 
-export function usePushNotifications(userId?: string) {
+export function usePushNotifications(userId?: string, workspaceId?: string) {
   const [permission, setPermission] = useState<NotificationPermissionState>(() =>
     getNotificationPermission(),
   )
@@ -115,9 +115,9 @@ export function usePushNotifications(userId?: string) {
       await saveSubscription(subscription)
       setIsSubscribed(true)
     } catch (error) {
-      setErrorMessage(
-        error instanceof Error ? error.message : '通知开启失败，请稍后重试。',
-      )
+      const message = error instanceof Error ? error.message : '通知开启失败，请稍后重试。'
+      setErrorMessage(message)
+      recordNotificationError(userId, workspaceId, message)
     } finally {
       setIsBusy(false)
     }
@@ -142,9 +142,9 @@ export function usePushNotifications(userId?: string) {
       setIsSubscribed(false)
       setPermission(getNotificationPermission())
     } catch (error) {
-      setErrorMessage(
-        error instanceof Error ? error.message : '通知关闭失败，请稍后重试。',
-      )
+      const message = error instanceof Error ? error.message : '通知关闭失败，请稍后重试。'
+      setErrorMessage(message)
+      recordNotificationError(userId, workspaceId, message)
     } finally {
       setIsBusy(false)
     }
@@ -161,6 +161,24 @@ export function usePushNotifications(userId?: string) {
     status,
     statusMessage,
   }
+}
+
+function recordNotificationError(userId: string | undefined, workspaceId: string | undefined, message: string) {
+  if (!supabase || !userId) return
+
+  void supabase
+    .from('app_error_events')
+    .insert({
+      workspace_id: workspaceId || null,
+      user_id: userId,
+      module: 'notifications',
+      message: message.slice(0, 500),
+      context: {},
+    })
+    .then(
+      () => undefined,
+      () => undefined,
+    )
 }
 
 function hasPushSupport() {

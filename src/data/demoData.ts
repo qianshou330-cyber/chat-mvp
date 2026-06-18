@@ -3,6 +3,8 @@ import type {
   ChatState,
   ContactRequest,
   Conversation,
+  AdminActivityLog,
+  AppErrorEvent,
   Message,
   Profile,
   Workspace,
@@ -164,6 +166,38 @@ export const demoDeviceSessions: DeviceSession[] = [
   },
 ]
 
+export const demoAppErrorEvents: AppErrorEvent[] = [
+  {
+    id: 'error-demo-attachment',
+    workspaceId: 'workspace-demo',
+    userId: 'user-me',
+    module: 'attachments',
+    message: '文件上传失败，请重试。',
+    createdAt: minutesAgo(68),
+  },
+]
+
+export const demoAdminActivityLogs: AdminActivityLog[] = [
+  {
+    id: 'activity-demo-member-added',
+    workspaceId: 'workspace-demo',
+    actorId: 'user-me',
+    targetUserId: 'user-ian',
+    action: 'member_added',
+    result: 'success',
+    createdAt: minutesAgo(330),
+  },
+  {
+    id: 'activity-demo-role-updated',
+    workspaceId: 'workspace-demo',
+    actorId: 'user-me',
+    targetUserId: 'user-mira',
+    action: 'member_role_updated',
+    result: 'success',
+    createdAt: minutesAgo(300),
+  },
+]
+
 export const demoConversations: Conversation[] = [
   {
     id: 'conv-mira',
@@ -295,5 +329,7 @@ export const createDemoState = (): ChatState => ({
   workspaces: [...demoWorkspaces],
   workspaceMembers: [...demoWorkspaceMembers],
   deviceSessions: [...demoDeviceSessions],
+  appErrorEvents: [...demoAppErrorEvents],
+  adminActivityLogs: [...demoAdminActivityLogs],
   activeWorkspaceId: demoWorkspaces[0]?.id ?? '',
 })

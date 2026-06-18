@@ -102,6 +102,40 @@ export interface DeviceSession {
   createdAt: string
 }
 
+export type AppErrorModule =
+  | 'auth'
+  | 'messages'
+  | 'attachments'
+  | 'notifications'
+  | 'workspace_members'
+  | 'devices'
+  | 'profile'
+
+export interface AppErrorEvent {
+  id: string
+  workspaceId: string
+  userId: string
+  module: AppErrorModule
+  message: string
+  createdAt: string
+}
+
+export type AdminActivityAction =
+  | 'member_added'
+  | 'member_removed'
+  | 'member_role_updated'
+  | 'other_devices_revoked'
+
+export interface AdminActivityLog {
+  id: string
+  workspaceId: string
+  actorId: string
+  targetUserId: string
+  action: AdminActivityAction
+  result: 'success' | 'failure'
+  createdAt: string
+}
+
 export interface SearchResult {
   id: string
   conversationId: string
@@ -122,5 +156,7 @@ export interface ChatState {
   workspaces: Workspace[]
   workspaceMembers: WorkspaceMember[]
   deviceSessions: DeviceSession[]
+  appErrorEvents: AppErrorEvent[]
+  adminActivityLogs: AdminActivityLog[]
   activeWorkspaceId: string
 }

@@ -144,7 +144,8 @@
 .profile-form select,
 .readonly-field,
 .notification-card,
-.workspace-card {
+.workspace-card,
+.admin-log-card {
   background: var(--surface-soft);
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -1017,6 +1018,13 @@ mark {
   padding: 12px;
 }
 
+.admin-log-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+}
+
 .device-card {
   display: flex;
   flex-direction: column;
@@ -1169,6 +1177,53 @@ mark {
   align-items: center;
   display: flex;
   gap: 6px;
+}
+
+.admin-log-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.admin-log-row {
+  align-items: center;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 1fr auto;
+  min-height: 48px;
+}
+
+.admin-log-row > span:first-child {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.admin-log-row strong,
+.admin-log-row small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-log-row strong {
+  color: var(--text);
+  font-size: 14px;
+}
+
+.admin-log-row small {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.error-badge {
+  background: #fff7ed;
+  border-radius: 999px;
+  color: #c2410c;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 6px 8px;
+  white-space: nowrap;
 }
 
 .compact-button {
