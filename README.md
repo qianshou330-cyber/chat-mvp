@@ -84,7 +84,14 @@ Do not add VAPID private keys, webhook secrets, service-role keys, or database p
 npm run lint
 npm run test
 npm run build
+npm run e2e
 ```
+
+## v0.6.5 / v0.6.6 Trial Gate
+
+`v0.6.5-beta` adds local Playwright E2E smoke coverage for the company-trial gate. It runs Demo-mode chat, group details, media preview, and offline composer checks without storing production credentials. See `docs/v0.6.5-e2e-handoff.md`.
+
+`v0.6.6-beta` extends GitHub Actions CI to run Playwright E2E, upload failure reports, and standardize `codex.v065.*` / `codex.v066.*` cleanup rules. See `docs/v0.6.6-ci-e2e-handoff.md`.
 
 ## Deployment
 

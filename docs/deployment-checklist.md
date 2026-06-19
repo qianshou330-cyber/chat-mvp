@@ -58,6 +58,8 @@
 - Confirm the v0.6.2 performance handoff is recorded in `docs/v0.6.2-performance-handoff.md`, including before/after bundle sizes and PWA service worker warning status.
 - Confirm the v0.6.3 maintainability handoff is recorded in `docs/v0.6.3-maintainability-handoff.md`, including helper extraction scope and the long-conversation render-window behavior.
 - Confirm the v0.6.4 realtime reliability handoff is recorded in `docs/v0.6.4-realtime-reliability-handoff.md`, including connection status, offline composer blocking, reconnect refresh, and failed text retry behavior.
+- Confirm the v0.6.5 E2E handoff is recorded in `docs/v0.6.5-e2e-handoff.md`, including local Playwright coverage, local-only boundaries, and production smoke exclusions.
+- Confirm the v0.6.6 CI E2E handoff is recorded in `docs/v0.6.6-ci-e2e-handoff.md`, including GitHub Actions coverage, report artifacts, and temporary data naming.
 - Confirm Vercel Production loads the split chunks for group details and profile settings, and that `manifest.webmanifest` plus `sw.js` still return 200.
 - Confirm `docs/company-trial-safety.md` remains available for company-trial safety guidance.
 - Sign in to the same account from two browsers or windows and confirm both devices are listed.
@@ -87,5 +89,7 @@
 - Tag the performance and maintainability patch as `v0.6.2-beta` after the main JS bundle is reduced below 500 kB, the PWA service worker warning is resolved or documented, and production smoke confirms lazy-loaded screens and Web Push still work.
 - Tag the data-layer maintainability patch as `v0.6.3-beta` after extracted helpers, long-message rendering, current-conversation search scope, and production smoke pass.
 - Tag the realtime reliability patch as `v0.6.4-beta` after connection status, offline send blocking, Realtime reconnect refresh, failed message retry, and production smoke pass.
+- Tag the local E2E trial-gate patch as `v0.6.5-beta` after Playwright local smoke, documentation, and cleanup guidance pass.
+- Tag the CI E2E governance patch as `v0.6.6-beta` after GitHub Actions runs lint/test/build/e2e and uploads Playwright failure artifacts.
 - Use `docs/beta-test-plan.md` for tester instructions and issue triage.
 - Collect feedback through GitHub Issue templates before prioritizing the next beta scope.

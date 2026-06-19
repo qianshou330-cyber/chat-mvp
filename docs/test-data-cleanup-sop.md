@@ -34,6 +34,8 @@
 - `codex.v04.`
 - `codex.v042.`
 - `codex.v060.`
+- `codex.v065.`
+- `codex.v066.`
 - `codex.pilot.`
 - `codex.push.`
 - `codex.browserpush.`
@@ -43,6 +45,8 @@
 - `codex-v03-`
 - `codex-v042-`
 - `codex-v060-`
+- `codex-v065-`
+- `codex-v066-`
 - `device-smoke-`
 - `workspace-smoke-`
 
@@ -60,6 +64,8 @@ with test_users as (
      or email like 'codex.v04.%@example.com'
      or email like 'codex.v042.%@example.com'
      or email like 'codex.v060.%@example.com'
+     or email like 'codex.v065.%@example.com'
+     or email like 'codex.v066.%@example.com'
      or email like 'codex.pilot.%@example.com'
      or email like 'codex.push.%@example.com'
      or email like 'codex.browserpush.%@example.com'
@@ -75,6 +81,8 @@ where objects.name ilike '%device-smoke-%'
    or objects.name ilike '%codex-pilot-%'
    or objects.name ilike '%codex-v042-%'
    or objects.name ilike '%codex-v060-%'
+   or objects.name ilike '%codex-v065-%'
+   or objects.name ilike '%codex-v066-%'
    or exists (
      select 1 from test_users
      where objects.owner_id = test_users.id::text
@@ -102,6 +110,8 @@ where users.email like 'codex.v02.%@example.com'
    or users.email like 'codex.v04.%@example.com'
    or users.email like 'codex.v042.%@example.com'
    or users.email like 'codex.v060.%@example.com'
+   or users.email like 'codex.v065.%@example.com'
+   or users.email like 'codex.v066.%@example.com'
    or users.email like 'codex.pilot.%@example.com'
    or users.email like 'codex.push.%@example.com'
    or users.email like 'codex.browserpush.%@example.com'
