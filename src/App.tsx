@@ -25,6 +25,7 @@ import Avatar from './components/Avatar'
 import { displayConversationTitle, formatFileSize, formatStatus, formatTime } from './lib/uiFormat'
 import type {
   Attachment,
+  ConnectionStatus,
   ContactRequest,
   Conversation,
   ConversationMember,
@@ -157,6 +158,7 @@ function App() {
         {activeScreen === 'chat' && chat.activeConversation && (
           <ChatView
             authNotice={chat.noticeFor('chat')}
+            connectionStatus={chat.connectionStatus}
             conversation={chat.activeConversation}
             conversationMembers={chat.state.members}
             getProfile={chat.getProfile}
@@ -688,6 +690,7 @@ function SearchResults({
 
 function ChatView({
   authNotice,
+  connectionStatus,
   conversation,
   conversationMembers,
   getProfile,
@@ -705,6 +708,7 @@ function ChatView({
   title,
 }: {
   authNotice: string
+  connectionStatus: ConnectionStatus
   conversation: Conversation
   conversationMembers: ConversationMember[]
   getProfile: (profileId: string) => Profile | undefined
@@ -734,7 +738,9 @@ function ChatView({
   )
   const isGroupManager = currentMember?.role === 'owner' || currentMember?.role === 'admin'
   const sendBlockReason = getChatMuteReason(conversation, currentMember)
-  const isComposerDisabled = Boolean(sendBlockReason)
+  const connectionBlockReason =
+    connectionStatus === 'offline' ? '网络不可用，恢复后可继续发送。' : ''
+  const isComposerDisabled = Boolean(sendBlockReason || connectionBlockReason)
   const pinnedMessage = conversation.pinnedMessageId
     ? messages.find((message) => message.id === conversation.pinnedMessageId && !message.deletedAt)
     : undefined
@@ -783,6 +789,10 @@ function ChatView({
           <Search size={22} />
         </button>
       </header>
+
+      <div className={`connection-status ${connectionStatus}`} role="status">
+        <span>{formatConnectionStatus(connectionStatus)}</span>
+      </div>
 
       {isMessageSearchOpen && (
         <section className="in-chat-search" aria-label="当前会话搜索">
@@ -904,8 +914,8 @@ function ChatView({
         )}
       </div>
 
-      {(authNotice || sendBlockReason) && (
-        <p className="notice chat-notice">{authNotice || sendBlockReason}</p>
+      {(authNotice || sendBlockReason || connectionBlockReason) && (
+        <p className="notice chat-notice">{authNotice || sendBlockReason || connectionBlockReason}</p>
       )}
 
       <form className="composer" onSubmit={submit}>
@@ -934,7 +944,7 @@ function ChatView({
           aria-label="消息"
           disabled={isComposerDisabled}
           onChange={(event) => setDraft(event.target.value)}
-          placeholder={sendBlockReason || '输入消息'}
+          placeholder={sendBlockReason || connectionBlockReason || '输入消息'}
           value={draft}
         />
         <button
@@ -1289,6 +1299,13 @@ function canDeleteGroupMessageFromView(
     Date.now() - Date.parse(message.createdAt) <= 2 * 60 * 1000
 
   return isOwnRecent || ((currentMember?.role === 'owner' || currentMember?.role === 'admin') && senderMember?.role === 'member')
+}
+
+function formatConnectionStatus(status: ConnectionStatus) {
+  if (status === 'connecting') return '连接中'
+  if (status === 'reconnecting') return '正在重连'
+  if (status === 'offline') return '离线'
+  return '已连接'
 }
 
 function getChatMuteReason(

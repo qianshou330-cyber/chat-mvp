@@ -4,6 +4,8 @@ export type MessageType = 'text' | 'image' | 'video' | 'file'
 
 export type MessageStatus = 'sending' | 'sent' | 'read' | 'failed'
 
+export type ConnectionStatus = 'connecting' | 'connected' | 'reconnecting' | 'offline'
+
 export type MemberRole = 'owner' | 'admin' | 'member'
 
 export type WorkspaceRole = MemberRole

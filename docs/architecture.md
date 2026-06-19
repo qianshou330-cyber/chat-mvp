@@ -27,7 +27,7 @@
 - Reference is limited to product structure and interaction patterns such as chat list density, profile/settings grouping, media viewer behavior, upload progress, group details, and group permission flows.
 
 ## Next Production Tasks
-- Finish the v0.6.3 maintainability handoff: keep `useChatApp()` public shape stable, verify the extracted pure helpers under smoke coverage, and record the message render-window strategy in `docs/v0.6.3-maintainability-handoff.md`.
+- Finish the v0.6.4 realtime reliability handoff: verify connection-state display, offline composer blocking, Realtime refresh after reconnect, and failed text retry behavior in `docs/v0.6.4-realtime-reliability-handoff.md`.
 - Keep using `docs/telegram-reference-evaluation.md` as the clean-room boundary for Telegram-style chat and detail page polish.
 - Keep v0.6 focused on member invitation, trial inspection, permission regression, media performance, and mobile stability rather than new headline features.
 - Defer service-side pagination and deeper nested hook extraction until a later v0.6.x patch, after company-trial feedback confirms no data-flow regressions.

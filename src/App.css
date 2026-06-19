@@ -858,6 +858,31 @@ mark {
   font-size: 12px;
 }
 
+.connection-status {
+  align-items: center;
+  background: rgba(246, 250, 253, 0.82);
+  color: var(--text-muted);
+  display: flex;
+  flex: 0 0 auto;
+  font-size: 12px;
+  justify-content: center;
+  padding: 5px 12px;
+}
+
+.connection-status.connected {
+  color: #4f6f86;
+}
+
+.connection-status.connecting,
+.connection-status.reconnecting {
+  color: var(--accent-strong);
+}
+
+.connection-status.offline {
+  background: #fff4f2;
+  color: var(--danger);
+}
+
 .inline-result-row {
   gap: 2px;
   min-height: 48px;

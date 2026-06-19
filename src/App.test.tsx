@@ -59,6 +59,24 @@ describe('聊天 MVP', () => {
     expect(screen.getAllByText('批量消息 0').length).toBeGreaterThan(0)
   })
 
+  it('disables the composer when the browser is offline', async () => {
+    const originalOnline = navigator.onLine
+    Object.defineProperty(navigator, 'onLine', { configurable: true, value: false })
+
+    try {
+      render(<App />)
+
+      fireEvent.click(screen.getByRole('button', { name: '使用 Demo 账号' }))
+      fireEvent.click(await screen.findByText('林小米'))
+
+      expect(screen.getByText('离线')).toBeInTheDocument()
+      expect(screen.getByLabelText('消息')).toBeDisabled()
+      expect(screen.getByText('网络不可用，恢复后可继续发送。')).toBeInTheDocument()
+    } finally {
+      Object.defineProperty(navigator, 'onLine', { configurable: true, value: originalOnline })
+    }
+  })
+
   it('sends a demo contact request without opening a direct chat', async () => {
     render(<App />)
 

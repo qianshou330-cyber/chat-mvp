@@ -58,6 +58,7 @@ import type {
   AppErrorModule,
   AppUser,
   ChatState,
+  ConnectionStatus,
   ContactRequest,
   ContactStatus,
   Conversation,
@@ -77,6 +78,15 @@ const uid = () =>
     : `${Date.now()}-${Math.random().toString(16).slice(2)}`
 
 const safeFileName = (name: string) => name.replace(/[^a-zA-Z0-9._-]/g, '-')
+
+function isBrowserOffline() {
+  return typeof navigator !== 'undefined' && navigator.onLine === false
+}
+
+function initialConnectionStatus(): ConnectionStatus {
+  if (isBrowserOffline()) return 'offline'
+  return supabase ? 'connecting' : 'connected'
+}
 
 type NoticeScope = 'global' | 'login' | 'list' | 'chat' | 'group' | 'profile'
 
@@ -98,6 +108,7 @@ export function useChatApp() {
   const [notice, setNotice] = useState<ScopedNotice>({ message: '', scope: 'global' })
   const [profileUploadProgress, setProfileUploadProgress] = useState<UploadProgressState | null>(null)
   const [isLoading, setIsLoading] = useState(Boolean(supabase))
+  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>(initialConnectionStatus)
   const currentDeviceId = useMemo(() => getOrCreateDeviceId(), [])
   const allowDeviceRestore = useRef(false)
   const currentChannel = useRef<ReturnType<NonNullable<typeof supabase>['channel']> | null>(
@@ -107,6 +118,10 @@ export function useChatApp() {
     null,
   )
   const pendingUploadFilesRef = useRef<Map<string, File>>(new Map())
+  const pendingTextMessagesRef = useRef<Map<string, { body: string; conversationId: string }>>(
+    new Map(),
+  )
+  const pendingTextSendsRef = useRef<Set<string>>(new Set())
 
   const activeConversation = state.conversations.find(
     (conversation) => conversation.id === activeConversationId,
@@ -309,6 +324,8 @@ export function useChatApp() {
       if (currentSession.data?.revoked_at && !allowRevokedRestore) {
         await supabase.auth.signOut({ scope: 'local' })
         pendingUploadFilesRef.current.clear()
+        pendingTextMessagesRef.current.clear()
+        pendingTextSendsRef.current.clear()
         setUser(null)
         setState(createDemoState())
         setAuthNotice('这台设备已被退出，请重新登录。')
@@ -676,6 +693,19 @@ export function useChatApp() {
     setIsLoading(false)
   }, [refreshCurrentDeviceSession])
 
+  const refreshCurrentConversation = useCallback(async () => {
+    if (!user) return false
+    if (isBrowserOffline()) {
+      setConnectionStatus('offline')
+      return false
+    }
+
+    if (supabase) setConnectionStatus('reconnecting')
+    await loadSupabaseState(user.id)
+    setConnectionStatus('connected')
+    return true
+  }, [loadSupabaseState, user])
+
   useEffect(() => {
     if (!supabase) return
 
@@ -711,10 +741,47 @@ export function useChatApp() {
   }, [loadSupabaseState])
 
   useEffect(() => {
+    const handleOffline = () => {
+      setConnectionStatus('offline')
+    }
+    const handleOnline = () => {
+      if (!supabase || !user) {
+        setConnectionStatus('connected')
+        return
+      }
+      void refreshCurrentConversation()
+    }
+
+    window.addEventListener('offline', handleOffline)
+    window.addEventListener('online', handleOnline)
+
+    return () => {
+      window.removeEventListener('offline', handleOffline)
+      window.removeEventListener('online', handleOnline)
+    }
+  }, [refreshCurrentConversation, user])
+
+  useEffect(() => {
     if (!supabase || !user) return
     const client = supabase
     const reloadState = () => {
       void loadSupabaseState(user.id)
+    }
+    let isActive = true
+    const handleRealtimeStatus = (status: string) => {
+      if (!isActive) return
+      if (isBrowserOffline()) {
+        setConnectionStatus('offline')
+        return
+      }
+      if (status === 'SUBSCRIBED') {
+        setConnectionStatus('connected')
+        reloadState()
+        return
+      }
+      if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+        setConnectionStatus('reconnecting')
+      }
     }
 
     if (stateChannel.current) {
@@ -763,9 +830,10 @@ export function useChatApp() {
         },
         reloadState,
       )
-      .subscribe()
+      .subscribe(handleRealtimeStatus)
 
     return () => {
+      isActive = false
       if (stateChannel.current) {
         void client.removeChannel(stateChannel.current)
         stateChannel.current = null
@@ -809,6 +877,22 @@ export function useChatApp() {
     const client = supabase
     const reloadState = () => {
       void loadSupabaseState(user.id)
+    }
+    let isActive = true
+    const handleRealtimeStatus = (status: string) => {
+      if (!isActive) return
+      if (isBrowserOffline()) {
+        setConnectionStatus('offline')
+        return
+      }
+      if (status === 'SUBSCRIBED') {
+        setConnectionStatus('connected')
+        reloadState()
+        return
+      }
+      if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+        setConnectionStatus('reconnecting')
+      }
     }
 
     if (currentChannel.current) {
@@ -885,9 +969,10 @@ export function useChatApp() {
         },
         reloadState,
       )
-      .subscribe()
+      .subscribe(handleRealtimeStatus)
 
     return () => {
+      isActive = false
       if (currentChannel.current) {
         void client.removeChannel(currentChannel.current)
         currentChannel.current = null
@@ -965,6 +1050,8 @@ export function useChatApp() {
       await supabase.auth.signOut({ scope: 'local' })
     }
     pendingUploadFilesRef.current.clear()
+    pendingTextMessagesRef.current.clear()
+    pendingTextSendsRef.current.clear()
     setUser(null)
     setNotice({ message: '', scope: 'global' })
     setState(createDemoState())
@@ -1065,6 +1152,17 @@ export function useChatApp() {
       setScopedNotice('chat', sendBlockReason)
       return
     }
+    if (supabase && isBrowserOffline()) {
+      setConnectionStatus('offline')
+      setScopedNotice('chat', '网络不可用，恢复后可继续发送。')
+      return
+    }
+
+    const dedupeKey = `${activeConversation.id}:${trimmed}`
+    if (supabase && pendingTextSendsRef.current.has(dedupeKey)) {
+      setScopedNotice('chat', '这条消息正在发送，请稍等。')
+      return
+    }
 
     const optimisticMessage: Message = {
       id: uid(),
@@ -1079,6 +1177,11 @@ export function useChatApp() {
     setState((previous) => withNewMessage(previous, optimisticMessage))
 
     if (!supabase) return
+    pendingTextSendsRef.current.add(dedupeKey)
+    pendingTextMessagesRef.current.set(optimisticMessage.id, {
+      body: trimmed,
+      conversationId: activeConversation.id,
+    })
 
     const { error } = await supabase.from('messages').insert({
       id: optimisticMessage.id,
@@ -1094,10 +1197,17 @@ export function useChatApp() {
       setScopedNotice('chat', notice)
       setState((previous) => ({
         ...previous,
-        messages: previous.messages.filter((message) => message.id !== optimisticMessage.id),
+        messages: previous.messages.map((message) =>
+          message.id === optimisticMessage.id
+            ? { ...message, status: 'failed', uploadError: notice }
+            : message,
+        ),
       }))
+      pendingTextSendsRef.current.delete(dedupeKey)
       recordAppError('messages', notice, { conversationId: activeConversation.id })
     } else {
+      pendingTextSendsRef.current.delete(dedupeKey)
+      pendingTextMessagesRef.current.delete(optimisticMessage.id)
       setState((previous) => ({
         ...previous,
         messages: previous.messages.map((message) =>
@@ -1112,6 +1222,11 @@ export function useChatApp() {
     const sendBlockReason = getSendBlockReason(activeConversation, state.members, user.id)
     if (sendBlockReason) {
       setScopedNotice('chat', sendBlockReason)
+      return
+    }
+    if (supabase && isBrowserOffline()) {
+      setConnectionStatus('offline')
+      setScopedNotice('chat', '网络不可用，恢复后可继续发送。')
       return
     }
 
@@ -1258,6 +1373,7 @@ export function useChatApp() {
 
   function removeFailedMessage(messageId: string) {
     pendingUploadFilesRef.current.delete(messageId)
+    pendingTextMessagesRef.current.delete(messageId)
     setState((previous) => ({
       ...previous,
       messages: previous.messages.filter((message) => message.id !== messageId),
@@ -1266,10 +1382,11 @@ export function useChatApp() {
 
   async function retryFileMessage(messageId: string) {
     const file = pendingUploadFilesRef.current.get(messageId)
+    const textPayload = pendingTextMessagesRef.current.get(messageId)
     const failedMessage = state.messages.find((message) => message.id === messageId)
 
-    if (!file || !failedMessage) {
-      setScopedNotice('chat', '无法重试这个文件，请重新选择上传。')
+    if ((!file && !textPayload) || !failedMessage) {
+      setScopedNotice('chat', '无法重试这条消息，请重新发送。')
       return
     }
 
@@ -1279,11 +1396,16 @@ export function useChatApp() {
     }
 
     pendingUploadFilesRef.current.delete(messageId)
+    pendingTextMessagesRef.current.delete(messageId)
     setState((previous) => ({
       ...previous,
       messages: previous.messages.filter((message) => message.id !== messageId),
     }))
-    await sendFile(file)
+    if (file) {
+      await sendFile(file)
+      return
+    }
+    if (textPayload) await sendText(textPayload.body)
   }
 
   function updateProfile(nextProfile: Pick<Profile, 'displayName' | 'bio'>) {
@@ -2962,6 +3084,7 @@ export function useChatApp() {
     authNotice,
     createGroup,
     currentDeviceId,
+    connectionStatus,
     deleteGroupMessage,
     deviceSessions: state.deviceSessions,
     getProfile,
@@ -2974,6 +3097,7 @@ export function useChatApp() {
     outgoingContactRequests,
     profileUploadProgress,
     query,
+    refreshCurrentConversation,
     searchResults,
     sendFile,
     sendContactRequestByEmail,
