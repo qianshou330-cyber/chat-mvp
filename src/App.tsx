@@ -1314,6 +1314,16 @@ function GroupInfo({
   const visibleAppErrorEvents = activeWorkspace
     ? appErrorEvents.filter((event) => event.workspaceId === activeWorkspace.id)
     : appErrorEvents
+  const groupAdminActivityLogs = visibleAdminActivityLogs.filter(
+    (log) => log.details?.conversationId === conversation.id,
+  )
+  const groupAppErrorEvents = visibleAppErrorEvents.filter(
+    (event) => event.context?.conversationId === conversation.id,
+  )
+  const managerCount = conversationMembers.filter(
+    (member) => member.role === 'owner' || member.role === 'admin',
+  ).length
+  const mutedMemberCount = conversationMembers.filter((member) => member.isMuted).length
 
   function updateTitleDraft(value: string) {
     setTitleDraftState({ conversationId: conversation.id, value })
@@ -1483,6 +1493,15 @@ function GroupInfo({
       </section>
 
       <div className="settings-list">
+        <section className="group-section" aria-label="群公告与权限">
+          <div className="group-section-header">
+            <span>
+              <strong>群公告与权限</strong>
+              <small>
+                {managerCount} 名管理员 · {mutedMemberCount > 0 ? `${mutedMemberCount} 名成员已禁言` : '暂无成员被禁言'}
+              </small>
+            </span>
+          </div>
         <div className="group-announcement-editor">
           <span>
             <strong>群公告</strong>
@@ -1517,7 +1536,7 @@ function GroupInfo({
           <ShieldCheck size={20} />
           <span>
             <strong>群权限</strong>
-            <small>owner 可调整群管理员；owner/admin 可添加或移除普通群成员</small>
+            <small>owner 可调整群管理员；owner/admin 可添加、移除或禁言普通成员</small>
           </span>
         </div>
         <div className="settings-row mute-row">
@@ -1545,7 +1564,9 @@ function GroupInfo({
             <span className="role-badge">{conversation.isMuted ? '已禁言' : '未禁言'}</span>
           )}
         </div>
+        </section>
         {canManageGroup && (
+          <section className="group-section" aria-label="添加群成员">
           <form className="group-member-manager" onSubmit={(event) => void submitGroupMember(event)}>
             <label htmlFor="groupMemberEmail">添加成员</label>
             <div className="workspace-member-controls">
@@ -1570,7 +1591,9 @@ function GroupInfo({
             <p className="form-hint">对方需要先注册；添加后会进入当前群。</p>
             {authNotice && <p className="form-hint notice-inline">{authNotice}</p>}
           </form>
+          </section>
         )}
+        <section className="group-section" aria-label="群文件">
         <div className="group-files-panel" id="groupFilesPanel">
           <span className="panel-heading">
             <strong>群文件</strong>
@@ -1625,20 +1648,21 @@ function GroupInfo({
             })
           )}
         </div>
+        </section>
         {canManageGroup && isManagementOpen && (
-          <section className="admin-log-card group-management-records" aria-label="群管理记录">
+          <section className="group-section admin-log-card group-management-records" aria-label="群管理记录">
             <div className="workspace-card-header">
               <ShieldCheck size={24} />
               <span>
                 <strong>群管理记录</strong>
-                <p>最近管理操作和关键错误，仅管理员可见。</p>
+                <p>仅显示当前群的最近管理操作和关键错误。</p>
               </span>
             </div>
-            {visibleAdminActivityLogs.length === 0 ? (
-              <p className="empty-inline">暂无管理操作。</p>
+            {groupAdminActivityLogs.length === 0 ? (
+              <p className="empty-inline">暂无当前群管理操作。</p>
             ) : (
               <div className="admin-log-list">
-                {visibleAdminActivityLogs.slice(0, 4).map((log) => {
+                {groupAdminActivityLogs.slice(0, 4).map((log) => {
                   const targetProfile = getProfile(log.targetUserId)
 
                   return (
@@ -1657,9 +1681,9 @@ function GroupInfo({
                 })}
               </div>
             )}
-            {visibleAppErrorEvents.length > 0 && (
+            {groupAppErrorEvents.length > 0 && (
               <div className="admin-log-list">
-                {visibleAppErrorEvents.slice(0, 3).map((event) => (
+                {groupAppErrorEvents.slice(0, 3).map((event) => (
                   <div className="admin-log-row" key={event.id}>
                     <span>
                       <strong>{formatErrorModule(event.module)}</strong>
@@ -1676,7 +1700,21 @@ function GroupInfo({
         )}
       </div>
 
-      <div className="member-list">
+      <section className="group-section group-members-section" aria-label="群成员">
+        <div className="group-section-header">
+          <span>
+            <strong>群成员</strong>
+            <small>
+              {conversationMembers.length} 人 · {managerCount} 名管理员
+            </small>
+          </span>
+          {canManageGroup && (
+            <span className="role-badge">
+              {canManageRoles ? 'owner 可调整角色' : 'admin 可管理成员'}
+            </span>
+          )}
+        </div>
+      <div className="member-list group-member-list">
         {conversationMembers.map((member) => {
           const profile = getProfile(member.userId)
           const canRemove = canManageGroup && member.role === 'member' && member.userId !== currentUserId
@@ -1742,6 +1780,7 @@ function GroupInfo({
           )
         })}
       </div>
+      </section>
     </section>
   )
 }

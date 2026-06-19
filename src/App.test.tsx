@@ -183,13 +183,16 @@ describe('聊天 MVP', () => {
     fireEvent.click(await screen.findByText('上线准备群'))
     fireEvent.click(screen.getByRole('button', { name: /上线准备群/ }))
 
+    expect(await screen.findByRole('region', { name: '群公告与权限' })).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: '群成员' })).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: '群文件' })).toBeInTheDocument()
     expect(await screen.findByLabelText('添加群成员邮箱')).toBeInTheDocument()
     expect(screen.getByText('对方需要先注册；添加后会进入当前群。')).toBeInTheDocument()
     expect(screen.queryByRole('region', { name: '工作区管理' })).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '更多管理' }))
 
     expect(screen.getByRole('region', { name: '群管理记录' })).toBeInTheDocument()
-    expect(screen.getByText('调整角色')).toBeInTheDocument()
+    expect(screen.getByText('调整群角色')).toBeInTheDocument()
     expect(screen.getByText('附件错误')).toBeInTheDocument()
   })
 

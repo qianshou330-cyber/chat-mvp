@@ -62,6 +62,10 @@ interface UploadProgressState {
   percent: number
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
 function sanitizeLogContext(context: Record<string, unknown>) {
   const safeContext: Record<string, string | number | boolean> = {}
 
@@ -342,6 +346,7 @@ export function useChatApp() {
       userId: currentUser.id,
       module,
       message: trimLogMessage(message),
+      context: sanitizeLogContext(context),
       createdAt: new Date().toISOString(),
     }
 
@@ -384,6 +389,7 @@ export function useChatApp() {
       targetUserId,
       action,
       result,
+      details: sanitizeLogContext(details),
       createdAt: new Date().toISOString(),
     }
 
@@ -717,6 +723,47 @@ export function useChatApp() {
       conversationRows = conversationsResult.data ?? []
       memberRows = membersResult.data ?? []
       messageRows = messagesResult.data ?? []
+    }
+
+    const canReadGroupRecords =
+      activeWorkspaceId &&
+      !isWorkspaceManager(currentWorkspaceRole) &&
+      memberRows.some(
+        (member) =>
+          member.user_id === userId &&
+          (member.role === 'owner' || member.role === 'admin'),
+      )
+
+    if (canReadGroupRecords) {
+      const [errorEventsResult, activityLogsResult] = await Promise.all([
+        supabase
+          .from('app_error_events')
+          .select('*')
+          .eq('workspace_id', activeWorkspaceId)
+          .order('created_at', { ascending: false })
+          .limit(12),
+        supabase
+          .from('admin_activity_logs')
+          .select('*')
+          .eq('workspace_id', activeWorkspaceId)
+          .order('created_at', { ascending: false })
+          .limit(12),
+      ])
+
+      if (errorEventsResult.error && !isMissingOperationalLogSchema(errorEventsResult.error.message)) {
+        setAuthNotice(
+          friendlyErrorMessage(errorEventsResult.error.message, '无法加载错误记录，请刷新后重试。'),
+        )
+      }
+
+      if (activityLogsResult.error && !isMissingOperationalLogSchema(activityLogsResult.error.message)) {
+        setAuthNotice(
+          friendlyErrorMessage(activityLogsResult.error.message, '无法加载群管理记录，请刷新后重试。'),
+        )
+      }
+
+      appErrorEventRows = errorEventsResult.data ?? []
+      adminActivityLogRows = activityLogsResult.data ?? []
     }
 
     const profileIds = new Set<string>()
@@ -3519,6 +3566,7 @@ function mapAppErrorEvent(row: Record<string, unknown>): AppErrorEvent {
     userId: String(row.user_id ?? ''),
     module: (row.module as AppErrorModule) ?? 'messages',
     message: String(row.message ?? '发生错误'),
+    context: isRecord(row.context) ? sanitizeLogContext(row.context) : {},
     createdAt: String(row.created_at ?? new Date().toISOString()),
   }
 }
@@ -3531,6 +3579,7 @@ function mapAdminActivityLog(row: Record<string, unknown>): AdminActivityLog {
     targetUserId: String(row.target_user_id ?? ''),
     action: (row.action as AdminActivityAction) ?? 'member_added',
     result: row.result === 'failure' ? 'failure' : 'success',
+    details: isRecord(row.details) ? sanitizeLogContext(row.details) : {},
     createdAt: String(row.created_at ?? new Date().toISOString()),
   }
 }

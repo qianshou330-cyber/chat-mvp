@@ -1250,6 +1250,40 @@ mark {
   padding: 12px 12px 16px;
 }
 
+.group-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.group-members-section {
+  padding: 0 12px 18px;
+}
+
+.group-section-header {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  min-height: 28px;
+}
+
+.group-section-header > span:first-child {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.group-section-header strong {
+  color: var(--text);
+  font-size: 13px;
+}
+
+.group-section-header small {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
 .settings-row {
   align-items: center;
   background: var(--surface);
@@ -1424,6 +1458,10 @@ mark {
 
 .member-row {
   grid-template-columns: 48px 1fr;
+}
+
+.group-member-list {
+  padding: 0;
 }
 
 .group-member-row {

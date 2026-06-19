@@ -134,6 +134,7 @@ export interface AppErrorEvent {
   userId: string
   module: AppErrorModule
   message: string
+  context?: Record<string, string | number | boolean>
   createdAt: string
 }
 
@@ -163,6 +164,7 @@ export interface AdminActivityLog {
   targetUserId: string
   action: AdminActivityAction
   result: 'success' | 'failure'
+  details?: Record<string, string | number | boolean>
   createdAt: string
 }
 

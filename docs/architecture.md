@@ -27,8 +27,8 @@
 - Reference is limited to product structure and interaction patterns such as chat list density, media viewer behavior, upload progress, group details, and group permission flows.
 
 ## Next Production Tasks
-- Finish v0.5.3 group mute cloud validation and production smoke before tagging `v0.5.3-beta`.
-- Use `docs/telegram-reference-evaluation.md` as the reference boundary for upcoming group permission and media UX polish.
-- Continue v0.5.x with group permission, media viewer, upload progress, group file, and message governance refinements.
+- Finish v0.5.4 group permission detail polish and production smoke before tagging `v0.5.4-beta`.
+- Keep using `docs/telegram-reference-evaluation.md` as the clean-room boundary for group permission and media UX polish.
+- Continue v0.5.x with media viewer, upload progress, group file, and message governance refinements.
 - Add server-side search only after client search reaches real data limits.
 - Add Playwright tests for multi-user realtime flows.

@@ -193,6 +193,7 @@ export const demoAppErrorEvents: AppErrorEvent[] = [
     userId: 'user-me',
     module: 'attachments',
     message: '文件上传失败，请重试。',
+    context: { conversationId: 'conv-launch' },
     createdAt: minutesAgo(68),
   },
 ]
@@ -203,8 +204,9 @@ export const demoAdminActivityLogs: AdminActivityLog[] = [
     workspaceId: 'workspace-demo',
     actorId: 'user-me',
     targetUserId: 'user-ian',
-    action: 'member_added',
+    action: 'group_member_added',
     result: 'success',
+    details: { conversationId: 'conv-launch' },
     createdAt: minutesAgo(330),
   },
   {
@@ -212,8 +214,9 @@ export const demoAdminActivityLogs: AdminActivityLog[] = [
     workspaceId: 'workspace-demo',
     actorId: 'user-me',
     targetUserId: 'user-mira',
-    action: 'member_role_updated',
+    action: 'group_member_role_updated',
     result: 'success',
+    details: { conversationId: 'conv-launch' },
     createdAt: minutesAgo(300),
   },
 ]
