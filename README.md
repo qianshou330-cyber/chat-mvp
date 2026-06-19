@@ -4,7 +4,7 @@ Telegram-style mobile PWA MVP for chat, built with React, TypeScript, Vite, Supa
 
 生产 beta 地址：`https://chat-mvp-tau.vercel.app`
 
-当前阶段：`v0.6.4-beta` 公司试用实时消息可靠性收口，重点处理弱网、重连状态、消息发送失败保留与重试，并保持 20-30 人试用核心路径稳定。
+当前阶段：`v0.6.7-beta` 生产试用闸门准备阶段，重点确认 GitHub Actions E2E、Vercel Production、Chrome 生产 smoke 和 20-30 人公司试用启动清单。
 
 ## 已包含能力
 
@@ -92,6 +92,8 @@ npm run e2e
 `v0.6.5-beta` adds local Playwright E2E smoke coverage for the company-trial gate. It runs Demo-mode chat, group details, media preview, and offline composer checks without storing production credentials. See `docs/v0.6.5-e2e-handoff.md`.
 
 `v0.6.6-beta` extends GitHub Actions CI to run Playwright E2E, upload failure reports, and standardize `codex.v065.*` / `codex.v066.*` cleanup rules. See `docs/v0.6.6-ci-e2e-handoff.md`.
+
+`v0.6.7-beta` standardizes the production trial gate: GitHub Actions must be green, Vercel Production must serve the app/PWA assets, Chrome production smoke remains the place for real A/B/C Supabase permission checks, and `codex.v067.*` temporary data must follow the cleanup SOP. See `docs/v0.6.7-production-trial-gate.md`.
 
 ## Deployment
 

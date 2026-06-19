@@ -4,6 +4,7 @@
 - Create the empty repository `qianshou330-cyber/chat-mvp`.
 - Add it as `origin` and push `main`.
 - Confirm GitHub Actions runs `lint`, `test`, and `build`.
+- Confirm GitHub Actions runs Playwright E2E and finishes green before company-trial smoke.
 
 ## Supabase
 - Create a Supabase project.
@@ -30,6 +31,7 @@
 - Confirm Vercel does not contain `WEB_PUSH_VAPID_PRIVATE_KEY` or `WEBHOOK_SECRET`.
 - Confirm Preview and Production deployments finish successfully.
 - Run a mobile browser smoke test on the production URL.
+- Confirm Production returns 200 for `/`, `/manifest.webmanifest`, and `/sw.js`.
 
 ## Smoke Test
 - Register or sign in with email and password.
@@ -60,6 +62,7 @@
 - Confirm the v0.6.4 realtime reliability handoff is recorded in `docs/v0.6.4-realtime-reliability-handoff.md`, including connection status, offline composer blocking, reconnect refresh, and failed text retry behavior.
 - Confirm the v0.6.5 E2E handoff is recorded in `docs/v0.6.5-e2e-handoff.md`, including local Playwright coverage, local-only boundaries, and production smoke exclusions.
 - Confirm the v0.6.6 CI E2E handoff is recorded in `docs/v0.6.6-ci-e2e-handoff.md`, including GitHub Actions coverage, report artifacts, and temporary data naming.
+- Confirm the v0.6.7 production trial gate is recorded in `docs/v0.6.7-production-trial-gate.md`, including GitHub Actions status, Vercel asset checks, Chrome smoke scope, and temporary data cleanup.
 - Confirm Vercel Production loads the split chunks for group details and profile settings, and that `manifest.webmanifest` plus `sw.js` still return 200.
 - Confirm `docs/company-trial-safety.md` remains available for company-trial safety guidance.
 - Sign in to the same account from two browsers or windows and confirm both devices are listed.
@@ -91,5 +94,6 @@
 - Tag the realtime reliability patch as `v0.6.4-beta` after connection status, offline send blocking, Realtime reconnect refresh, failed message retry, and production smoke pass.
 - Tag the local E2E trial-gate patch as `v0.6.5-beta` after Playwright local smoke, documentation, and cleanup guidance pass.
 - Tag the CI E2E governance patch as `v0.6.6-beta` after GitHub Actions runs lint/test/build/e2e and uploads Playwright failure artifacts.
+- Tag the production trial-gate patch as `v0.6.7-beta` after GitHub Actions is green, Vercel Production app/PWA assets return 200, Chrome production smoke is recorded, and temporary smoke data has a cleanup path.
 - Use `docs/beta-test-plan.md` for tester instructions and issue triage.
 - Collect feedback through GitHub Issue templates before prioritizing the next beta scope.

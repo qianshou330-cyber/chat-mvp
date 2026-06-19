@@ -27,9 +27,9 @@
 - Reference is limited to product structure and interaction patterns such as chat list density, profile/settings grouping, media viewer behavior, upload progress, group details, and group permission flows.
 
 ## Next Production Tasks
-- Finish the v0.6.5/v0.6.6 automated trial gate: keep local Playwright E2E documented in `docs/v0.6.5-e2e-handoff.md` and CI E2E reporting documented in `docs/v0.6.6-ci-e2e-handoff.md`.
+- Finish the v0.6.7 production trial gate: keep GitHub Actions green, confirm Vercel Production app/PWA assets, run Chrome production smoke, and record the result in `docs/v0.6.7-production-trial-gate.md`.
 - Keep using `docs/telegram-reference-evaluation.md` as the clean-room boundary for Telegram-style chat and detail page polish.
-- Keep v0.6 focused on member invitation, trial inspection, permission regression, media performance, and mobile stability rather than new headline features.
+- Keep v0.6 focused on production trial readiness, member invitation, trial inspection, permission regression, media performance, and mobile stability rather than new headline features.
 - Defer service-side pagination and deeper nested hook extraction until a later v0.6.x patch, after company-trial feedback confirms no data-flow regressions.
 - Add server-side search only after client search reaches real data limits.
 - Keep real Supabase multi-user Realtime and RLS checks in Chrome production smoke unless safe ephemeral credentials are provided outside the repository.
