@@ -21,8 +21,14 @@
 - Upload paths are scoped by authenticated user id.
 - Push notification payloads intentionally omit message body, attachment filename, and email.
 
+## External References
+- `docs/telegram-reference-evaluation.md` defines how DrKLO/Telegram may be used as a clean-room interaction reference.
+- Do not copy Telegram source code, brand assets, logos, proprietary icons, translations, stickers, animations, MTProto, or Telegram API logic into this PWA.
+- Reference is limited to product structure and interaction patterns such as chat list density, media viewer behavior, upload progress, group details, and group permission flows.
+
 ## Next Production Tasks
-- Run v0.2 external beta with 3 to 5 invited users.
-- Prepare v0.3 company trial features: workspace, member administration, operational logs, and multi-device session controls.
+- Finish v0.5.3 group mute cloud validation and production smoke before tagging `v0.5.3-beta`.
+- Use `docs/telegram-reference-evaluation.md` as the reference boundary for upcoming group permission and media UX polish.
+- Continue v0.5.x with group permission, media viewer, upload progress, group file, and message governance refinements.
 - Add server-side search only after client search reaches real data limits.
 - Add Playwright tests for multi-user realtime flows.
