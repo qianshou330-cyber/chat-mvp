@@ -15,7 +15,7 @@
 - Confirm the private `chat-uploads` bucket exists.
 - Confirm the public `profile-avatars` and `profile-avatar-videos` buckets exist.
 - Confirm `workspaces`, `workspace_members`, and `device_sessions` exist after v0.3 migrations.
-- Confirm `ensure_default_workspace`, `add_workspace_member_by_email`, `remove_workspace_member`, `update_workspace_member_role`, `upsert_device_session`, `revoke_other_device_sessions`, and `revoke_device_session` exist.
+- Confirm `ensure_default_workspace`, `add_workspace_member_by_email`, `add_group_member_by_email`, `remove_workspace_member`, `update_workspace_member_role`, `upsert_device_session`, `revoke_other_device_sessions`, and `revoke_device_session` exist.
 - Confirm `app_error_events` and `admin_activity_logs` exist after the v0.4 migration and RLS is enabled.
 - Deploy the `send-message-push` Edge Function after setting server-only secrets.
 - Create a Database Webhook for `public.messages` `INSERT` events with the `x-webhook-secret` header. If the Dashboard Webhook form fails because the internal `supabase_functions` schema is unavailable, install the reviewed `pg_net` trigger fallback that calls the same Edge Function URL with the same header.
@@ -43,13 +43,14 @@
 - Confirm the notification payload does not contain message body, attachment filename, or email.
 - Confirm a non-member cannot read conversation rows in Supabase.
 - Confirm a non-member cannot read attachment metadata or create a signed download URL.
-- Confirm the profile page shows “工作区管理” and “登录设备”.
-- Confirm the profile page links to “试用说明” for company-trial safety guidance.
+- Confirm the profile page only shows personal profile, notifications, and “登录设备”.
+- Confirm group details show “添加成员”, “群文件”, and owner/admin-only “群管理记录”.
+- Confirm `docs/company-trial-safety.md` remains available for company-trial safety guidance.
 - Sign in to the same account from two browsers or windows and confirm both devices are listed.
 - Use “退出其他设备” and confirm the current device remains signed in while the other device exits after refresh or heartbeat.
-- Confirm owner/admin can add and remove workspace members, while member cannot manage members.
-- Confirm a removed workspace member cannot read workspace group messages or attachments after refresh.
-- Confirm owner/admin can see “管理员记录”, while member cannot see that region.
+- Confirm owner/admin can add and remove group members from group details, while member cannot manage members.
+- Confirm a removed group member cannot read group messages or attachments after refresh.
+- Confirm owner/admin can see “群管理记录”, while member cannot see that region.
 - Trigger one member-management failure and confirm a sanitized error event is created without message body, attachment filename, token, or secret.
 - Run `docs/test-data-cleanup-sop.md` after smoke tests if temporary `codex.*` users or test uploads are no longer needed.
 

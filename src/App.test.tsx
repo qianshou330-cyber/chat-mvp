@@ -3,11 +3,6 @@ import { describe, expect, it } from 'vitest'
 import App from './App'
 
 describe('聊天 MVP', () => {
-  async function openWorkspaceManagement() {
-    fireEvent.click(await screen.findByRole('button', { name: '打开操作菜单' }))
-    fireEvent.click(screen.getByRole('menuitem', { name: '工作区管理' }))
-  }
-
   it('starts in demo login mode and opens the chat list', async () => {
     render(<App />)
 
@@ -66,7 +61,7 @@ describe('聊天 MVP', () => {
     expect(screen.getByRole('menu', { name: '聊天操作' })).toBeInTheDocument()
     expect(screen.getByRole('menuitem', { name: '新建群聊' })).toBeInTheDocument()
     expect(screen.getByRole('menuitem', { name: '发送好友申请' })).toBeInTheDocument()
-    expect(screen.getByRole('menuitem', { name: '工作区管理' })).toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: '工作区管理' })).not.toBeInTheDocument()
     expect(screen.getByRole('menuitem', { name: '退出登录' })).toBeInTheDocument()
 
     fireEvent.keyDown(document, { key: 'Escape' })
@@ -173,7 +168,7 @@ describe('聊天 MVP', () => {
     expect(screen.getByRole('button', { name: '开启通知' })).toBeDisabled()
   })
 
-  it('keeps workspace management out of profile and opens it from the menu', async () => {
+  it('keeps management out of profile and opens it from group info', async () => {
     render(<App />)
 
     fireEvent.click(screen.getByRole('button', { name: '使用 Demo 账号' }))
@@ -182,20 +177,18 @@ describe('聊天 MVP', () => {
     expect(screen.getByRole('heading', { name: '个人资料' })).toBeInTheDocument()
     expect(screen.queryByRole('region', { name: '工作区管理' })).not.toBeInTheDocument()
     expect(screen.queryByRole('region', { name: '管理员记录' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: '群管理记录' })).not.toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: '返回聊天列表' }))
-    await openWorkspaceManagement()
+    fireEvent.click(await screen.findByText('上线准备群'))
+    fireEvent.click(screen.getByRole('button', { name: /上线准备群/ }))
 
-    expect(screen.getByRole('region', { name: '工作区管理' })).toBeInTheDocument()
-    expect(screen.getByText('启明团队')).toBeInTheDocument()
-    expect(screen.getByText(/我的角色：所有者/)).toBeInTheDocument()
-    expect(screen.getByText('对方需要先完成注册，才能被添加到工作区。')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: '反馈问题' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: '试用说明' })).toHaveAttribute(
-      'href',
-      'https://github.com/qianshou330-cyber/chat-mvp/blob/main/docs/company-trial-safety.md',
-    )
-    expect(screen.getByRole('region', { name: '管理员记录' })).toBeInTheDocument()
+    expect(await screen.findByLabelText('添加群成员邮箱')).toBeInTheDocument()
+    expect(screen.getByText('对方需要先注册；添加后会进入当前群。')).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: '工作区管理' })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '更多管理' }))
+
+    expect(screen.getByRole('region', { name: '群管理记录' })).toBeInTheDocument()
     expect(screen.getByText('调整角色')).toBeInTheDocument()
     expect(screen.getByText('附件错误')).toBeInTheDocument()
   })
@@ -217,29 +210,20 @@ describe('聊天 MVP', () => {
     expect(screen.queryByText('备用设备')).not.toBeInTheDocument()
   })
 
-  it('adds a demo workspace member by email', async () => {
+  it('adds a demo group member by email from group info', async () => {
     render(<App />)
 
     fireEvent.click(screen.getByRole('button', { name: '使用 Demo 账号' }))
-    await openWorkspaceManagement()
-    fireEvent.change(screen.getByLabelText('添加成员邮箱'), {
+    fireEvent.click(await screen.findByText('上线准备群'))
+    fireEvent.click(screen.getByRole('button', { name: /上线准备群/ }))
+    fireEvent.change(await screen.findByLabelText('添加群成员邮箱'), {
       target: { value: 'zoe@example.com' },
     })
-    fireEvent.click(screen.getByRole('button', { name: '添加成员' }))
+    const addMemberButtons = screen.getAllByRole('button', { name: '添加成员' })
+    fireEvent.click(addMemberButtons[addMemberButtons.length - 1])
 
     expect(await screen.findByText('宋知夏')).toBeInTheDocument()
-    expect(screen.getByText('已将 宋知夏 加入 启明团队。')).toBeInTheDocument()
-  })
-
-  it('removes a demo workspace member', async () => {
-    render(<App />)
-
-    fireEvent.click(screen.getByRole('button', { name: '使用 Demo 账号' }))
-    await openWorkspaceManagement()
-    fireEvent.click(screen.getByRole('button', { name: '移除 周一凡' }))
-
-    expect(await screen.findByText('成员已移除。')).toBeInTheDocument()
-    expect(screen.queryByText('周一凡')).not.toBeInTheDocument()
+    expect(screen.getByText('已将 宋知夏 加入群聊。')).toBeInTheDocument()
   })
 
   it('manages demo group members and group title', async () => {
@@ -273,7 +257,7 @@ describe('聊天 MVP', () => {
     await waitFor(() => {
       expect(screen.queryByRole('button', { name: '移出群聊 李诺拉' })).not.toBeInTheDocument()
     })
-    expect(screen.getByRole('option', { name: '李诺拉' })).toBeInTheDocument()
+    expect(screen.getByText('群成员已移除。')).toBeInTheDocument()
   })
 
   it('manages demo group announcements, pinned messages, and deleted messages', async () => {
@@ -312,7 +296,7 @@ describe('聊天 MVP', () => {
     fireEvent.click(await screen.findByText('上线准备群'))
     fireEvent.click(screen.getByRole('button', { name: /上线准备群/ }))
 
-    expect(await screen.findByText('群文件')).toBeInTheDocument()
+    expect((await screen.findAllByText('群文件')).length).toBeGreaterThan(0)
     expect(screen.getByText('rls-checklist.md')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: '打开' })).toHaveAttribute('href', '#')
 

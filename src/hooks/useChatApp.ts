@@ -628,7 +628,7 @@ export function useChatApp() {
 
       if (activityLogsResult.error && !isMissingOperationalLogSchema(activityLogsResult.error.message)) {
         setAuthNotice(
-          friendlyErrorMessage(activityLogsResult.error.message, '无法加载管理员记录，请刷新后重试。'),
+          friendlyErrorMessage(activityLogsResult.error.message, '无法加载群管理记录，请刷新后重试。'),
         )
       }
 
@@ -2232,6 +2232,143 @@ export function useChatApp() {
     return true
   }
 
+  async function addGroupMemberByEmail(conversationId: string, email: string) {
+    const trimmed = email.trim().toLowerCase()
+    const currentUser = user ?? (!supabase ? demoUser : null)
+    const conversation = state.conversations.find((item) => item.id === conversationId)
+    if (!trimmed || !currentUser || !conversation || conversation.type !== 'group') return false
+
+    const currentMember = findConversationMember(state.members, conversationId, currentUser.id)
+    if (!isGroupManagerRole(currentMember?.role)) {
+      setAuthNotice('只有群 owner 或 admin 可以添加群成员。')
+      return false
+    }
+
+    if (trimmed === currentUser.email.toLowerCase()) {
+      setAuthNotice('你已经在这个群聊中。')
+      return false
+    }
+
+    if (!supabase) {
+      const targetProfileId = demoProfileEmails[trimmed]
+      const targetProfile = state.profiles.find((profile) => profile.id === targetProfileId)
+
+      if (!targetProfile) {
+        setAuthNotice('对方需先注册，才能被添加到群聊。')
+        return false
+      }
+
+      if (conversation.memberIds.includes(targetProfile.id)) {
+        setAuthNotice('对方已经在群聊中。')
+        return true
+      }
+
+      const joinedAt = new Date().toISOString()
+      const workspaceMember: WorkspaceMember | null = conversation.workspaceId
+        ? {
+            workspaceId: conversation.workspaceId,
+            userId: targetProfile.id,
+            role: 'member',
+            joinedAt,
+          }
+        : null
+      const groupMember: ConversationMember = {
+        conversationId,
+        userId: targetProfile.id,
+        role: 'member',
+        joinedAt,
+      }
+
+      setState((previous) => ({
+        ...previous,
+        conversations: previous.conversations.map((item) =>
+          item.id === conversationId
+            ? {
+                ...item,
+                memberIds: item.memberIds.includes(targetProfile.id)
+                  ? item.memberIds
+                  : [...item.memberIds, targetProfile.id],
+                memberCount: item.memberIds.includes(targetProfile.id)
+                  ? item.memberCount
+                  : item.memberCount + 1,
+              }
+            : item,
+        ),
+        members: upsertConversationMember(previous.members, groupMember),
+        workspaceMembers: workspaceMember
+          ? upsertWorkspaceMember(previous.workspaceMembers, workspaceMember)
+          : previous.workspaceMembers,
+      }))
+      setAuthNotice(`已将 ${targetProfile.displayName} 加入群聊。`)
+      recordAdminActivity('group_member_added', targetProfile.id, 'success', { conversationId })
+      return true
+    }
+
+    const { data, error } = await supabase
+      .rpc('add_group_member_by_email', {
+        target_conversation_id: conversationId,
+        search_email: trimmed,
+      })
+      .single()
+
+    if (error) {
+      const notice = friendlyErrorMessage(error.message, '无法添加群成员，请确认对方已经注册后重试。')
+      setAuthNotice(notice)
+      recordAppError('workspace_members', notice, { conversationId })
+      return false
+    }
+
+    const row = data as Record<string, unknown>
+    const profile = mapProfile({
+      id: row.result_member_user_id,
+      display_name: row.member_display_name,
+      avatar_url: row.member_avatar_url,
+      avatar_tone: row.member_avatar_tone,
+      bio: row.member_bio,
+      status: row.member_status,
+      last_seen: row.member_last_seen,
+    })
+    const groupMember: ConversationMember = {
+      conversationId: String(row.result_conversation_id ?? conversationId),
+      userId: String(row.result_member_user_id),
+      role: (row.result_member_role as MemberRole) ?? 'member',
+      joinedAt: String(row.result_joined_at ?? new Date().toISOString()),
+    }
+    const workspaceMember: WorkspaceMember | null = row.result_workspace_id
+      ? {
+          workspaceId: String(row.result_workspace_id),
+          userId: String(row.result_member_user_id),
+          role: (row.result_workspace_role as WorkspaceRole) ?? 'member',
+          joinedAt: String(row.result_workspace_joined_at ?? new Date().toISOString()),
+        }
+      : null
+
+    setState((previous) => ({
+      ...previous,
+      profiles: upsertProfile(previous.profiles, profile),
+      conversations: previous.conversations.map((item) =>
+        item.id === conversationId
+          ? {
+              ...item,
+              memberIds: item.memberIds.includes(profile.id)
+                ? item.memberIds
+                : [...item.memberIds, profile.id],
+              memberCount: item.memberIds.includes(profile.id)
+                ? item.memberCount
+                : item.memberCount + 1,
+            }
+          : item,
+      ),
+      members: upsertConversationMember(previous.members, groupMember),
+      workspaceMembers: workspaceMember
+        ? upsertWorkspaceMember(previous.workspaceMembers, workspaceMember)
+        : previous.workspaceMembers,
+    }))
+    setAuthNotice(`已将 ${profile.displayName} 加入群聊。`)
+    void loadSupabaseState(currentUser.id)
+    return true
+  }
+
   async function removeGroupMember(conversationId: string, memberUserId: string) {
     const currentUser = user ?? (!supabase ? demoUser : null)
     const conversation = state.conversations.find((item) => item.id === conversationId)
@@ -2655,6 +2792,7 @@ export function useChatApp() {
     activeWorkspace,
     activeWorkspaceRole,
     addGroupMember,
+    addGroupMemberByEmail,
     addWorkspaceMemberByEmail,
     adminActivityLogs: state.adminActivityLogs,
     appErrorEvents: state.appErrorEvents,

@@ -3,10 +3,8 @@ import type { FormEvent, ReactNode } from 'react'
 import {
   ArrowLeft,
   Bell,
-  Building2,
   Check,
   CheckCheck,
-  ExternalLink,
   FileText,
   Image as ImageIcon,
   Lock,
@@ -40,11 +38,9 @@ import type {
   Profile,
   SearchResult,
   Workspace,
-  WorkspaceMember,
-  WorkspaceRole,
 } from './types'
 
-type Screen = 'login' | 'list' | 'chat' | 'group' | 'profile' | 'workspace'
+type Screen = 'login' | 'list' | 'chat' | 'group' | 'profile'
 const APP_DISPLAY_NAME = '聊天 MVP'
 
 function App() {
@@ -134,7 +130,6 @@ function App() {
               setScreen('chat')
             }}
             onOpenProfile={() => setScreen('profile')}
-            onOpenWorkspaceManagement={() => setScreen('workspace')}
             onOpenSearchResult={(result) => {
               chat.setActiveConversationId(result.conversationId)
               setScreen('chat')
@@ -171,20 +166,22 @@ function App() {
         )}
         {activeScreen === 'group' && chat.activeConversation && (
           <GroupInfo
+            adminActivityLogs={chat.adminActivityLogs}
             activeWorkspace={chat.activeWorkspace}
+            appErrorEvents={chat.appErrorEvents}
+            authNotice={chat.authNotice}
             conversation={chat.activeConversation}
             currentUserId={chat.user?.id ?? ''}
             getProfile={chat.getProfile}
             messages={chat.activeMessages}
             members={chat.state.members}
             onBack={() => setScreen('chat')}
-            onAddGroupMember={chat.addGroupMember}
+            onAddGroupMemberByEmail={chat.addGroupMemberByEmail}
             onHideGroupAttachment={chat.hideGroupAttachment}
             onRemoveGroupMember={chat.removeGroupMember}
             onRenameGroup={chat.renameGroup}
             onUpdateAnnouncement={chat.updateGroupAnnouncement}
             onUpdateGroupMemberRole={chat.updateGroupMemberRole}
-            workspaceMembers={chat.workspaceMembers}
           />
         )}
         {activeScreen === 'profile' && chat.me && (
@@ -204,22 +201,6 @@ function App() {
             onRevokeOtherDevices={chat.revokeOtherDevices}
             onSave={chat.updateProfile}
             onSignOut={handleSignOut}
-          />
-        )}
-        {activeScreen === 'workspace' && (
-          <WorkspaceManagement
-            adminActivityLogs={chat.adminActivityLogs}
-            activeWorkspace={chat.activeWorkspace}
-            activeWorkspaceRole={chat.activeWorkspaceRole}
-            appErrorEvents={chat.appErrorEvents}
-            authNotice={chat.authNotice}
-            currentUserId={chat.user?.id ?? ''}
-            getProfile={chat.getProfile}
-            onAddWorkspaceMember={chat.addWorkspaceMemberByEmail}
-            onBack={() => setScreen('list')}
-            onRemoveWorkspaceMember={chat.removeWorkspaceMember}
-            onUpdateWorkspaceMemberRole={chat.updateWorkspaceMemberRole}
-            workspaceMembers={chat.workspaceMembers}
           />
         )}
       </section>
@@ -351,7 +332,6 @@ function ConversationList({
   onCreateGroup,
   onOpenConversation,
   onOpenProfile,
-  onOpenWorkspaceManagement,
   onOpenSearchResult,
   onQueryChange,
   onRespondToContactRequest,
@@ -369,7 +349,6 @@ function ConversationList({
   onCreateGroup: () => void
   onOpenConversation: (id: string) => void
   onOpenProfile: () => void
-  onOpenWorkspaceManagement: () => void
   onOpenSearchResult: (result: SearchResult) => void
   onQueryChange: (query: string) => void
   onRespondToContactRequest: (
@@ -441,11 +420,6 @@ function ConversationList({
     setIsContactFormOpen(true)
   }
 
-  function handleOpenWorkspaceManagement() {
-    setIsMenuOpen(false)
-    onOpenWorkspaceManagement()
-  }
-
   function handleSignOut() {
     setIsMenuOpen(false)
     onSignOut()
@@ -474,10 +448,6 @@ function ConversationList({
               <button className="menu-item" onClick={handleOpenContactForm} role="menuitem" type="button">
                 <UserPlus size={18} />
                 <span>发送好友申请</span>
-              </button>
-              <button className="menu-item" onClick={handleOpenWorkspaceManagement} role="menuitem" type="button">
-                <Building2 size={18} />
-                <span>工作区管理</span>
               </button>
               <button className="menu-item danger" onClick={handleSignOut} role="menuitem" type="button">
                 <LogOut size={18} />
@@ -1092,28 +1062,33 @@ function canDeleteGroupMessageFromView(
 }
 
 function GroupInfo({
+  adminActivityLogs,
   activeWorkspace,
+  appErrorEvents,
+  authNotice,
   conversation,
   currentUserId,
   getProfile,
   messages,
   members: allConversationMembers,
-  onAddGroupMember,
+  onAddGroupMemberByEmail,
   onBack,
   onHideGroupAttachment,
   onRemoveGroupMember,
   onRenameGroup,
   onUpdateAnnouncement,
   onUpdateGroupMemberRole,
-  workspaceMembers,
 }: {
+  adminActivityLogs: AdminActivityLog[]
   activeWorkspace: Workspace | null
+  appErrorEvents: AppErrorEvent[]
+  authNotice: string
   conversation: Conversation
   currentUserId: string
   getProfile: (profileId: string) => Profile | undefined
   messages: Message[]
   members: ConversationMember[]
-  onAddGroupMember: (conversationId: string, memberUserId: string) => Promise<boolean>
+  onAddGroupMemberByEmail: (conversationId: string, email: string) => Promise<boolean>
   onBack: () => void
   onHideGroupAttachment: (conversationId: string, attachmentId: string) => Promise<boolean>
   onRemoveGroupMember: (conversationId: string, memberUserId: string) => Promise<boolean>
@@ -1124,12 +1099,12 @@ function GroupInfo({
     memberUserId: string,
     role: Extract<MemberRole, 'admin' | 'member'>,
   ) => Promise<boolean>
-  workspaceMembers: WorkspaceMember[]
 }) {
   const title = displayConversationTitle(conversation.title)
-  const [selectedMemberId, setSelectedMemberId] = useState('')
+  const [memberEmail, setMemberEmail] = useState('')
   const [isBusy, setIsBusy] = useState(false)
   const [editingConversationId, setEditingConversationId] = useState('')
+  const [isManagementOpen, setIsManagementOpen] = useState(false)
   const [titleDraftState, setTitleDraftState] = useState({
     conversationId: conversation.id,
     value: conversation.title,
@@ -1163,10 +1138,6 @@ function GroupInfo({
     announcementDraftState.conversationId === conversation.id
       ? announcementDraftState.value
       : (conversation.announcement ?? '')
-  const workspaceCandidates = workspaceMembers
-    .filter((member) => !conversation.memberIds.includes(member.userId))
-    .map((member) => getProfile(member.userId))
-    .filter(Boolean) as Profile[]
   const groupFiles = useMemo(
     () =>
       messages
@@ -1175,6 +1146,12 @@ function GroupInfo({
         .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)),
     [canManageGroup, conversation.id, messages],
   )
+  const visibleAdminActivityLogs = activeWorkspace
+    ? adminActivityLogs.filter((log) => log.workspaceId === activeWorkspace.id)
+    : adminActivityLogs
+  const visibleAppErrorEvents = activeWorkspace
+    ? appErrorEvents.filter((event) => event.workspaceId === activeWorkspace.id)
+    : appErrorEvents
 
   function updateTitleDraft(value: string) {
     setTitleDraftState({ conversationId: conversation.id, value })
@@ -1184,11 +1161,12 @@ function GroupInfo({
     setAnnouncementDraftState({ conversationId: conversation.id, value })
   }
 
-  async function submitGroupMember() {
-    if (!selectedMemberId) return
+  async function submitGroupMember(event: FormEvent) {
+    event.preventDefault()
+    if (!memberEmail.trim()) return
     setIsBusy(true)
-    const ok = await onAddGroupMember(conversation.id, selectedMemberId)
-    if (ok) setSelectedMemberId('')
+    const ok = await onAddGroupMemberByEmail(conversation.id, memberEmail)
+    if (ok) setMemberEmail('')
     setIsBusy(false)
   }
 
@@ -1238,7 +1216,14 @@ function GroupInfo({
           <p className="eyebrow">群聊信息</p>
           <h1>{title}</h1>
         </div>
-        <button aria-label="群聊设置" className="icon-button" type="button">
+        <button
+          aria-expanded={canManageGroup ? isManagementOpen : undefined}
+          aria-label="更多群管理"
+          className="icon-button"
+          disabled={!canManageGroup}
+          onClick={() => setIsManagementOpen((isOpen) => !isOpen)}
+          type="button"
+        >
           <Settings size={22} />
         </button>
       </header>
@@ -1291,6 +1276,36 @@ function GroupInfo({
             )}
           </div>
         )}
+        <div className="group-quick-actions">
+          {canManageGroup && (
+            <button
+              className="group-quick-action"
+              onClick={() => document.getElementById('groupMemberEmail')?.focus()}
+              type="button"
+            >
+              <UserPlus size={18} />
+              <span>添加成员</span>
+            </button>
+          )}
+          <button
+            className="group-quick-action"
+            onClick={() => document.getElementById('groupFilesPanel')?.scrollIntoView({ block: 'start' })}
+            type="button"
+          >
+            <FileText size={18} />
+            <span>群文件</span>
+          </button>
+          {canManageGroup && (
+            <button
+              className="group-quick-action"
+              onClick={() => setIsManagementOpen((isOpen) => !isOpen)}
+              type="button"
+            >
+              <Settings size={18} />
+              <span>更多管理</span>
+            </button>
+          )}
+        </div>
       </section>
 
       <div className="settings-list">
@@ -1325,52 +1340,39 @@ function GroupInfo({
           )}
         </div>
         <div className="settings-row static-row">
-          <Building2 size={20} />
-          <span>
-            <strong>所属工作区</strong>
-            <small>{activeWorkspace?.name ?? '暂无工作区'}</small>
-          </span>
-        </div>
-        <div className="settings-row static-row">
           <ShieldCheck size={20} />
           <span>
-            <strong>成员权限</strong>
+            <strong>群权限</strong>
             <small>owner 可调整群管理员；owner/admin 可添加或移除普通群成员</small>
           </span>
         </div>
         {canManageGroup && (
-          <div className="group-member-manager">
-            <label htmlFor="groupMemberSelect">从工作区添加成员</label>
+          <form className="group-member-manager" onSubmit={(event) => void submitGroupMember(event)}>
+            <label htmlFor="groupMemberEmail">添加成员</label>
             <div className="workspace-member-controls">
-              <select
-                id="groupMemberSelect"
-                disabled={isBusy || workspaceCandidates.length === 0}
-                onChange={(event) => setSelectedMemberId(event.target.value)}
-                value={selectedMemberId}
-              >
-                <option value="">
-                  {workspaceCandidates.length === 0 ? '暂无可添加成员' : '选择成员'}
-                </option>
-                {workspaceCandidates.map((profile) => (
-                  <option key={profile.id} value={profile.id}>
-                    {profile.displayName}
-                  </option>
-                ))}
-              </select>
+              <input
+                aria-label="添加群成员邮箱"
+                autoComplete="email"
+                disabled={isBusy}
+                id="groupMemberEmail"
+                onChange={(event) => setMemberEmail(event.target.value)}
+                placeholder="member@example.com"
+                type="email"
+                value={memberEmail}
+              />
               <button
                 className="secondary-button"
-                disabled={isBusy || !selectedMemberId}
-                onClick={() => {
-                  void submitGroupMember()
-                }}
-                type="button"
+                disabled={isBusy || !memberEmail.trim()}
+                type="submit"
               >
-                加入群聊
+                添加成员
               </button>
             </div>
-          </div>
+            <p className="form-hint">对方需要先注册；添加后会进入当前群。</p>
+            {authNotice && <p className="form-hint notice-inline">{authNotice}</p>}
+          </form>
         )}
-        <div className="group-files-panel">
+        <div className="group-files-panel" id="groupFilesPanel">
           <span className="panel-heading">
             <strong>群文件</strong>
             <small>{groupFiles.length === 0 ? '暂无群文件' : `${groupFiles.length} 个文件`}</small>
@@ -1418,6 +1420,55 @@ function GroupInfo({
             })
           )}
         </div>
+        {canManageGroup && isManagementOpen && (
+          <section className="admin-log-card group-management-records" aria-label="群管理记录">
+            <div className="workspace-card-header">
+              <ShieldCheck size={24} />
+              <span>
+                <strong>群管理记录</strong>
+                <p>最近管理操作和关键错误，仅管理员可见。</p>
+              </span>
+            </div>
+            {visibleAdminActivityLogs.length === 0 ? (
+              <p className="empty-inline">暂无管理操作。</p>
+            ) : (
+              <div className="admin-log-list">
+                {visibleAdminActivityLogs.slice(0, 4).map((log) => {
+                  const targetProfile = getProfile(log.targetUserId)
+
+                  return (
+                    <div className="admin-log-row" key={log.id}>
+                      <span>
+                        <strong>{formatAdminActivity(log.action)}</strong>
+                        <small>
+                          {targetProfile?.displayName ?? '成员'} · {formatShortDateTime(log.createdAt)}
+                        </small>
+                      </span>
+                      <span className={log.result === 'success' ? 'role-badge' : 'error-badge'}>
+                        {log.result === 'success' ? '成功' : '失败'}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+            {visibleAppErrorEvents.length > 0 && (
+              <div className="admin-log-list">
+                {visibleAppErrorEvents.slice(0, 3).map((event) => (
+                  <div className="admin-log-row" key={event.id}>
+                    <span>
+                      <strong>{formatErrorModule(event.module)}</strong>
+                      <small>
+                        {event.message} · {formatShortDateTime(event.createdAt)}
+                      </small>
+                    </span>
+                    <span className="error-badge">需关注</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
       </div>
 
       <div className="member-list">
@@ -1735,270 +1786,6 @@ function ProfileSettings({
   )
 }
 
-function WorkspaceManagement({
-  adminActivityLogs,
-  activeWorkspace,
-  activeWorkspaceRole,
-  appErrorEvents,
-  authNotice,
-  currentUserId,
-  getProfile,
-  onAddWorkspaceMember,
-  onBack,
-  onRemoveWorkspaceMember,
-  onUpdateWorkspaceMemberRole,
-  workspaceMembers,
-}: {
-  adminActivityLogs: AdminActivityLog[]
-  activeWorkspace: Workspace | null
-  activeWorkspaceRole: WorkspaceRole
-  appErrorEvents: AppErrorEvent[]
-  authNotice: string
-  currentUserId: string
-  getProfile: (profileId: string) => Profile | undefined
-  onAddWorkspaceMember: (email: string, role: WorkspaceRole) => Promise<boolean>
-  onBack: () => void
-  onRemoveWorkspaceMember: (memberUserId: string) => Promise<boolean>
-  onUpdateWorkspaceMemberRole: (memberUserId: string, role: WorkspaceRole) => Promise<boolean>
-  workspaceMembers: WorkspaceMember[]
-}) {
-  const [memberEmail, setMemberEmail] = useState('')
-  const [memberRole, setMemberRole] = useState<WorkspaceRole>('member')
-  const [isMemberBusy, setIsMemberBusy] = useState(false)
-  const canManageWorkspace = activeWorkspaceRole === 'owner' || activeWorkspaceRole === 'admin'
-
-  async function submitWorkspaceMember() {
-    setIsMemberBusy(true)
-    try {
-      const added = await onAddWorkspaceMember(memberEmail, memberRole)
-      if (added) setMemberEmail('')
-    } finally {
-      setIsMemberBusy(false)
-    }
-  }
-
-  async function handleRemoveWorkspaceMember(memberUserId: string) {
-    setIsMemberBusy(true)
-    try {
-      await onRemoveWorkspaceMember(memberUserId)
-    } finally {
-      setIsMemberBusy(false)
-    }
-  }
-
-  async function handleUpdateWorkspaceMemberRole(memberUserId: string, role: WorkspaceRole) {
-    setIsMemberBusy(true)
-    try {
-      await onUpdateWorkspaceMemberRole(memberUserId, role)
-    } finally {
-      setIsMemberBusy(false)
-    }
-  }
-
-  return (
-    <section className="screen">
-      <header className="topbar">
-        <button aria-label="返回聊天列表" className="icon-button" onClick={onBack} type="button">
-          <ArrowLeft size={22} />
-        </button>
-        <div>
-          <p className="eyebrow">工作区</p>
-          <h1>工作区管理</h1>
-        </div>
-        <span className="icon-button passive-icon">
-          <Building2 size={22} />
-        </span>
-      </header>
-
-      <div className="workspace-management">
-        <section className="workspace-card" aria-label="工作区管理">
-          <div className="workspace-card-header">
-            <span className="notification-icon">
-              <Building2 size={20} />
-            </span>
-            <div>
-              <strong>{activeWorkspace?.name ?? '我的工作区'}</strong>
-              <p>
-                {workspaceMembers.length} 名成员 · 我的角色：
-                {formatWorkspaceRole(activeWorkspaceRole)}
-              </p>
-            </div>
-          </div>
-
-          {canManageWorkspace && (
-            <div className="workspace-member-form">
-              <label htmlFor="workspaceMemberEmail">添加成员邮箱</label>
-              <input
-                id="workspaceMemberEmail"
-                inputMode="email"
-                onChange={(event) => setMemberEmail(event.target.value)}
-                placeholder="member@example.com"
-                type="email"
-                value={memberEmail}
-              />
-              <label htmlFor="workspaceMemberRole">角色</label>
-              <div className="workspace-member-controls">
-                <select
-                  id="workspaceMemberRole"
-                  disabled={isMemberBusy}
-                  onChange={(event) => setMemberRole(event.target.value as WorkspaceRole)}
-                  value={memberRole}
-                >
-                  <option value="member">成员</option>
-                  <option value="admin">管理员</option>
-                </select>
-                <button
-                  className="secondary-button"
-                  disabled={isMemberBusy || !memberEmail.trim()}
-                  onClick={submitWorkspaceMember}
-                  type="button"
-                >
-                  {isMemberBusy ? '添加中' : '添加成员'}
-                </button>
-              </div>
-              <p className="form-hint">对方需要先完成注册，才能被添加到工作区。</p>
-            </div>
-          )}
-
-          {authNotice && <p className="notice">{authNotice}</p>}
-
-          <div className="workspace-member-list">
-            {workspaceMembers.map((member) => {
-              const memberProfile = getProfile(member.userId)
-              const isSelf = member.userId === currentUserId
-              const canEditMember = canManageWorkspace && !isSelf && member.role !== 'owner'
-
-              return (
-                <div className="workspace-member-row" key={`${member.workspaceId}-${member.userId}`}>
-                  <Avatar profile={memberProfile} />
-                  <span>
-                    <strong>{memberProfile?.displayName ?? '成员'}</strong>
-                    <small>{formatWorkspaceRole(member.role)}</small>
-                  </span>
-                  {canEditMember ? (
-                    <div className="workspace-row-actions">
-                      <select
-                        aria-label={`${memberProfile?.displayName ?? '成员'} 的角色`}
-                        disabled={isMemberBusy}
-                        onChange={(event) => {
-                          void handleUpdateWorkspaceMemberRole(
-                            member.userId,
-                            event.target.value as WorkspaceRole,
-                          )
-                        }}
-                        value={member.role}
-                      >
-                        <option value="member">成员</option>
-                        <option value="admin">管理员</option>
-                      </select>
-                      <button
-                        aria-label={`移除 ${memberProfile?.displayName ?? '成员'}`}
-                        className="icon-button danger-icon-button"
-                        disabled={isMemberBusy}
-                        onClick={() => {
-                          void handleRemoveWorkspaceMember(member.userId)
-                        }}
-                        type="button"
-                      >
-                        <Trash2 size={18} />
-                      </button>
-                    </div>
-                  ) : (
-                    <span className="role-badge">{formatWorkspaceRole(member.role)}</span>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-
-          <div className="profile-links">
-            <a
-              className="feedback-link"
-              href="https://github.com/qianshou330-cyber/chat-mvp/issues/new/choose"
-              rel="noreferrer"
-              target="_blank"
-            >
-              <ExternalLink size={16} />
-              反馈问题
-            </a>
-            <a
-              className="feedback-link"
-              href="https://github.com/qianshou330-cyber/chat-mvp/blob/main/docs/company-trial-safety.md"
-              rel="noreferrer"
-              target="_blank"
-            >
-              <ExternalLink size={16} />
-              试用说明
-            </a>
-          </div>
-        </section>
-
-        {canManageWorkspace && (
-          <section className="admin-log-card" aria-label="管理员记录">
-            <div className="workspace-card-header">
-              <span className="notification-icon">
-                <ShieldCheck size={20} />
-              </span>
-              <div>
-                <strong>管理员记录</strong>
-                <p>最近的成员操作和关键错误，方便试用期间排查问题。</p>
-              </div>
-            </div>
-
-            <div className="admin-log-list">
-              {adminActivityLogs.length === 0 ? (
-                <p className="device-note">
-                  暂无管理员操作记录。添加成员、移除成员或调整角色后会显示在这里。
-                </p>
-              ) : (
-                adminActivityLogs.slice(0, 4).map((log) => {
-                  const actor = getProfile(log.actorId)
-                  const target = getProfile(log.targetUserId)
-
-                  return (
-                    <div className="admin-log-row" key={log.id}>
-                      <span>
-                        <strong>{formatAdminActivity(log.action)}</strong>
-                        <small>
-                          {actor?.displayName ?? '管理员'} · {target?.displayName ?? '目标成员'} ·{' '}
-                          {formatShortDateTime(log.createdAt)}
-                        </small>
-                      </span>
-                      <span className={log.result === 'success' ? 'role-badge' : 'error-badge'}>
-                        {log.result === 'success' ? '成功' : '失败'}
-                      </span>
-                    </div>
-                  )
-                })
-              )}
-            </div>
-
-            <div className="admin-log-list">
-              {appErrorEvents.length === 0 ? (
-                <p className="device-note">
-                  暂无关键错误记录。登录、消息、附件、通知或成员管理失败时会显示脱敏记录。
-                </p>
-              ) : (
-                appErrorEvents.slice(0, 3).map((event) => (
-                  <div className="admin-log-row" key={event.id}>
-                    <span>
-                      <strong>{formatErrorModule(event.module)}</strong>
-                      <small>
-                        {event.message} · {formatShortDateTime(event.createdAt)}
-                      </small>
-                    </span>
-                    <span className="error-badge">错误</span>
-                  </div>
-                ))
-              )}
-            </div>
-          </section>
-        )}
-      </div>
-    </section>
-  )
-}
-
 function Avatar({
   allowMotion = false,
   profile,
@@ -2077,12 +1864,6 @@ function formatStatus(status: Profile['status']) {
   if (status === 'online') return '在线'
   if (status === 'away') return '暂离'
   return '离线'
-}
-
-function formatWorkspaceRole(role: WorkspaceRole) {
-  if (role === 'owner') return '所有者'
-  if (role === 'admin') return '管理员'
-  return '成员'
 }
 
 function formatGroupRole(role: MemberRole) {
