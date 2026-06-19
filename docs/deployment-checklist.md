@@ -17,6 +17,7 @@
 - Confirm `workspaces`, `workspace_members`, and `device_sessions` exist after v0.3 migrations.
 - Confirm `ensure_default_workspace`, `add_workspace_member_by_email`, `add_group_member_by_email`, `remove_workspace_member`, `update_workspace_member_role`, `upsert_device_session`, `revoke_other_device_sessions`, and `revoke_device_session` exist.
 - Confirm `app_error_events` and `admin_activity_logs` exist after the v0.4 migration and RLS is enabled.
+- Confirm `messages.message_type` accepts `video` after running `20260618120000_video_messages.sql`.
 - Deploy the `send-message-push` Edge Function after setting server-only secrets.
 - Create a Database Webhook for `public.messages` `INSERT` events with the `x-webhook-secret` header. If the Dashboard Webhook form fails because the internal `supabase_functions` schema is unavailable, install the reviewed `pg_net` trigger fallback that calls the same Edge Function URL with the same header.
 - Do not create or use Supabase secret keys for the frontend.
@@ -32,11 +33,12 @@
 ## Smoke Test
 - Register or sign in with email and password.
 - Create a profile.
-- Upload a static avatar and a short MP4/WebM video avatar; confirm chat lists still show the static poster.
+- Upload a static avatar and an MP4/WebM video avatar; confirm the profile screen shows processing/upload progress and chat lists still show the static poster.
 - Add a registered user by email and open a direct chat.
 - Create a group.
 - Send a text message.
 - Upload an allowed attachment under 10 MB.
+- Send an MP4/WebM video message under 10 MB and confirm another member can play it.
 - Open the uploaded attachment from another member account.
 - Enable notifications on member B, send a message from member A, and confirm B receives a generic notification.
 - Confirm `push_subscriptions.last_sent_at` updates without `last_error` after a real browser subscription receives a push.

@@ -29,6 +29,7 @@ import { usePushNotifications } from './hooks/usePushNotifications'
 import type {
   AdminActivityLog,
   AppErrorEvent,
+  Attachment,
   ContactRequest,
   Conversation,
   ConversationMember,
@@ -94,7 +95,7 @@ function App() {
     return (
       <main className="app-shell">
         <LoginScreen
-          authNotice={chat.authNotice}
+          authNotice={chat.noticeFor('login')}
           isSupabaseConfigured={chat.isSupabaseConfigured}
           onCreateAccount={async (email, password) => {
             await chat.createAccountWithEmail(email, password)
@@ -114,7 +115,7 @@ function App() {
         {activeScreen === 'list' && (
           <ConversationList
             conversations={chat.visibleConversations}
-            authNotice={chat.authNotice}
+            authNotice={chat.noticeFor('list')}
             getProfile={chat.getProfile}
             incomingContactRequests={chat.incomingContactRequests}
             me={chat.me}
@@ -149,6 +150,7 @@ function App() {
         )}
         {activeScreen === 'chat' && chat.activeConversation && (
           <ChatView
+            authNotice={chat.noticeFor('chat')}
             conversation={chat.activeConversation}
             conversationMembers={chat.state.members}
             getProfile={chat.getProfile}
@@ -169,7 +171,7 @@ function App() {
             adminActivityLogs={chat.adminActivityLogs}
             activeWorkspace={chat.activeWorkspace}
             appErrorEvents={chat.appErrorEvents}
-            authNotice={chat.authNotice}
+            authNotice={chat.noticeFor('group')}
             conversation={chat.activeConversation}
             currentUserId={chat.user?.id ?? ''}
             getProfile={chat.getProfile}
@@ -187,11 +189,12 @@ function App() {
         {activeScreen === 'profile' && chat.me && (
           <ProfileSettings
             activeWorkspace={chat.activeWorkspace}
-            authNotice={chat.authNotice}
+            authNotice={chat.noticeFor('profile')}
             currentDeviceId={chat.currentDeviceId}
             deviceSessions={chat.deviceSessions}
             email={chat.user?.email ?? ''}
             profile={chat.me}
+            uploadProgress={chat.profileUploadProgress}
             onBack={() => setScreen('list')}
             onAvatarUpload={chat.updateProfileAvatar}
             onAvatarVideoUpload={chat.updateProfileVideoAvatar}
@@ -669,6 +672,7 @@ function SearchResults({
 }
 
 function ChatView({
+  authNotice,
   conversation,
   conversationMembers,
   getProfile,
@@ -683,6 +687,7 @@ function ChatView({
   onUnpinMessage,
   title,
 }: {
+  authNotice: string
   conversation: Conversation
   conversationMembers: ConversationMember[]
   getProfile: (profileId: string) => Profile | undefined
@@ -698,6 +703,7 @@ function ChatView({
   title: string
 }) {
   const [draft, setDraft] = useState('')
+  const [imageViewerAttachment, setImageViewerAttachment] = useState<Attachment | null>(null)
   const [isMessageSearchOpen, setIsMessageSearchOpen] = useState(false)
   const [messageSearchQuery, setMessageSearchQuery] = useState('')
   const fileInputRef = useRef<HTMLInputElement | null>(null)
@@ -838,6 +844,7 @@ function ChatView({
               isPinned={conversation.pinnedMessageId === message.id}
               key={message.id}
               message={message}
+              onOpenImage={(attachment) => setImageViewerAttachment(attachment)}
               onDelete={() => {
                 void onDeleteMessage(conversation.id, message.id)
               }}
@@ -853,9 +860,12 @@ function ChatView({
         )}
       </div>
 
+      {authNotice && <p className="notice chat-notice">{authNotice}</p>}
+
       <form className="composer" onSubmit={submit}>
         <input
           ref={fileInputRef}
+          accept="image/png,image/jpeg,image/webp,video/mp4,video/webm,application/pdf,text/plain,text/markdown"
           aria-label="文件附件"
           className="file-input"
           onChange={(event) => {
@@ -883,6 +893,13 @@ function ChatView({
           <SendHorizontal size={20} />
         </button>
       </form>
+
+      {imageViewerAttachment && (
+        <ImageViewer
+          attachment={imageViewerAttachment}
+          onClose={() => setImageViewerAttachment(null)}
+        />
+      )}
     </section>
   )
 }
@@ -957,6 +974,7 @@ function MessageBubble({
   isPinned,
   message,
   onDelete,
+  onOpenImage,
   onPin,
   onUnpin,
   sender,
@@ -967,6 +985,7 @@ function MessageBubble({
   isPinned: boolean
   message: Message
   onDelete: () => void
+  onOpenImage: (attachment: Attachment) => void
   onPin: () => void
   onUnpin: () => void
   sender: Profile | undefined
@@ -984,7 +1003,7 @@ function MessageBubble({
             {message.attachment?.deletedAt ? (
               <p className="deleted-message">此附件已被管理员隐藏</p>
             ) : message.attachment ? (
-              <AttachmentPreview message={message} />
+              <AttachmentPreview message={message} onOpenImage={onOpenImage} />
             ) : null}
             {!message.attachment?.deletedAt && <p>{message.body}</p>}
           </>
@@ -993,6 +1012,13 @@ function MessageBubble({
           {formatTime(message.createdAt)}
           {isMine && (message.status === 'read' ? <CheckCheck size={15} /> : <Check size={15} />)}
         </span>
+        {typeof message.uploadProgress === 'number' && (
+          <div className="upload-progress" aria-label="上传进度">
+            <span style={{ width: `${message.uploadProgress}%` }} />
+            <small>{message.uploadProgress}%</small>
+          </div>
+        )}
+        {message.uploadError && <p className="upload-error">{message.uploadError}</p>}
         {!message.deletedAt && (canDelete || canPin) && (
           <div className="message-actions">
             {canPin && (
@@ -1012,23 +1038,44 @@ function MessageBubble({
   )
 }
 
-function AttachmentPreview({ message }: { message: Message }) {
+function AttachmentPreview({
+  message,
+  onOpenImage,
+}: {
+  message: Message
+  onOpenImage: (attachment: Attachment) => void
+}) {
   const [didImageFail, setDidImageFail] = useState(false)
   const attachment = message.attachment
   if (!attachment) return null
 
   const shouldShowImage = message.type === 'image' && !didImageFail
+  const shouldShowVideo = message.type === 'video'
 
   if (shouldShowImage) {
     return (
-      <a className="image-attachment" href={attachment.url} rel="noreferrer" target="_blank">
+      <button
+        aria-label={`打开图片 ${attachment.fileName}`}
+        className="image-attachment"
+        onClick={() => onOpenImage(attachment)}
+        type="button"
+      >
         <img
           alt={attachment.fileName}
           loading="lazy"
           onError={() => setDidImageFail(true)}
           src={attachment.url}
         />
-      </a>
+      </button>
+    )
+  }
+
+  if (shouldShowVideo) {
+    return (
+      <div className="video-attachment">
+        <video controls preload="metadata" src={attachment.url} />
+        <span>{attachment.fileName}</span>
+      </div>
     )
   }
 
@@ -1037,6 +1084,87 @@ function AttachmentPreview({ message }: { message: Message }) {
       {message.type === 'image' ? <ImageIcon size={18} /> : <FileText size={18} />}
       <span>{attachment.fileName}</span>
     </a>
+  )
+}
+
+function ImageViewer({
+  attachment,
+  onClose,
+}: {
+  attachment: Attachment
+  onClose: () => void
+}) {
+  const [isActionSheetOpen, setIsActionSheetOpen] = useState(false)
+  const longPressTimer = useRef<number | null>(null)
+
+  function clearLongPressTimer() {
+    if (longPressTimer.current) {
+      window.clearTimeout(longPressTimer.current)
+      longPressTimer.current = null
+    }
+  }
+
+  async function saveImage() {
+    setIsActionSheetOpen(false)
+    try {
+      const response = await fetch(attachment.url)
+      const blob = await response.blob()
+      const blobUrl = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = blobUrl
+      link.download = attachment.fileName
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.setTimeout(() => URL.revokeObjectURL(blobUrl), 1000)
+    } catch {
+      window.open(attachment.url, '_blank', 'noopener,noreferrer')
+    }
+  }
+
+  return (
+    <div className="image-viewer" role="dialog" aria-label="图片预览">
+      <button className="image-viewer-back" onClick={onClose} type="button">
+        <ArrowLeft size={22} />
+        返回
+      </button>
+      <button
+        aria-label="关闭图片预览"
+        className="image-viewer-canvas"
+        onClick={() => {
+          if (isActionSheetOpen) {
+            setIsActionSheetOpen(false)
+            return
+          }
+          onClose()
+        }}
+        onPointerCancel={clearLongPressTimer}
+        onPointerDown={() => {
+          clearLongPressTimer()
+          longPressTimer.current = window.setTimeout(() => {
+            setIsActionSheetOpen(true)
+          }, 550)
+        }}
+        onPointerLeave={clearLongPressTimer}
+        onPointerUp={clearLongPressTimer}
+        type="button"
+      >
+        <img alt={attachment.fileName} src={attachment.url} />
+      </button>
+      {isActionSheetOpen && (
+        <div className="image-action-sheet">
+          <button onClick={() => void saveImage()} type="button">
+            保存图片
+          </button>
+          <a href={attachment.url} rel="noreferrer" target="_blank">
+            打开原图
+          </a>
+          <button onClick={() => setIsActionSheetOpen(false)} type="button">
+            取消
+          </button>
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -1388,7 +1516,13 @@ function GroupInfo({
 
               return (
                 <div className="group-file-row" key={attachment.id}>
-                  {attachment.mimeType.startsWith('image/') ? <ImageIcon size={18} /> : <FileText size={18} />}
+                  {attachment.mimeType.startsWith('image/') ? (
+                    <ImageIcon size={18} />
+                  ) : attachment.mimeType.startsWith('video/') ? (
+                    <Video size={18} />
+                  ) : (
+                    <FileText size={18} />
+                  )}
                   <span>
                     <strong>{attachment.fileName}</strong>
                     <small>
@@ -1541,6 +1675,7 @@ function ProfileSettings({
   onSave,
   onSignOut,
   profile,
+  uploadProgress,
 }: {
   activeWorkspace: Workspace | null
   authNotice: string
@@ -1557,6 +1692,7 @@ function ProfileSettings({
   onSave: (profile: Pick<Profile, 'displayName' | 'bio'>) => void
   onSignOut: () => void
   profile: Profile
+  uploadProgress: { label: string; percent: number } | null
 }) {
   const [displayName, setDisplayName] = useState(profile.displayName)
   const [bio, setBio] = useState(profile.bio)
@@ -1647,6 +1783,15 @@ function ProfileSettings({
             </button>
           )}
         </div>
+        {uploadProgress && (
+          <div className="profile-upload-progress" aria-label="头像上传进度">
+            <strong>{uploadProgress.label}</strong>
+            <div className="upload-progress">
+              <span style={{ width: `${uploadProgress.percent}%` }} />
+              <small>{uploadProgress.percent}%</small>
+            </div>
+          </div>
+        )}
       </section>
 
       <form

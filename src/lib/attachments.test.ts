@@ -27,7 +27,7 @@ describe('validateAttachment', () => {
       }),
     ).toEqual({
       ok: false,
-      reason: '仅支持 PNG、JPEG、WebP、PDF、纯文本和 Markdown 文件。',
+      reason: '仅支持 PNG、JPEG、WebP、MP4、WebM、PDF、纯文本和 Markdown 文件。',
     })
   })
 
@@ -62,16 +62,15 @@ describe('validateAvatar', () => {
 })
 
 describe('validateAvatarVideo', () => {
-  it('allows supported video avatars under 5 MB', () => {
+  it('allows supported video avatars before automatic compression', () => {
     expect(validateAvatarVideo({ size: 48_000, type: 'video/mp4' })).toEqual({ ok: true })
     expect(validateAvatarVideo({ size: 48_000, type: 'video/webm' })).toEqual({ ok: true })
+    expect(validateAvatarVideo({ size: MAX_AVATAR_VIDEO_SIZE_BYTES + 1, type: 'video/mp4' })).toEqual({
+      ok: true,
+    })
   })
 
-  it('rejects oversized or unsupported video avatars with Chinese errors', () => {
-    expect(validateAvatarVideo({ size: MAX_AVATAR_VIDEO_SIZE_BYTES + 1, type: 'video/mp4' })).toEqual({
-      ok: false,
-      reason: '视频头像不能超过 5 MB。',
-    })
+  it('rejects unsupported video avatars with Chinese errors', () => {
     expect(validateAvatarVideo({ size: 48_000, type: 'video/quicktime' })).toEqual({
       ok: false,
       reason: '视频头像仅支持 MP4 或 WebM。',

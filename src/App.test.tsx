@@ -341,5 +341,26 @@ describe('聊天 MVP', () => {
       'src',
       'blob:test-attachment',
     )
+
+    fireEvent.click(screen.getByRole('button', { name: '打开图片 photo.png' }))
+    expect(await screen.findByRole('dialog', { name: '图片预览' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '关闭图片预览' }))
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: '图片预览' })).not.toBeInTheDocument()
+    })
+  })
+
+  it('shows a demo video attachment after upload', async () => {
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: '使用 Demo 账号' }))
+    fireEvent.click(await screen.findByText('林小米'))
+
+    const attachment = new File(['video'], 'clip.webm', { type: 'video/webm' })
+    fireEvent.change(screen.getByLabelText('文件附件'), {
+      target: { files: [attachment] },
+    })
+
+    expect(await screen.findByText('clip.webm')).toBeInTheDocument()
   })
 })

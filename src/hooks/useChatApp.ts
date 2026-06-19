@@ -8,13 +8,13 @@ import {
 } from '../lib/supabase'
 import { createDemoState, demoProfileEmails, demoUser } from '../data/demoData'
 import {
-  MAX_AVATAR_VIDEO_DURATION_SECONDS,
   avatarFileExtension,
-  avatarVideoFileExtension,
   validateAttachment,
   validateAvatar,
   validateAvatarVideo,
 } from '../lib/attachments'
+import { uploadStorageObject } from '../lib/storageUpload'
+import { processAvatarVideo } from '../lib/videoAvatar'
 import type {
   AdminActivityAction,
   AdminActivityLog,
@@ -49,6 +49,18 @@ const DEVICE_HEARTBEAT_INTERVAL_MS = 60 * 1000
 
 const safeFileName = (name: string) => name.replace(/[^a-zA-Z0-9._-]/g, '-')
 const trimLogMessage = (message: string) => message.slice(0, 500)
+
+type NoticeScope = 'global' | 'login' | 'list' | 'chat' | 'group' | 'profile'
+
+interface ScopedNotice {
+  message: string
+  scope: NoticeScope
+}
+
+interface UploadProgressState {
+  label: string
+  percent: number
+}
 
 function sanitizeLogContext(context: Record<string, unknown>) {
   const safeContext: Record<string, string | number | boolean> = {}
@@ -230,7 +242,8 @@ export function useChatApp() {
   const [user, setUser] = useState<AppUser | null>(null)
   const [activeConversationId, setActiveConversationId] = useState('conv-mira')
   const [query, setQuery] = useState('')
-  const [authNotice, setAuthNotice] = useState('')
+  const [notice, setNotice] = useState<ScopedNotice>({ message: '', scope: 'global' })
+  const [profileUploadProgress, setProfileUploadProgress] = useState<UploadProgressState | null>(null)
   const [isLoading, setIsLoading] = useState(Boolean(supabase))
   const currentDeviceId = useMemo(() => getOrCreateDeviceId(), [])
   const allowDeviceRestore = useRef(false)
@@ -244,6 +257,23 @@ export function useChatApp() {
   const activeConversation = state.conversations.find(
     (conversation) => conversation.id === activeConversationId,
   )
+
+  const authNotice = notice.message
+
+  function setAuthNotice(message: string) {
+    setNotice({ message, scope: 'global' })
+  }
+
+  function setScopedNotice(scope: NoticeScope, message: string) {
+    setNotice({ message, scope })
+  }
+
+  function noticeFor(scope: NoticeScope) {
+    if (!notice.message) return ''
+    if (notice.scope === scope) return notice.message
+    if (notice.scope === 'global' && scope !== 'list') return notice.message
+    return ''
+  }
 
   const profilesById = useMemo(
     () => new Map(state.profiles.map((profile) => [profile.id, profile])),
@@ -1157,7 +1187,7 @@ export function useChatApp() {
 
     if (error) {
       const notice = friendlyErrorMessage(error.message, '消息发送失败，请重试。')
-      setAuthNotice(notice)
+      setScopedNotice('chat', notice)
       setState((previous) => ({
         ...previous,
         messages: previous.messages.filter((message) => message.id !== optimisticMessage.id),
@@ -1178,10 +1208,15 @@ export function useChatApp() {
 
     const validation = validateAttachment(file)
     if (!validation.ok) {
-      setAuthNotice(validation.reason)
+      setScopedNotice('chat', validation.reason)
       return
     }
 
+    const messageType: Message['type'] = file.type.startsWith('image/')
+      ? 'image'
+      : file.type.startsWith('video/')
+        ? 'video'
+        : 'file'
     const attachment = {
       id: uid(),
       fileName: file.name,
@@ -1194,9 +1229,10 @@ export function useChatApp() {
       id: uid(),
       conversationId: activeConversation.id,
       senderId: user.id,
-      body: file.type.startsWith('image/') ? '图片' : file.name,
-      type: file.type.startsWith('image/') ? 'image' : 'file',
+      body: messageType === 'image' ? '图片' : messageType === 'video' ? '视频' : file.name,
+      type: messageType,
       status: supabase ? 'sending' : 'read',
+      uploadProgress: supabase ? 0 : undefined,
       createdAt: new Date().toISOString(),
       attachment,
     }
@@ -1208,14 +1244,29 @@ export function useChatApp() {
     const storagePath = `${user.id}/${activeConversation.id}/${Date.now()}-${safeFileName(
       file.name,
     )}`
-    const upload = await supabase.storage.from(chatStorageBucket).upload(storagePath, file)
-
-    if (upload.error) {
-      const notice = friendlyErrorMessage(upload.error.message, '文件上传失败，请重试。')
-      setAuthNotice(notice)
+    try {
+      await uploadStorageObject(chatStorageBucket, storagePath, file, {
+        contentType: attachment.mimeType,
+        onProgress: (progress) => {
+          setState((previous) => ({
+            ...previous,
+            messages: previous.messages.map((item) =>
+              item.id === message.id ? { ...item, uploadProgress: progress } : item,
+            ),
+          }))
+        },
+      })
+    } catch (error) {
+      const notice = friendlyErrorMessage(
+        error instanceof Error ? error.message : '',
+        '文件上传失败，请重试。',
+      )
+      setScopedNotice('chat', notice)
       setState((previous) => ({
         ...previous,
-        messages: previous.messages.filter((item) => item.id !== message.id),
+        messages: previous.messages.map((item) =>
+          item.id === message.id ? { ...item, status: 'failed', uploadError: notice } : item,
+        ),
       }))
       recordAppError('attachments', notice, {
         conversationId: activeConversation.id,
@@ -1242,10 +1293,12 @@ export function useChatApp() {
         attachmentInsert.error.message,
         '无法保存文件信息，请重试。',
       )
-      setAuthNotice(notice)
+      setScopedNotice('chat', notice)
       setState((previous) => ({
         ...previous,
-        messages: previous.messages.filter((item) => item.id !== message.id),
+        messages: previous.messages.map((item) =>
+          item.id === message.id ? { ...item, status: 'failed', uploadError: notice } : item,
+        ),
       }))
       recordAppError('attachments', notice, {
         conversationId: activeConversation.id,
@@ -1266,10 +1319,12 @@ export function useChatApp() {
 
     if (messageInsert.error) {
       const notice = friendlyErrorMessage(messageInsert.error.message, '文件消息发送失败，请重试。')
-      setAuthNotice(notice)
+      setScopedNotice('chat', notice)
       setState((previous) => ({
         ...previous,
-        messages: previous.messages.filter((item) => item.id !== message.id),
+        messages: previous.messages.map((item) =>
+          item.id === message.id ? { ...item, status: 'failed', uploadError: notice } : item,
+        ),
       }))
       recordAppError('attachments', notice, {
         conversationId: activeConversation.id,
@@ -1279,7 +1334,9 @@ export function useChatApp() {
       setState((previous) => ({
         ...previous,
         messages: previous.messages.map((item) =>
-          item.id === message.id ? { ...item, status: 'sent' } : item,
+          item.id === message.id
+            ? { ...item, status: 'sent', uploadError: undefined, uploadProgress: undefined }
+            : item,
         ),
       }))
     }
@@ -1313,10 +1370,11 @@ export function useChatApp() {
 
     const validation = validateAvatar(file)
     if (!validation.ok) {
-      setAuthNotice(validation.reason)
+      setScopedNotice('profile', validation.reason)
       return
     }
 
+    setProfileUploadProgress({ label: '上传图片头像', percent: 0 })
     const localUrl = URL.createObjectURL(file)
 
     setState((previous) => ({
@@ -1336,18 +1394,28 @@ export function useChatApp() {
     }))
 
     if (!supabase) {
-      setAuthNotice('头像已更新。')
+      setProfileUploadProgress(null)
+      setScopedNotice('profile', '头像已更新。')
       return
     }
 
     const storagePath = `${currentUser.id}/avatar-${Date.now()}.${avatarFileExtension(file)}`
-    const upload = await supabase.storage.from(avatarStorageBucket).upload(storagePath, file, {
-      cacheControl: '3600',
-      upsert: false,
-    })
-
-    if (upload.error) {
-      setAuthNotice(friendlyErrorMessage(upload.error.message, '头像上传失败，请重试。'))
+    try {
+      await uploadStorageObject(avatarStorageBucket, storagePath, file, {
+        cacheControl: '3600',
+        contentType: file.type,
+        onProgress: (percent) =>
+          setProfileUploadProgress({ label: '上传图片头像', percent }),
+      })
+    } catch (error) {
+      setProfileUploadProgress(null)
+      setScopedNotice(
+        'profile',
+        friendlyErrorMessage(
+          error instanceof Error ? error.message : '',
+          '头像上传失败，请重试。',
+        ),
+      )
       return
     }
 
@@ -1381,7 +1449,9 @@ export function useChatApp() {
     }
 
     if (profileUpdate.error) {
-      setAuthNotice(
+      setProfileUploadProgress(null)
+      setScopedNotice(
+        'profile',
         friendlyErrorMessage(profileUpdate.error.message, '头像已上传，但资料更新失败。'),
       )
       return
@@ -1402,7 +1472,8 @@ export function useChatApp() {
           : profile,
       ),
     }))
-    setAuthNotice('头像已更新。')
+    setProfileUploadProgress(null)
+    setScopedNotice('profile', '头像已更新。')
   }
 
   async function updateProfileVideoAvatar(file: File) {
@@ -1411,25 +1482,22 @@ export function useChatApp() {
 
     const validation = validateAvatarVideo(file)
     if (!validation.ok) {
-      setAuthNotice(validation.reason)
+      setScopedNotice('profile', validation.reason)
       return
     }
 
-    let analysis: AvatarVideoAnalysis
+    setProfileUploadProgress({ label: '处理视频头像', percent: 8 })
+    let processedVideo: Awaited<ReturnType<typeof processAvatarVideo>>
     try {
-      analysis = await analyzeAvatarVideo(file)
+      processedVideo = await processAvatarVideo(file)
     } catch {
-      setAuthNotice('无法读取视频头像，请换一个 MP4 或 WebM 文件。')
+      setProfileUploadProgress(null)
+      setScopedNotice('profile', '当前浏览器无法自动压缩这个视频，请换一个更短的视频。')
       return
     }
 
-    if (analysis.duration > MAX_AVATAR_VIDEO_DURATION_SECONDS) {
-      setAuthNotice('视频头像不能超过 5 秒。')
-      return
-    }
-
-    const localVideoUrl = URL.createObjectURL(file)
-    const localPosterUrl = URL.createObjectURL(analysis.posterBlob)
+    const localVideoUrl = URL.createObjectURL(processedVideo.videoBlob)
+    const localPosterUrl = URL.createObjectURL(processedVideo.posterBlob)
     const updatedAt = new Date().toISOString()
 
     setState((previous) => ({
@@ -1449,34 +1517,57 @@ export function useChatApp() {
     }))
 
     if (!supabase) {
-      setAuthNotice('视频头像已更新。')
+      setProfileUploadProgress(null)
+      setScopedNotice('profile', '视频头像已更新。')
       return
     }
 
     const timestamp = Date.now()
-    const videoPath = `${currentUser.id}/avatar-video-${timestamp}.${avatarVideoFileExtension(file)}`
+    const videoExtension = processedVideo.videoBlob.type.includes('webm') ? 'webm' : 'mp4'
+    const videoPath = `${currentUser.id}/avatar-video-${timestamp}.${videoExtension}`
     const posterPath = `${currentUser.id}/avatar-video-poster-${timestamp}.jpg`
 
-    const videoUpload = await supabase.storage.from(avatarVideoStorageBucket).upload(videoPath, file, {
-      cacheControl: '3600',
-      upsert: false,
-    })
-
-    if (videoUpload.error) {
-      setAuthNotice(friendlyErrorMessage(videoUpload.error.message, '视频头像上传失败，请重试。'))
+    try {
+      await uploadStorageObject(avatarVideoStorageBucket, videoPath, processedVideo.videoBlob, {
+        cacheControl: '3600',
+        contentType: processedVideo.videoBlob.type || file.type,
+        onProgress: (percent) =>
+          setProfileUploadProgress({
+            label: '上传视频头像',
+            percent: Math.min(75, 15 + Math.round(percent * 0.6)),
+          }),
+      })
+    } catch (error) {
+      setProfileUploadProgress(null)
+      setScopedNotice(
+        'profile',
+        friendlyErrorMessage(
+          error instanceof Error ? error.message : '',
+          '视频头像上传失败，请重试。',
+        ),
+      )
       return
     }
 
-    const posterUpload = await supabase.storage
-      .from(avatarStorageBucket)
-      .upload(posterPath, analysis.posterBlob, {
+    try {
+      await uploadStorageObject(avatarStorageBucket, posterPath, processedVideo.posterBlob, {
         cacheControl: '3600',
         contentType: 'image/jpeg',
-        upsert: false,
+        onProgress: (percent) =>
+          setProfileUploadProgress({
+            label: '上传视频封面',
+            percent: Math.min(96, 76 + Math.round(percent * 0.2)),
+          }),
       })
-
-    if (posterUpload.error) {
-      setAuthNotice(friendlyErrorMessage(posterUpload.error.message, '视频封面上传失败，请重试。'))
+    } catch (error) {
+      setProfileUploadProgress(null)
+      setScopedNotice(
+        'profile',
+        friendlyErrorMessage(
+          error instanceof Error ? error.message : '',
+          '视频封面上传失败，请重试。',
+        ),
+      )
       return
     }
 
@@ -1500,7 +1591,9 @@ export function useChatApp() {
       .eq('id', currentUser.id)
 
     if (profileUpdate.error) {
-      setAuthNotice(
+      setProfileUploadProgress(null)
+      setScopedNotice(
+        'profile',
         friendlyErrorMessage(profileUpdate.error.message, '视频头像已上传，但资料更新失败。'),
       )
       return
@@ -1521,7 +1614,8 @@ export function useChatApp() {
           : profile,
       ),
     }))
-    setAuthNotice('视频头像已更新。')
+    setProfileUploadProgress(null)
+    setScopedNotice('profile', '视频头像已更新。')
   }
 
   async function removeProfileVideoAvatar() {
@@ -1545,7 +1639,7 @@ export function useChatApp() {
     }))
 
     if (!supabase) {
-      setAuthNotice('已移除视频头像。')
+      setScopedNotice('profile', '已移除视频头像。')
       return
     }
 
@@ -1561,11 +1655,11 @@ export function useChatApp() {
       .eq('id', currentUser.id)
 
     if (profileUpdate.error) {
-      setAuthNotice(friendlyErrorMessage(profileUpdate.error.message, '无法移除视频头像。'))
+      setScopedNotice('profile', friendlyErrorMessage(profileUpdate.error.message, '无法移除视频头像。'))
       return
     }
 
-    setAuthNotice('已移除视频头像。')
+    setScopedNotice('profile', '已移除视频头像。')
   }
 
   async function createGroup() {
@@ -1645,7 +1739,7 @@ export function useChatApp() {
     if (!trimmed || !currentUser) return false
 
     if (trimmed === currentUser.email.toLowerCase()) {
-      setAuthNotice('不能添加自己。')
+      setScopedNotice('list', '不能添加自己。')
       return false
     }
 
@@ -1655,7 +1749,7 @@ export function useChatApp() {
 
       if (!targetProfile) {
         const notice = '没有找到使用这个邮箱注册的用户。请确认对方已经注册。'
-        setAuthNotice(notice)
+        setScopedNotice('list', notice)
         return false
       }
 
@@ -1667,7 +1761,7 @@ export function useChatApp() {
 
       if (existingConversation) {
         setActiveConversationId(existingConversation.id)
-        setAuthNotice('已打开现有聊天。')
+        setScopedNotice('list', '已打开现有聊天。')
         return true
       }
 
@@ -1679,7 +1773,8 @@ export function useChatApp() {
       )
 
       if (existingContact?.status === 'pending') {
-        setAuthNotice(
+        setScopedNotice(
+          'list',
           existingContact.direction === 'incoming'
             ? '对方已经给你发来申请，请在好友申请里处理。'
             : '好友申请已发送，等待对方同意。',
@@ -1688,7 +1783,7 @@ export function useChatApp() {
       }
 
       if (existingContact?.status === 'accepted') {
-        setAuthNotice('你们已经是好友，可以在聊天列表里继续对话。')
+        setScopedNotice('list', '你们已经是好友，可以在聊天列表里继续对话。')
         return true
       }
 
@@ -1705,7 +1800,7 @@ export function useChatApp() {
         ...previous,
         contacts: upsertContact(previous.contacts, contactRequest),
       }))
-      setAuthNotice('已发送好友申请，等待对方同意。')
+      setScopedNotice('list', '已发送好友申请，等待对方同意。')
       return true
     }
 
@@ -1714,7 +1809,8 @@ export function useChatApp() {
       .single()
 
     if (error) {
-      setAuthNotice(
+      setScopedNotice(
+        'list',
         friendlyErrorMessage(error.message, '无法发送好友申请，请检查邮箱后重试。'),
       )
       return false
@@ -1753,17 +1849,17 @@ export function useChatApp() {
         targetProfile.id,
       )
       if (existingConversation) setActiveConversationId(existingConversation.id)
-      setAuthNotice('你们已经是好友，可以在聊天列表里继续对话。')
+      setScopedNotice('list', '你们已经是好友，可以在聊天列表里继续对话。')
       void loadSupabaseState(currentUser.id)
       return true
     }
 
     if (contactStatus === 'declined') {
-      setAuthNotice('对方已拒绝好友申请。')
+      setScopedNotice('list', '对方已拒绝好友申请。')
       return true
     }
 
-    setAuthNotice('已发送好友申请，等待对方同意。')
+    setScopedNotice('list', '已发送好友申请，等待对方同意。')
     return true
   }
 
@@ -2807,7 +2903,9 @@ export function useChatApp() {
     isLoading,
     isSupabaseConfigured,
     me,
+    noticeFor,
     outgoingContactRequests,
+    profileUploadProgress,
     query,
     searchResults,
     sendFile,
@@ -2841,11 +2939,6 @@ export function useChatApp() {
   }
 }
 
-interface AvatarVideoAnalysis {
-  duration: number
-  posterBlob: Blob
-}
-
 function upsertMessage(messages: Message[], incoming: Message) {
   const exists = messages.some((message) => message.id === incoming.id)
   return exists
@@ -2876,80 +2969,6 @@ function upsertProfile(profiles: Profile[], incoming: Profile) {
           : incoming
       })
     : [...profiles, incoming]
-}
-
-function analyzeAvatarVideo(file: File): Promise<AvatarVideoAnalysis> {
-  return new Promise((resolve, reject) => {
-    const videoUrl = URL.createObjectURL(file)
-    const video = document.createElement('video')
-    const canvas = document.createElement('canvas')
-    let didFinish = false
-
-    function cleanup() {
-      URL.revokeObjectURL(videoUrl)
-      video.removeAttribute('src')
-      video.load()
-    }
-
-    function fail() {
-      if (didFinish) return
-      didFinish = true
-      cleanup()
-      reject(new Error('invalid-video'))
-    }
-
-    const timeout = window.setTimeout(fail, 8000)
-
-    video.preload = 'metadata'
-    video.muted = true
-    video.playsInline = true
-    video.src = videoUrl
-
-    video.onloadedmetadata = () => {
-      if (!Number.isFinite(video.duration) || video.duration <= 0) {
-        fail()
-        return
-      }
-      video.currentTime = Math.min(0.1, video.duration / 2)
-    }
-
-    video.onseeked = () => {
-      if (didFinish) return
-      const sourceSize = Math.min(video.videoWidth, video.videoHeight)
-      if (sourceSize <= 0) {
-        fail()
-        return
-      }
-
-      const sourceX = Math.max(0, (video.videoWidth - sourceSize) / 2)
-      const sourceY = Math.max(0, (video.videoHeight - sourceSize) / 2)
-      canvas.width = 512
-      canvas.height = 512
-      const context = canvas.getContext('2d')
-      if (!context) {
-        fail()
-        return
-      }
-
-      context.drawImage(video, sourceX, sourceY, sourceSize, sourceSize, 0, 0, 512, 512)
-      canvas.toBlob(
-        (posterBlob) => {
-          window.clearTimeout(timeout)
-          if (!posterBlob) {
-            fail()
-            return
-          }
-          didFinish = true
-          cleanup()
-          resolve({ duration: video.duration, posterBlob })
-        },
-        'image/jpeg',
-        0.82,
-      )
-    }
-
-    video.onerror = fail
-  })
 }
 
 function upsertContact(contacts: ContactRequest[], incoming: ContactRequest) {
@@ -3086,6 +3105,9 @@ function conversationLastMessageText(message: Message | undefined) {
   if (message.attachment?.deletedAt) return '附件已隐藏'
   if (message.type === 'image') {
     return message.body && message.body !== '图片' ? `图片：${message.body}` : '图片'
+  }
+  if (message.type === 'video') {
+    return message.body && message.body !== '视频' ? `视频：${message.body}` : '视频'
   }
   if (message.type === 'file') {
     return `文件：${message.attachment?.fileName ?? message.body}`

@@ -4,7 +4,7 @@ Telegram-style mobile PWA MVP for chat, built with React, TypeScript, Vite, Supa
 
 生产 beta 地址：`https://chat-mvp-tau.vercel.app`
 
-当前阶段：`v0.4.2-beta` 稳定性补丁准备中，围绕 5 人先导试用后的 P0/P1、通知、附件、成员管理和移动端阻塞问题做小修。
+当前阶段：`v0.5.2-beta` 媒体体验收口，重点处理页面内提示、图片预览返回、上传进度、视频头像自动处理和视频消息。
 
 ## 已包含能力
 
@@ -12,7 +12,7 @@ Telegram-style mobile PWA MVP for chat, built with React, TypeScript, Vite, Supa
 - 无后端凭据也能打开的 Demo 模式。
 - Supabase 邮箱密码登录、Realtime 消息、Storage 上传和 signed URL 下载。
 - Supabase schema、RLS、头像上传 bucket、好友申请 RPC migrations，位于 `supabase/migrations`。
-- 附件类型校验和 10 MB 上传限制；头像仅支持 PNG/JPEG/WebP，限制 2 MB。
+- 附件类型校验和 10 MB 上传限制；支持图片、视频、PDF 和文本文件；头像图片限制 2 MB，视频头像会自动处理到 5 秒/5 MB 内。
 - 客户端消息搜索：支持聊天列表搜索和当前会话搜索。
 - Web Push/PWA 通知基础设施：浏览器订阅、Supabase 订阅表、Edge Function 和隐私保护通知 payload。
 - v0.3 公司试用基础设施：默认工作区、管理员成员管理、群聊工作区归属和登录设备管理。
@@ -46,7 +46,7 @@ VITE_SUPABASE_AVATAR_VIDEO_BUCKET=profile-avatar-videos
 VITE_VAPID_PUBLIC_KEY=
 ```
 
-Allowed attachment types are PNG, JPEG, WebP, PDF, plain text, and Markdown. The migrations configure the private `chat-uploads` bucket with the same 10 MB limit used by the client, the public `profile-avatars` bucket for 2 MB profile images, and the public `profile-avatar-videos` bucket for 5 MB MP4/WebM video avatars.
+Allowed attachment types are PNG, JPEG, WebP, MP4, WebM, PDF, plain text, and Markdown. The migrations configure the private `chat-uploads` bucket with the same 10 MB limit used by the client, the public `profile-avatars` bucket for 2 MB profile images, and the public `profile-avatar-videos` bucket for MP4/WebM source files that the browser processes into 5-second, 5 MB video avatars.
 
 v0.3 工作区功能需要运行 `supabase/migrations/20260618000000_workspaces.sql`。运行后新用户会自动拥有默认工作区，新建群聊会归属当前工作区。
 
@@ -54,7 +54,9 @@ v0.3 登录设备管理需要继续运行 `supabase/migrations/20260618010000_de
 
 v0.4 稳定化日志需要运行 `supabase/migrations/20260618020000_operational_logs.sql`。运行后 owner/admin 可以在个人资料页看到最近管理员操作和关键错误。
 
-v0.5 视频动态头像需要运行 `supabase/migrations/20260618100000_video_avatars.sql`。运行后用户可上传 5 秒内、5 MB 内的 MP4/WebM 视频头像；聊天列表仍使用静态封面头像。
+v0.5 视频动态头像需要运行 `supabase/migrations/20260618100000_video_avatars.sql`。运行后用户可上传 MP4/WebM 视频头像，浏览器会自动裁成方形、截取封面并尽量压缩到 5 秒/5 MB 内；聊天列表仍使用静态封面头像。
+
+v0.5.2 视频消息需要运行 `supabase/migrations/20260618120000_video_messages.sql`。运行后 `messages.message_type` 支持 `video`，聊天附件可发送 MP4/WebM 视频。
 
 ## Web Push Setup
 

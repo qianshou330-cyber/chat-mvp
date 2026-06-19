@@ -1,8 +1,8 @@
 export type ConversationType = 'direct' | 'group'
 
-export type MessageType = 'text' | 'image' | 'file'
+export type MessageType = 'text' | 'image' | 'video' | 'file'
 
-export type MessageStatus = 'sending' | 'sent' | 'read'
+export type MessageStatus = 'sending' | 'sent' | 'read' | 'failed'
 
 export type MemberRole = 'owner' | 'admin' | 'member'
 
@@ -60,6 +60,8 @@ export interface Message {
   body: string
   type: MessageType
   status: MessageStatus
+  uploadProgress?: number
+  uploadError?: string
   createdAt: string
   deletedAt?: string
   deletedBy?: string

@@ -4,6 +4,8 @@ export const ALLOWED_ATTACHMENT_MIME_TYPES = [
   'image/png',
   'image/jpeg',
   'image/webp',
+  'video/mp4',
+  'video/webm',
   'application/pdf',
   'text/plain',
   'text/markdown',
@@ -44,7 +46,7 @@ export function validateAttachment(
   if (!ALLOWED_ATTACHMENT_MIME_TYPES.includes(file.type)) {
     return {
       ok: false,
-      reason: '仅支持 PNG、JPEG、WebP、PDF、纯文本和 Markdown 文件。',
+      reason: '仅支持 PNG、JPEG、WebP、MP4、WebM、PDF、纯文本和 Markdown 文件。',
     }
   }
 
@@ -78,10 +80,6 @@ export function validateAvatarVideo(
 ): AttachmentValidationResult {
   if (file.size <= 0) {
     return { ok: false, reason: '请选择头像视频。' }
-  }
-
-  if (file.size > MAX_AVATAR_VIDEO_SIZE_BYTES) {
-    return { ok: false, reason: '视频头像不能超过 5 MB。' }
   }
 
   if (!AVATAR_VIDEO_MIME_EXTENSIONS[file.type]) {
