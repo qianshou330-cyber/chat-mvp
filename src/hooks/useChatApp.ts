@@ -1114,6 +1114,7 @@ export function useChatApp() {
       await supabase.auth.signOut({ scope: 'local' })
     }
     setUser(null)
+    setNotice({ message: '', scope: 'global' })
     setState(createDemoState())
   }
 
