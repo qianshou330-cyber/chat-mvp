@@ -4,7 +4,7 @@ Telegram-style mobile PWA MVP for chat, built with React, TypeScript, Vite, Supa
 
 生产 beta 地址：`https://chat-mvp-tau.vercel.app`
 
-当前阶段：`v0.5.2-beta` 媒体体验收口，重点处理页面内提示、图片预览返回、上传进度、视频头像自动处理和视频消息。
+当前阶段：`v0.6.0-beta` 公司试用稳定版，重点收口 20-30 人试用所需的成员邀请、试用巡检、权限回归、媒体性能和移动端体验。
 
 ## 已包含能力
 
@@ -17,6 +17,7 @@ Telegram-style mobile PWA MVP for chat, built with React, TypeScript, Vite, Supa
 - Web Push/PWA 通知基础设施：浏览器订阅、Supabase 订阅表、Edge Function 和隐私保护通知 payload。
 - v0.3 公司试用基础设施：默认工作区、管理员成员管理、群聊工作区归属和登录设备管理。
 - v0.4 稳定化基础设施：关键错误记录、管理员操作记录和管理员可见的最近记录入口。
+- v0.6 公司试用稳定化：群详情内可复制邀请说明、管理员试用巡检摘要、最近错误/通知/附件失败观察入口和聊天主界面视觉收口。
 - GitHub Actions CI、Vercel 部署配置、PWA manifest 和 app icon。
 - Figma 和 Lovable 交接文档，位于 `docs/`。
 
@@ -121,6 +122,8 @@ Use `docs/deployment-checklist.md` before promoting a Preview deployment to Prod
 使用 `docs/2026-07-company-trial-plan.md` 执行 2026 年 7 月公司内部试用和 v0.4.x 稳定化计划。
 
 使用 `docs/v0.4.2-beta.md` 查看 v0.4.2 稳定性补丁范围、验收清单和不做事项。
+
+`v0.6.0-beta` 作为 20-30 人公司试用稳定基线使用。管理员可在群详情复制邀请说明给未注册成员，并通过“更多管理 -> 试用巡检”查看最近错误、通知失败、附件失败和管理操作。
 
 所有反馈统一进入 GitHub Issues，使用已有的缺陷反馈、体验反馈和功能建议模板。
 

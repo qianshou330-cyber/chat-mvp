@@ -434,7 +434,7 @@ function ConversationList({
   }
 
   return (
-    <section className="screen">
+    <section className="screen list-screen">
       <header className="topbar">
         <div className="menu-wrapper" ref={menuRef}>
           <button
@@ -1324,6 +1324,7 @@ function GroupInfo({
   const [isBusy, setIsBusy] = useState(false)
   const [editingConversationId, setEditingConversationId] = useState('')
   const [isManagementOpen, setIsManagementOpen] = useState(false)
+  const [inviteCopyStatus, setInviteCopyStatus] = useState('')
   const [titleDraftState, setTitleDraftState] = useState({
     conversationId: conversation.id,
     value: conversation.title,
@@ -1382,6 +1383,17 @@ function GroupInfo({
     (member) => member.role === 'owner' || member.role === 'admin',
   ).length
   const mutedMemberCount = conversationMembers.filter((member) => member.isMuted).length
+  const inviteOrigin =
+    typeof window === 'undefined' ? 'https://chat-mvp-tau.vercel.app' : window.location.origin
+  const inviteText = `请先打开 ${inviteOrigin} 注册并登录，完成后把注册邮箱发给管理员。管理员会把你加入群聊「${title}」。`
+  const workspaceErrorCount = visibleAppErrorEvents.length
+  const notificationErrorCount = visibleAppErrorEvents.filter(
+    (event) => event.module === 'notifications',
+  ).length
+  const attachmentErrorCount = visibleAppErrorEvents.filter(
+    (event) => event.module === 'attachments',
+  ).length
+  const recentWorkspaceActivityCount = visibleAdminActivityLogs.length
 
   function updateTitleDraft(value: string) {
     setTitleDraftState({ conversationId: conversation.id, value })
@@ -1398,6 +1410,17 @@ function GroupInfo({
     const ok = await onAddGroupMemberByEmail(conversation.id, memberEmail)
     if (ok) setMemberEmail('')
     setIsBusy(false)
+  }
+
+  async function copyInviteText() {
+    setInviteCopyStatus('')
+
+    try {
+      await navigator.clipboard.writeText(inviteText)
+      setInviteCopyStatus('邀请说明已复制，可以直接发给对方。')
+    } catch {
+      setInviteCopyStatus('浏览器没有允许自动复制，请手动复制下方说明。')
+    }
   }
 
   async function submitTitleUpdate() {
@@ -1449,31 +1472,41 @@ function GroupInfo({
   }
 
   return (
-    <section className="screen">
+    <section className="screen detail-screen group-detail-screen">
       <header className="topbar">
         <button aria-label="返回聊天" className="icon-button" onClick={onBack} type="button">
           <ArrowLeft size={22} />
         </button>
         <div>
           <p className="eyebrow">群聊信息</p>
-          <h1>{title}</h1>
+          <h1>群详情</h1>
         </div>
-        <button
-          aria-expanded={canManageGroup ? isManagementOpen : undefined}
-          aria-label="更多群管理"
-          className="icon-button"
-          disabled={!canManageGroup}
-          onClick={() => setIsManagementOpen((isOpen) => !isOpen)}
-          type="button"
-        >
-          <Settings size={22} />
-        </button>
+        {canManageGroup ? (
+          <button
+            aria-expanded={isManagementOpen}
+            aria-label="更多群管理"
+            className="icon-button"
+            onClick={() => setIsManagementOpen((isOpen) => !isOpen)}
+            type="button"
+          >
+            <Settings size={22} />
+          </button>
+        ) : (
+          <span aria-hidden="true" />
+        )}
       </header>
 
       <section className="group-summary">
-        <Avatar title={title} variant="group" size="large" />
-        <h2>{title}</h2>
-        <p>{conversation.memberCount} 名成员</p>
+        <div className="detail-avatar-wrap">
+          <Avatar title={title} variant="group" size="large" />
+        </div>
+        <div className="detail-title-stack">
+          <h2>{title}</h2>
+          <p>
+            {conversation.memberCount} 名成员 · {managerCount} 名管理员
+            {conversation.isMuted ? ' · 已全体禁言' : ''}
+          </p>
+        </div>
         {canManageGroup && (
           <div className="group-title-editor">
             {isEditingTitle ? (
@@ -1529,6 +1562,14 @@ function GroupInfo({
               <span>添加成员</span>
             </button>
           )}
+          <button
+            className="group-quick-action"
+            onClick={() => document.getElementById('groupMemberList')?.scrollIntoView({ block: 'start' })}
+            type="button"
+          >
+            <Users size={18} />
+            <span>成员</span>
+          </button>
           <button
             className="group-quick-action"
             onClick={() => document.getElementById('groupFilesPanel')?.scrollIntoView({ block: 'start' })}
@@ -1647,6 +1688,28 @@ function GroupInfo({
               </button>
             </div>
             <p className="form-hint">对方需要先注册；添加后会进入当前群。</p>
+            <div className="invite-copy-card" role="region" aria-label="邀请说明">
+              <span>
+                <strong>邀请说明</strong>
+                <small>给还没注册的同事，先完成注册再添加进群。</small>
+              </span>
+              <textarea
+                aria-label="可复制邀请说明"
+                onFocus={(event) => event.currentTarget.select()}
+                readOnly
+                value={inviteText}
+              />
+              <button
+                className="secondary-button compact-button"
+                onClick={() => {
+                  void copyInviteText()
+                }}
+                type="button"
+              >
+                复制邀请文案
+              </button>
+              {inviteCopyStatus && <small className="copy-status">{inviteCopyStatus}</small>}
+            </div>
             {authNotice && <p className="form-hint notice-inline">{authNotice}</p>}
           </form>
           </section>
@@ -1708,6 +1771,52 @@ function GroupInfo({
         </div>
         </section>
         {canManageGroup && isManagementOpen && (
+          <section className="group-section trial-health-card" aria-label="试用巡检">
+            <div className="workspace-card-header">
+              <ShieldCheck size={24} />
+              <span>
+                <strong>试用巡检</strong>
+                <p>给 20-30 人公司试用时快速查看最近错误、通知和文件状态。</p>
+              </span>
+            </div>
+            <div className="trial-health-grid">
+              <span>
+                <strong>{workspaceErrorCount}</strong>
+                <small>最近错误</small>
+              </span>
+              <span>
+                <strong>{notificationErrorCount}</strong>
+                <small>通知失败</small>
+              </span>
+              <span>
+                <strong>{attachmentErrorCount}</strong>
+                <small>附件失败</small>
+              </span>
+              <span>
+                <strong>{recentWorkspaceActivityCount}</strong>
+                <small>管理操作</small>
+              </span>
+            </div>
+            {visibleAppErrorEvents.length > 0 ? (
+              <div className="admin-log-list compact-log-list">
+                {visibleAppErrorEvents.slice(0, 3).map((event) => (
+                  <div className="admin-log-row" key={event.id}>
+                    <span>
+                      <strong>{formatErrorModule(event.module)}</strong>
+                      <small>
+                        {event.message} · {formatShortDateTime(event.createdAt)}
+                      </small>
+                    </span>
+                    <span className="error-badge">需关注</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="empty-inline">最近没有记录到关键错误。</p>
+            )}
+          </section>
+        )}
+        {canManageGroup && isManagementOpen && (
           <section className="group-section admin-log-card group-management-records" aria-label="群管理记录">
             <div className="workspace-card-header">
               <ShieldCheck size={24} />
@@ -1758,7 +1867,7 @@ function GroupInfo({
         )}
       </div>
 
-      <section className="group-section group-members-section" aria-label="群成员">
+      <section className="group-section group-members-section" aria-label="群成员" id="groupMemberList">
         <div className="group-section-header">
           <span>
             <strong>群成员</strong>
@@ -1902,7 +2011,7 @@ function ProfileSettings({
   }
 
   return (
-    <section className="screen">
+    <section className="screen detail-screen profile-detail-screen">
       <header className="topbar">
         <button aria-label="返回聊天列表" className="icon-button" onClick={onBack} type="button">
           <ArrowLeft size={22} />
@@ -1914,19 +2023,22 @@ function ProfileSettings({
       </header>
 
       <section className="profile-hero">
-        <button
-          aria-expanded={isAvatarMenuOpen}
-          aria-haspopup="menu"
-          aria-label="头像操作"
-          className="profile-avatar-trigger"
-          onClick={() => setIsAvatarMenuOpen((current) => !current)}
-          type="button"
-        >
-          <Avatar allowMotion profile={profile} size="large" />
-        </button>
+        <div className="detail-avatar-wrap">
+          <button
+            aria-expanded={isAvatarMenuOpen}
+            aria-haspopup="menu"
+            aria-label="头像操作"
+            className="profile-avatar-trigger"
+            onClick={() => setIsAvatarMenuOpen((current) => !current)}
+            type="button"
+          >
+            <Avatar allowMotion profile={profile} size="large" />
+          </button>
+        </div>
         <div className="profile-identity-summary">
           <strong>{profile.displayName}</strong>
           <small>{email}</small>
+          <em>点击头像更换图片或视频头像</em>
         </div>
         <input
           ref={avatarInputRef}
@@ -2236,7 +2348,7 @@ function Avatar({
           src={avatarVideoUrl}
         />
       ) : profile?.avatarUrl ? (
-        <img alt="" src={profile.avatarUrl} />
+        <img alt="" decoding="async" loading="lazy" src={profile.avatarUrl} />
       ) : variant === 'group' && !profile ? (
         <Users size={size === 'large' ? 34 : 20} />
       ) : (

@@ -212,12 +212,17 @@ describe('聊天 MVP', () => {
     expect(screen.getByRole('region', { name: '群文件' })).toBeInTheDocument()
     expect(await screen.findByLabelText('添加群成员邮箱')).toBeInTheDocument()
     expect(screen.getByText('对方需要先注册；添加后会进入当前群。')).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: '邀请说明' })).toBeInTheDocument()
+    expect(screen.getByText(/完成后把注册邮箱发给管理员/)).toBeInTheDocument()
     expect(screen.queryByRole('region', { name: '工作区管理' })).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '更多管理' }))
 
+    expect(screen.getByRole('region', { name: '试用巡检' })).toBeInTheDocument()
+    expect(screen.getByText('最近错误')).toBeInTheDocument()
+    expect(screen.getByText('通知失败')).toBeInTheDocument()
     expect(screen.getByRole('region', { name: '群管理记录' })).toBeInTheDocument()
     expect(screen.getByText('调整群角色')).toBeInTheDocument()
-    expect(screen.getByText('附件错误')).toBeInTheDocument()
+    expect(screen.getAllByText('附件错误').length).toBeGreaterThan(0)
   })
 
   it('shows and manages login devices in the profile screen', async () => {

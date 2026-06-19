@@ -52,6 +52,8 @@
 - Confirm the profile page only shows personal profile, notifications, and “登录设备”.
 - Confirm the profile page uses the lightweight settings layout: avatar action menu, editable nickname/bio rows, readonly email row, collapsed login devices, and bottom sign-out row.
 - Confirm group details show grouped sections for “群公告与权限”, “群成员”, “群文件”, and owner/admin-only “群管理记录”.
+- Confirm owner/admin can copy the group invite instructions for not-yet-registered members from group details.
+- Confirm owner/admin can open “试用巡检” and see recent error, notification failure, attachment failure, and management activity counts.
 - Confirm `docs/company-trial-safety.md` remains available for company-trial safety guidance.
 - Sign in to the same account from two browsers or windows and confirm both devices are listed.
 - Use “退出其他设备” and confirm the current device remains signed in while the other device exits after refresh or heartbeat.
@@ -60,6 +62,8 @@
 - Confirm owner/admin can mute/unmute ordinary members, while member cannot see or trigger mute controls.
 - Confirm a removed group member cannot read group messages or attachments after refresh.
 - Confirm owner/admin can see only the current group’s “群管理记录”, while member cannot see that region.
+- Confirm group announcement update, message pin/unpin, group message deletion, group file listing, and attachment hiding work from group details.
+- Confirm hidden or deleted attachments no longer show previews or produce signed download links.
 - Trigger one member-management failure and confirm a sanitized error event is created without message body, attachment filename, token, or secret.
 - Confirm video avatar processing/upload status appears only in the profile avatar area, not on the chat list.
 - Run `docs/test-data-cleanup-sop.md` after smoke tests if temporary `codex.*` users or test uploads are no longer needed.
@@ -72,5 +76,7 @@
 - Tag the stability baseline as `v0.4-beta` after operational logs pass production smoke test.
 - Tag the operational-maintenance baseline as `v0.4.1-beta` after cleanup SOP, backup checklist, daily report template, and production smoke test pass.
 - Tag the combined media/profile-polish baseline as `v0.5.6-beta` after image preview, upload retry, video message, video avatar, profile settings UI, avatar action menu, notification, and login-device smoke tests pass.
+- Tag the chat shell UI baseline as `v0.5.9-beta` after chat list, chat header, message bubbles, composer, media, group governance, and permission smoke tests pass.
+- Tag the company-trial stability baseline as `v0.6.0-beta` after member invitation, trial inspection, permissions, media performance, and 20-30 person smoke paths pass.
 - Use `docs/beta-test-plan.md` for tester instructions and issue triage.
 - Collect feedback through GitHub Issue templates before prioritizing the next beta scope.

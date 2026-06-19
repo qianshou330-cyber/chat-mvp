@@ -27,8 +27,8 @@
 - Reference is limited to product structure and interaction patterns such as chat list density, profile/settings grouping, media viewer behavior, upload progress, group details, and group permission flows.
 
 ## Next Production Tasks
-- Finish v0.5.6 profile settings UI smoke before tagging `v0.5.6-beta`.
-- Keep using `docs/telegram-reference-evaluation.md` as the clean-room boundary for media UX and group permission polish.
-- Continue v0.5.x with profile polish, media upload reliability, group file, and message governance refinements.
+- Finish v0.6.0 company-trial stability smoke before tagging `v0.6.0-beta`.
+- Keep using `docs/telegram-reference-evaluation.md` as the clean-room boundary for Telegram-style chat and detail page polish.
+- Keep v0.6 focused on member invitation, trial inspection, permission regression, media performance, and mobile stability rather than new headline features.
 - Add server-side search only after client search reaches real data limits.
 - Add Playwright tests for multi-user realtime flows.
