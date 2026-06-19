@@ -123,8 +123,8 @@ function App() {
             query={chat.query}
             searchResults={chat.searchResults}
             onCreateGroup={async () => {
-              await chat.createGroup()
-              setScreen('chat')
+              const created = await chat.createGroup()
+              if (created) setScreen('chat')
             }}
             onOpenConversation={(id) => {
               chat.setActiveConversationId(id)

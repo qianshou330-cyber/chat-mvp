@@ -1663,7 +1663,7 @@ export function useChatApp() {
   }
 
   async function createGroup() {
-    if (!user) return
+    if (!user) return false
 
     const groupTitle = '新群聊'
     const createdAt = new Date().toISOString()
@@ -1674,16 +1674,16 @@ export function useChatApp() {
       })
 
       if (error) {
-        setAuthNotice(friendlyErrorMessage(error.message, '无法创建群聊，请重试。'))
-        return
+        setScopedNotice('list', friendlyErrorMessage(error.message, '无法创建群聊，请重试。'))
+        return false
       }
 
       const createdConversation = Array.isArray(data) ? data[0] : data
       const conversationId = createdConversation?.conversation_id as string | undefined
 
       if (!conversationId) {
-        setAuthNotice('无法创建群聊，请刷新后重试。')
-        return
+        setScopedNotice('list', '无法创建群聊，请刷新后重试。')
+        return false
       }
 
       const conversation: Conversation = {
@@ -1708,7 +1708,7 @@ export function useChatApp() {
         members: upsertMembers(previous.members, conversation.id, conversation.memberIds),
       }))
       setActiveConversationId(conversationId)
-      return
+      return true
     }
 
     const groupId = uid()
@@ -1730,6 +1730,7 @@ export function useChatApp() {
       members: upsertMembers(previous.members, conversation.id, conversation.memberIds),
     }))
     setActiveConversationId(groupId)
+    return true
 
   }
 
