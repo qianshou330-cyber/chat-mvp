@@ -37,6 +37,7 @@
 - `codex.v065.`
 - `codex.v066.`
 - `codex.v067.`
+- `codex.v068.`
 - `codex.pilot.`
 - `codex.push.`
 - `codex.browserpush.`
@@ -49,6 +50,7 @@
 - `codex-v065-`
 - `codex-v066-`
 - `codex-v067-`
+- `codex-v068-`
 - `device-smoke-`
 - `workspace-smoke-`
 
@@ -69,6 +71,7 @@ with test_users as (
      or email like 'codex.v065.%@example.com'
      or email like 'codex.v066.%@example.com'
      or email like 'codex.v067.%@example.com'
+     or email like 'codex.v068.%@example.com'
      or email like 'codex.pilot.%@example.com'
      or email like 'codex.push.%@example.com'
      or email like 'codex.browserpush.%@example.com'
@@ -87,6 +90,7 @@ where objects.name ilike '%device-smoke-%'
    or objects.name ilike '%codex-v065-%'
    or objects.name ilike '%codex-v066-%'
    or objects.name ilike '%codex-v067-%'
+   or objects.name ilike '%codex-v068-%'
    or exists (
      select 1 from test_users
      where objects.owner_id = test_users.id::text
@@ -117,6 +121,7 @@ where users.email like 'codex.v02.%@example.com'
    or users.email like 'codex.v065.%@example.com'
    or users.email like 'codex.v066.%@example.com'
    or users.email like 'codex.v067.%@example.com'
+   or users.email like 'codex.v068.%@example.com'
    or users.email like 'codex.pilot.%@example.com'
    or users.email like 'codex.push.%@example.com'
    or users.email like 'codex.browserpush.%@example.com'
@@ -133,6 +138,7 @@ Storage 清理不要直接删除 `storage.objects`。Supabase 会阻止这类 SQ
 - `codex-v03-`
 - `codex-v042-`
 - `codex-v060-`
+- `codex-v068-`
 - `workspace-smoke-`
 
 ## 安全边界

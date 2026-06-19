@@ -27,9 +27,11 @@
 - Reference is limited to product structure and interaction patterns such as chat list density, profile/settings grouping, media viewer behavior, upload progress, group details, and group permission flows.
 
 ## Next Production Tasks
-- Finish the v0.6.7 production trial gate: keep GitHub Actions green, confirm Vercel Production app/PWA assets, run Chrome production smoke, and record the result in `docs/v0.6.7-production-trial-gate.md`.
+- Finish the v0.6.8 real production trial launch gate: run A/B/C Chrome smoke with `codex.v068.*@example.com` temporary accounts and record the result in `docs/v0.6.8-production-smoke.md`.
+- Keep GitHub Actions green, confirm Vercel Production app/PWA assets, and clean `codex.v068.*` / `codex-v068-*` temporary data through `docs/test-data-cleanup-sop.md`.
+- Launch the 20-30 person company trial only after the v0.6.8 smoke has no P0/P1 and the administrator invitation copy is ready.
 - Keep using `docs/telegram-reference-evaluation.md` as the clean-room boundary for Telegram-style chat and detail page polish.
 - Keep v0.6 focused on production trial readiness, member invitation, trial inspection, permission regression, media performance, and mobile stability rather than new headline features.
 - Defer service-side pagination and deeper nested hook extraction until a later v0.6.x patch, after company-trial feedback confirms no data-flow regressions.
 - Add server-side search only after client search reaches real data limits.
-- Keep real Supabase multi-user Realtime and RLS checks in Chrome production smoke unless safe ephemeral credentials are provided outside the repository.
+- Keep real Supabase multi-user Realtime and RLS checks in Chrome production smoke; never store production credentials in CI or the repository.

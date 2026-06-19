@@ -63,6 +63,7 @@
 - Confirm the v0.6.5 E2E handoff is recorded in `docs/v0.6.5-e2e-handoff.md`, including local Playwright coverage, local-only boundaries, and production smoke exclusions.
 - Confirm the v0.6.6 CI E2E handoff is recorded in `docs/v0.6.6-ci-e2e-handoff.md`, including GitHub Actions coverage, report artifacts, and temporary data naming.
 - Confirm the v0.6.7 production trial gate is recorded in `docs/v0.6.7-production-trial-gate.md`, including GitHub Actions status, Vercel asset checks, Chrome smoke scope, and temporary data cleanup.
+- Confirm the v0.6.8 production smoke is recorded in `docs/v0.6.8-production-smoke.md`, including temporary A/B/C accounts, real Supabase permission checks, Web Push coverage, media coverage, cleanup status, and the company-trial launch decision.
 - Confirm Vercel Production loads the split chunks for group details and profile settings, and that `manifest.webmanifest` plus `sw.js` still return 200.
 - Confirm `docs/company-trial-safety.md` remains available for company-trial safety guidance.
 - Sign in to the same account from two browsers or windows and confirm both devices are listed.
@@ -95,5 +96,6 @@
 - Tag the local E2E trial-gate patch as `v0.6.5-beta` after Playwright local smoke, documentation, and cleanup guidance pass.
 - Tag the CI E2E governance patch as `v0.6.6-beta` after GitHub Actions runs lint/test/build/e2e and uploads Playwright failure artifacts.
 - Tag the production trial-gate patch as `v0.6.7-beta` after GitHub Actions is green, Vercel Production app/PWA assets return 200, Chrome production smoke is recorded, and temporary smoke data has a cleanup path.
+- Tag the real production trial launch gate as `v0.6.8-beta` after A/B/C Chrome production smoke passes, `codex.v068.*` temporary data has a cleanup path, and the 20-30 person launch checklist is ready.
 - Use `docs/beta-test-plan.md` for tester instructions and issue triage.
 - Collect feedback through GitHub Issue templates before prioritizing the next beta scope.

@@ -2,7 +2,7 @@
 
 ## 目标
 
-以 `v0.6.0-beta` 为公司内部试用基线，支撑 20-30 人小团队完成日常轻量沟通、群管理、文件/媒体分享、通知提醒、成员邀请、登录设备管理和管理员试用巡检。不追求 Telegram 级完整功能。
+以 `v0.6.8-beta` 为公司内部试用启动基线，支撑 20-30 人小团队完成日常轻量沟通、群管理、文件/媒体分享、通知提醒、成员邀请、登录设备管理和管理员试用巡检。不追求 Telegram 级完整功能。
 
 ## 公司试用最低标准
 
@@ -20,7 +20,7 @@
 - 运营能力：生产 smoke test 清单、测试数据清理 SOP、关键错误记录、管理员操作记录和试用日报模板。
 - 安全文档：明确当前不支持端到端加密、语音/视频、原生 App、频道和机器人。
 
-生产 smoke 和测试数据清理见 `docs/deployment-checklist.md`、`docs/test-data-cleanup-sop.md` 和 `docs/v0.6.1-production-smoke.md`。公司试用安全材料见 `docs/company-trial-safety.md`。5 人先导执行见 `docs/5-person-pilot-kickoff.md`。
+生产 smoke 和测试数据清理见 `docs/deployment-checklist.md`、`docs/test-data-cleanup-sop.md`、`docs/v0.6.1-production-smoke.md` 和 `docs/v0.6.8-production-smoke.md`。公司试用安全材料见 `docs/company-trial-safety.md`。5 人先导执行见 `docs/5-person-pilot-kickoff.md`。
 
 ## 暂不进入 v0.6
 
