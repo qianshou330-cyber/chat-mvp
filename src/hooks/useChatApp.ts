@@ -1026,9 +1026,7 @@ export function useChatApp() {
     })
 
     setAuthNotice(
-      signIn.error
-        ? friendlyErrorMessage(signIn.error.message, '账号已创建，但登录失败。')
-        : '账号已创建并登录。',
+      signIn.error ? friendlyErrorMessage(signIn.error.message, '账号已创建，但登录失败。') : '',
     )
     if (signIn.error) allowDeviceRestore.current = false
   }
@@ -1054,7 +1052,7 @@ export function useChatApp() {
     })
 
     if (error) allowDeviceRestore.current = false
-    setAuthNotice(error ? friendlyErrorMessage(error.message, '无法登录，请重试。') : '已登录。')
+    setAuthNotice(error ? friendlyErrorMessage(error.message, '无法登录，请重试。') : '')
   }
 
   async function signOut() {
