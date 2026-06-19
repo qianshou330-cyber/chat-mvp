@@ -73,6 +73,7 @@ export interface ConversationMember {
   conversationId: string
   userId: string
   role: MemberRole
+  isMuted: boolean
   joinedAt: string
 }
 
@@ -88,6 +89,7 @@ export interface Conversation {
   lastMessage: string
   announcement?: string
   pinnedMessageId?: string
+  isMuted: boolean
 }
 
 export interface Workspace {
@@ -149,6 +151,10 @@ export type AdminActivityAction =
   | 'message_pinned'
   | 'message_unpinned'
   | 'attachment_hidden'
+  | 'group_muted'
+  | 'group_unmuted'
+  | 'member_muted'
+  | 'member_unmuted'
 
 export interface AdminActivityLog {
   id: string

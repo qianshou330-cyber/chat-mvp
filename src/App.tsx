@@ -182,6 +182,8 @@ function App() {
             onHideGroupAttachment={chat.hideGroupAttachment}
             onRemoveGroupMember={chat.removeGroupMember}
             onRenameGroup={chat.renameGroup}
+            onToggleGroupMute={chat.toggleGroupMute}
+            onToggleMemberMute={chat.toggleMemberMute}
             onUpdateAnnouncement={chat.updateGroupAnnouncement}
             onUpdateGroupMemberRole={chat.updateGroupMemberRole}
           />
@@ -713,6 +715,8 @@ function ChatView({
     (member) => member.conversationId === conversation.id && member.userId === myUserId,
   )
   const isGroupManager = currentMember?.role === 'owner' || currentMember?.role === 'admin'
+  const sendBlockReason = getChatMuteReason(conversation, currentMember)
+  const isComposerDisabled = Boolean(sendBlockReason)
   const pinnedMessage = conversation.pinnedMessageId
     ? messages.find((message) => message.id === conversation.pinnedMessageId && !message.deletedAt)
     : undefined
@@ -723,6 +727,7 @@ function ChatView({
 
   function submit(event: FormEvent) {
     event.preventDefault()
+    if (isComposerDisabled) return
     onSendText(draft)
     setDraft('')
   }
@@ -860,7 +865,9 @@ function ChatView({
         )}
       </div>
 
-      {authNotice && <p className="notice chat-notice">{authNotice}</p>}
+      {(authNotice || sendBlockReason) && (
+        <p className="notice chat-notice">{authNotice || sendBlockReason}</p>
+      )}
 
       <form className="composer" onSubmit={submit}>
         <input
@@ -870,7 +877,7 @@ function ChatView({
           className="file-input"
           onChange={(event) => {
             const file = event.target.files?.[0]
-            if (file) onSendFile(file)
+            if (file && !isComposerDisabled) onSendFile(file)
             event.target.value = ''
           }}
           type="file"
@@ -878,6 +885,7 @@ function ChatView({
         <button
           aria-label="添加附件"
           className="icon-button"
+          disabled={isComposerDisabled}
           onClick={() => fileInputRef.current?.click()}
           type="button"
         >
@@ -885,11 +893,17 @@ function ChatView({
         </button>
         <input
           aria-label="消息"
+          disabled={isComposerDisabled}
           onChange={(event) => setDraft(event.target.value)}
-          placeholder="输入消息"
+          placeholder={sendBlockReason || '输入消息'}
           value={draft}
         />
-        <button aria-label="发送消息" className="send-button" type="submit">
+        <button
+          aria-label="发送消息"
+          className="send-button"
+          disabled={isComposerDisabled || !draft.trim()}
+          type="submit"
+        >
           <SendHorizontal size={20} />
         </button>
       </form>
@@ -1189,6 +1203,17 @@ function canDeleteGroupMessageFromView(
   return isOwnRecent || ((currentMember?.role === 'owner' || currentMember?.role === 'admin') && senderMember?.role === 'member')
 }
 
+function getChatMuteReason(
+  conversation: Conversation,
+  currentMember: ConversationMember | undefined,
+) {
+  if (conversation.type !== 'group') return ''
+  if (!currentMember || currentMember.role === 'owner' || currentMember.role === 'admin') return ''
+  if (currentMember.isMuted) return '你已被管理员禁言，暂时不能发言。'
+  if (conversation.isMuted) return '本群已开启全体禁言，仅管理员可发言。'
+  return ''
+}
+
 function GroupInfo({
   adminActivityLogs,
   activeWorkspace,
@@ -1204,6 +1229,8 @@ function GroupInfo({
   onHideGroupAttachment,
   onRemoveGroupMember,
   onRenameGroup,
+  onToggleGroupMute,
+  onToggleMemberMute,
   onUpdateAnnouncement,
   onUpdateGroupMemberRole,
 }: {
@@ -1221,6 +1248,12 @@ function GroupInfo({
   onHideGroupAttachment: (conversationId: string, attachmentId: string) => Promise<boolean>
   onRemoveGroupMember: (conversationId: string, memberUserId: string) => Promise<boolean>
   onRenameGroup: (conversationId: string, title: string) => Promise<boolean>
+  onToggleGroupMute: (conversationId: string, muted: boolean) => Promise<boolean>
+  onToggleMemberMute: (
+    conversationId: string,
+    memberUserId: string,
+    muted: boolean,
+  ) => Promise<boolean>
   onUpdateAnnouncement: (conversationId: string, announcement: string) => Promise<boolean>
   onUpdateGroupMemberRole: (
     conversationId: string,
@@ -1251,6 +1284,7 @@ function GroupInfo({
       conversationId: conversation.id,
       userId,
       role: index === 0 ? 'owner' as const : 'member' as const,
+      isMuted: false,
       joinedAt: '',
     }))
   }, [allConversationMembers, conversation.id, conversation.memberIds])
@@ -1331,6 +1365,18 @@ function GroupInfo({
   async function hideAttachment(attachmentId: string) {
     setIsBusy(true)
     await onHideGroupAttachment(conversation.id, attachmentId)
+    setIsBusy(false)
+  }
+
+  async function toggleGroupMute() {
+    setIsBusy(true)
+    await onToggleGroupMute(conversation.id, !conversation.isMuted)
+    setIsBusy(false)
+  }
+
+  async function toggleMemberMute(memberUserId: string, muted: boolean) {
+    setIsBusy(true)
+    await onToggleMemberMute(conversation.id, memberUserId, muted)
     setIsBusy(false)
   }
 
@@ -1474,6 +1520,31 @@ function GroupInfo({
             <small>owner 可调整群管理员；owner/admin 可添加或移除普通群成员</small>
           </span>
         </div>
+        <div className="settings-row mute-row">
+          <ShieldCheck size={20} />
+          <span>
+            <strong>全体禁言</strong>
+            <small>
+              {conversation.isMuted
+                ? '已开启，仅群 owner/admin 可发言'
+                : '未开启，普通成员可正常发言'}
+            </small>
+          </span>
+          {canManageGroup ? (
+            <button
+              className={conversation.isMuted ? 'secondary-button compact-button' : 'danger-secondary-button compact-button'}
+              disabled={isBusy}
+              onClick={() => {
+                void toggleGroupMute()
+              }}
+              type="button"
+            >
+              {conversation.isMuted ? '解除禁言' : '开启禁言'}
+            </button>
+          ) : (
+            <span className="role-badge">{conversation.isMuted ? '已禁言' : '未禁言'}</span>
+          )}
+        </div>
         {canManageGroup && (
           <form className="group-member-manager" onSubmit={(event) => void submitGroupMember(event)}>
             <label htmlFor="groupMemberEmail">添加成员</label>
@@ -1610,13 +1681,17 @@ function GroupInfo({
           const profile = getProfile(member.userId)
           const canRemove = canManageGroup && member.role === 'member' && member.userId !== currentUserId
           const canEditRole = canManageRoles && member.role !== 'owner'
+          const canToggleMute = canManageGroup && member.role === 'member' && member.userId !== currentUserId
 
           return (
             <div className="member-row group-member-row" key={`${member.conversationId}-${member.userId}`}>
               <Avatar profile={profile} />
               <span>
                 <strong>{profile?.displayName ?? '成员'}</strong>
-                <small>{formatStatus(profile?.status ?? 'offline')}</small>
+                <small>
+                  {formatStatus(profile?.status ?? 'offline')}
+                  {member.isMuted ? ' · 已禁言' : ''}
+                </small>
               </span>
               <div className="group-member-actions">
                 {canEditRole ? (
@@ -1636,6 +1711,18 @@ function GroupInfo({
                   </select>
                 ) : (
                   <span className="role-badge">{formatGroupRole(member.role)}</span>
+                )}
+                {canToggleMute && (
+                  <button
+                    className={member.isMuted ? 'text-action' : 'text-action danger'}
+                    disabled={isBusy}
+                    onClick={() => {
+                      void toggleMemberMute(member.userId, !member.isMuted)
+                    }}
+                    type="button"
+                  >
+                    {member.isMuted ? '解除禁言' : '禁言'}
+                  </button>
                 )}
                 {canRemove && (
                   <button
@@ -2030,6 +2117,10 @@ function formatAdminActivity(action: AdminActivityLog['action']) {
   if (action === 'message_pinned') return '置顶消息'
   if (action === 'message_unpinned') return '取消置顶'
   if (action === 'attachment_hidden') return '隐藏群文件'
+  if (action === 'group_muted') return '开启全体禁言'
+  if (action === 'group_unmuted') return '解除全体禁言'
+  if (action === 'member_muted') return '禁言成员'
+  if (action === 'member_unmuted') return '解除成员禁言'
   return '退出其他设备'
 }
 

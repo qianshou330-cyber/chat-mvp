@@ -762,6 +762,7 @@ export function useChatApp() {
         conversationId: member.conversation_id as string,
         userId: member.user_id as string,
         role: member.role as 'owner' | 'admin' | 'member',
+        isMuted: Boolean(member.is_muted),
         joinedAt: member.joined_at as string,
       })),
       workspaces: workspaceRows.map(mapWorkspace),
@@ -1159,6 +1160,11 @@ export function useChatApp() {
     const trimmed = body.trim()
     const currentUser = user ?? (!supabase ? demoUser : null)
     if (!trimmed || !currentUser || !activeConversation) return
+    const sendBlockReason = getSendBlockReason(activeConversation, state.members, currentUser.id)
+    if (sendBlockReason) {
+      setScopedNotice('chat', sendBlockReason)
+      return
+    }
 
     const optimisticMessage: Message = {
       id: uid(),
@@ -1203,6 +1209,11 @@ export function useChatApp() {
 
   async function sendFile(file: File) {
     if (!user || !activeConversation) return
+    const sendBlockReason = getSendBlockReason(activeConversation, state.members, user.id)
+    if (sendBlockReason) {
+      setScopedNotice('chat', sendBlockReason)
+      return
+    }
 
     const validation = validateAttachment(file)
     if (!validation.ok) {
@@ -1698,6 +1709,7 @@ export function useChatApp() {
         updatedAt:
           (createdConversation?.conversation_updated_at as string | undefined) ?? createdAt,
         lastMessage: '群聊已创建',
+        isMuted: false,
       }
 
       setState((previous) => ({
@@ -1720,6 +1732,7 @@ export function useChatApp() {
       unreadCount: 0,
       updatedAt: createdAt,
       lastMessage: '群聊已创建',
+      isMuted: false,
     }
 
     setState((previous) => ({
@@ -1906,6 +1919,7 @@ export function useChatApp() {
         unreadCount: 0,
         updatedAt: new Date().toISOString(),
         lastMessage: '',
+        isMuted: false,
       }
 
       const reciprocalContact: ContactRequest = {
@@ -1977,6 +1991,7 @@ export function useChatApp() {
             unreadCount: 0,
             updatedAt: new Date().toISOString(),
             lastMessage: '',
+            isMuted: false,
           }
         : null
 
@@ -2271,6 +2286,7 @@ export function useChatApp() {
       conversationId,
       userId: memberUserId,
       role: 'member',
+      isMuted: false,
       joinedAt: new Date().toISOString(),
     }
 
@@ -2371,6 +2387,7 @@ export function useChatApp() {
         conversationId,
         userId: targetProfile.id,
         role: 'member',
+        isMuted: false,
         joinedAt,
       }
 
@@ -2427,6 +2444,7 @@ export function useChatApp() {
       conversationId: String(row.result_conversation_id ?? conversationId),
       userId: String(row.result_member_user_id),
       role: (row.result_member_role as MemberRole) ?? 'member',
+      isMuted: false,
       joinedAt: String(row.result_joined_at ?? new Date().toISOString()),
     }
     const workspaceMember: WorkspaceMember | null = row.result_workspace_id
@@ -2876,6 +2894,117 @@ export function useChatApp() {
     return true
   }
 
+  async function toggleGroupMute(conversationId: string, muted: boolean) {
+    const currentUser = user ?? (!supabase ? demoUser : null)
+    const conversation = state.conversations.find((item) => item.id === conversationId)
+    if (!currentUser || !conversation || conversation.type !== 'group') return false
+
+    const currentMember = findConversationMember(state.members, conversationId, currentUser.id)
+    if (!isGroupManagerRole(currentMember?.role)) {
+      setScopedNotice('group', '只有群 owner 或 admin 可以设置全体禁言。')
+      return false
+    }
+
+    if (!supabase) {
+      setState((previous) => ({
+        ...previous,
+        conversations: previous.conversations.map((item) =>
+          item.id === conversationId ? { ...item, isMuted: muted } : item,
+        ),
+      }))
+      setScopedNotice('group', muted ? '已开启全体禁言。' : '已解除全体禁言。')
+      recordAdminActivity(muted ? 'group_muted' : 'group_unmuted', currentUser.id, 'success', {
+        conversationId,
+      })
+      return true
+    }
+
+    const { error } = await supabase.rpc('set_group_mute', {
+      target_conversation_id: conversationId,
+      muted,
+    })
+
+    if (error) {
+      const notice = friendlyErrorMessage(error.message, '无法更新群禁言状态，请稍后重试。')
+      setScopedNotice('group', notice)
+      recordAppError('workspace_members', notice, { conversationId })
+      return false
+    }
+
+    setState((previous) => ({
+      ...previous,
+      conversations: previous.conversations.map((item) =>
+        item.id === conversationId ? { ...item, isMuted: muted } : item,
+      ),
+    }))
+    setScopedNotice('group', muted ? '已开启全体禁言。' : '已解除全体禁言。')
+    void loadSupabaseState(currentUser.id)
+    return true
+  }
+
+  async function toggleMemberMute(
+    conversationId: string,
+    memberUserId: string,
+    muted: boolean,
+  ) {
+    const currentUser = user ?? (!supabase ? demoUser : null)
+    const conversation = state.conversations.find((item) => item.id === conversationId)
+    const targetMember = findConversationMember(state.members, conversationId, memberUserId)
+    if (!currentUser || !conversation || conversation.type !== 'group' || !targetMember) return false
+
+    const currentMember = findConversationMember(state.members, conversationId, currentUser.id)
+    if (!isGroupManagerRole(currentMember?.role)) {
+      setScopedNotice('group', '只有群 owner 或 admin 可以禁言群成员。')
+      return false
+    }
+
+    if (targetMember.role !== 'member') {
+      setScopedNotice('group', '只能禁言普通群成员。')
+      return false
+    }
+
+    if (!supabase) {
+      setState((previous) => ({
+        ...previous,
+        members: previous.members.map((member) =>
+          member.conversationId === conversationId && member.userId === memberUserId
+            ? { ...member, isMuted: muted }
+            : member,
+        ),
+      }))
+      setScopedNotice('group', muted ? '成员已禁言。' : '成员已解除禁言。')
+      recordAdminActivity(muted ? 'member_muted' : 'member_unmuted', memberUserId, 'success', {
+        conversationId,
+      })
+      return true
+    }
+
+    const { error } = await supabase.rpc('set_member_mute', {
+      target_conversation_id: conversationId,
+      target_member_user_id: memberUserId,
+      muted,
+    })
+
+    if (error) {
+      const notice = friendlyErrorMessage(error.message, '无法更新成员禁言状态，请稍后重试。')
+      setScopedNotice('group', notice)
+      recordAppError('workspace_members', notice, { conversationId, targetUserId: memberUserId })
+      return false
+    }
+
+    setState((previous) => ({
+      ...previous,
+      members: previous.members.map((member) =>
+        member.conversationId === conversationId && member.userId === memberUserId
+          ? { ...member, isMuted: muted }
+          : member,
+      ),
+    }))
+    setScopedNotice('group', muted ? '成员已禁言。' : '成员已解除禁言。')
+    void loadSupabaseState(currentUser.id)
+    return true
+  }
+
   function getProfile(profileId: string) {
     return state.profiles.find((profile) => profile.id === profileId)
   }
@@ -2930,6 +3059,8 @@ export function useChatApp() {
     updateProfileAvatar,
     updateProfileVideoAvatar,
     updateGroupMemberRole,
+    toggleGroupMute,
+    toggleMemberMute,
     updateWorkspaceMemberRole,
     removeProfileVideoAvatar,
     user,
@@ -3038,6 +3169,7 @@ function upsertMembers(
         conversationId,
         userId,
         role: index === 0 ? 'owner' as const : 'member' as const,
+        isMuted: false,
         joinedAt: now,
       })),
   ]
@@ -3073,6 +3205,20 @@ function findConversationMember(
 
 function isGroupManagerRole(role: MemberRole | undefined) {
   return role === 'owner' || role === 'admin'
+}
+
+function getSendBlockReason(
+  conversation: Conversation | undefined,
+  members: ChatState['members'],
+  currentUserId: string,
+) {
+  if (!conversation || conversation.type !== 'group') return ''
+
+  const currentMember = findConversationMember(members, conversation.id, currentUserId)
+  if (!currentMember || isGroupManagerRole(currentMember.role)) return ''
+  if (currentMember.isMuted) return '你已被管理员禁言，暂时不能发言。'
+  if (conversation.isMuted) return '本群已开启全体禁言，仅管理员可发言。'
+  return ''
 }
 
 function canDeleteGroupMessage(
@@ -3417,6 +3563,7 @@ function mapConversation(
     lastMessage: conversationLastMessageText(latestMessage),
     announcement: String(row.announcement ?? ''),
     pinnedMessageId: row.pinned_message_id ? String(row.pinned_message_id) : undefined,
+    isMuted: Boolean(row.is_muted),
   }
 }
 

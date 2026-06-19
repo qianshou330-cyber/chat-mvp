@@ -228,6 +228,7 @@ export const demoConversations: Conversation[] = [
     unreadCount: 2,
     updatedAt: minutesAgo(1),
     lastMessage: '移动端布局已经可以开始评审了。',
+    isMuted: false,
   },
   {
     id: 'conv-launch',
@@ -239,6 +240,7 @@ export const demoConversations: Conversation[] = [
     unreadCount: 5,
     updatedAt: minutesAgo(7),
     lastMessage: '文件：rls-checklist.md',
+    isMuted: false,
   },
   {
     id: 'conv-ian',
@@ -249,6 +251,7 @@ export const demoConversations: Conversation[] = [
     unreadCount: 0,
     updatedAt: minutesAgo(31),
     lastMessage: '我已经加上紧凑版消息输入框。',
+    isMuted: false,
   },
 ]
 
@@ -344,6 +347,7 @@ export const createDemoState = (): ChatState => ({
       conversationId: conversation.id,
       userId,
       role: index === 0 ? 'owner' : 'member',
+      isMuted: false,
       joinedAt: minutesAgo(120),
       })),
   ),

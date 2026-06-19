@@ -1154,9 +1154,20 @@ mark {
   padding: 0 12px;
 }
 
+.composer input[aria-label='消息']:disabled {
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
 .send-button {
   background: var(--accent);
   color: #ffffff;
+}
+
+.send-button:disabled,
+.composer .icon-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
 }
 
 .file-input {
@@ -1258,6 +1269,10 @@ mark {
 
 .settings-row.static-row {
   grid-template-columns: 28px 1fr;
+}
+
+.settings-row.mute-row {
+  grid-template-columns: 28px 1fr auto;
 }
 
 .settings-row.static-row span {
