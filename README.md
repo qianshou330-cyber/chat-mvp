@@ -4,7 +4,7 @@ Telegram-style mobile PWA MVP for chat, built with React, TypeScript, Vite, Supa
 
 生产 beta 地址：`https://chat-mvp-tau.vercel.app`
 
-当前阶段：`v0.6.8-beta` 真实生产试用启动闸门，重点用临时 A/B/C 生产账号完成 Chrome smoke，确认权限、通知、媒体、群管理和试用巡检后，再启动 20-30 人公司试用。
+当前阶段：`v0.6.8-beta` 真实生产试用启动闸门；`v0.6.9-beta` 已准备为真实公司试用首轮反馈收敛补丁，用于记录和处理试用前 1-3 天暴露的 P0/P1/P2。
 
 ## 已包含能力
 
@@ -87,7 +87,7 @@ npm run build
 npm run e2e
 ```
 
-## v0.6.5 - v0.6.8 Trial Gate
+## v0.6.5 - v0.6.9 Trial Gate
 
 `v0.6.5-beta` adds local Playwright E2E smoke coverage for the company-trial gate. It runs Demo-mode chat, group details, media preview, and offline composer checks without storing production credentials. See `docs/v0.6.5-e2e-handoff.md`.
 
@@ -96,6 +96,8 @@ npm run e2e
 `v0.6.7-beta` standardizes the production trial gate: GitHub Actions must be green, Vercel Production must serve the app/PWA assets, Chrome production smoke remains the place for real A/B/C Supabase permission checks, and `codex.v067.*` temporary data must follow the cleanup SOP. See `docs/v0.6.7-production-trial-gate.md`.
 
 `v0.6.8-beta` turns that gate into the real production trial launch check: temporary `codex.v068.*` A/B/C accounts run the full production smoke, the result is recorded in `docs/v0.6.8-production-smoke.md`, and the company-trial launch materials are aligned to this baseline.
+
+`v0.6.9-beta` is reserved for the first company-trial feedback convergence pass after the `v0.6.8-beta` smoke passes. It records P0/P1/P2 feedback in `docs/v0.6.9-trial-feedback-report.md` and only allows minimal stability, permission, notification, media, member-management, and mobile-blocking fixes.
 
 ## Deployment
 

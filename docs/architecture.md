@@ -30,6 +30,7 @@
 - Finish the v0.6.8 real production trial launch gate: run A/B/C Chrome smoke with `codex.v068.*@example.com` temporary accounts and record the result in `docs/v0.6.8-production-smoke.md`.
 - Keep GitHub Actions green, confirm Vercel Production app/PWA assets, and clean `codex.v068.*` / `codex-v068-*` temporary data through `docs/test-data-cleanup-sop.md`.
 - Launch the 20-30 person company trial only after the v0.6.8 smoke has no P0/P1 and the administrator invitation copy is ready.
+- Use `docs/v0.6.9-trial-feedback-report.md` for the first 1-3 days of real company-trial feedback; P0/P1 fixes must stay minimal and pass local checks, CI, Vercel deploy, and Chrome production smoke.
 - Keep using `docs/telegram-reference-evaluation.md` as the clean-room boundary for Telegram-style chat and detail page polish.
 - Keep v0.6 focused on production trial readiness, member invitation, trial inspection, permission regression, media performance, and mobile stability rather than new headline features.
 - Defer service-side pagination and deeper nested hook extraction until a later v0.6.x patch, after company-trial feedback confirms no data-flow regressions.

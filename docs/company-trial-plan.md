@@ -20,7 +20,7 @@
 - 运营能力：生产 smoke test 清单、测试数据清理 SOP、关键错误记录、管理员操作记录和试用日报模板。
 - 安全文档：明确当前不支持端到端加密、语音/视频、原生 App、频道和机器人。
 
-生产 smoke 和测试数据清理见 `docs/deployment-checklist.md`、`docs/test-data-cleanup-sop.md`、`docs/v0.6.1-production-smoke.md` 和 `docs/v0.6.8-production-smoke.md`。公司试用安全材料见 `docs/company-trial-safety.md`。5 人先导执行见 `docs/5-person-pilot-kickoff.md`。
+生产 smoke 和测试数据清理见 `docs/deployment-checklist.md`、`docs/test-data-cleanup-sop.md`、`docs/v0.6.1-production-smoke.md` 和 `docs/v0.6.8-production-smoke.md`。试用启动后的 P0/P1/P2 收敛见 `docs/v0.6.9-trial-feedback-report.md`。公司试用安全材料见 `docs/company-trial-safety.md`。5 人先导执行见 `docs/5-person-pilot-kickoff.md`。
 
 ## 暂不进入 v0.6
 
