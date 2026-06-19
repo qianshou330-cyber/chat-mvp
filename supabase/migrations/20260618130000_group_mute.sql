@@ -98,7 +98,7 @@ begin
     raise exception 'Group conversation not found';
   end if;
 
-  if not public.is_group_manager(target_conversation_id, actor_id) then
+  if not public.is_conversation_admin(target_conversation_id, actor_id) then
     raise exception 'Only group owner or admin can mute the group';
   end if;
 
@@ -163,7 +163,7 @@ begin
     raise exception 'Group conversation not found';
   end if;
 
-  if not public.is_group_manager(target_conversation_id, actor_id) then
+  if not public.is_conversation_admin(target_conversation_id, actor_id) then
     raise exception 'Only group owner or admin can mute members';
   end if;
 
