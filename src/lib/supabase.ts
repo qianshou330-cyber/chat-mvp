@@ -2,8 +2,9 @@ import { createClient } from '@supabase/supabase-js'
 
 export const supabaseProjectUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined
 export const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
+const forceDemoMode = import.meta.env.VITE_FORCE_DEMO_MODE === 'true'
 
-export const isSupabaseConfigured = Boolean(supabaseProjectUrl && supabaseAnonKey)
+export const isSupabaseConfigured = !forceDemoMode && Boolean(supabaseProjectUrl && supabaseAnonKey)
 
 export const supabase = isSupabaseConfigured
   ? createClient(supabaseProjectUrl as string, supabaseAnonKey as string)
