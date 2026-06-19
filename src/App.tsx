@@ -47,6 +47,8 @@ function ScreenFallback() {
 }
 
 const APP_DISPLAY_NAME = '聊天 MVP'
+const INITIAL_VISIBLE_MESSAGE_COUNT = 80
+const MESSAGE_LOAD_STEP = 80
 
 function App() {
   const chat = useChatApp()
@@ -170,6 +172,7 @@ function App() {
             onSendText={chat.sendText}
             onUnpinMessage={chat.unpinGroupMessage}
             title={activeTitle}
+            key={chat.activeConversation.id}
           />
         )}
         {activeScreen === 'group' && chat.activeConversation && (
@@ -722,6 +725,7 @@ function ChatView({
   const [imageViewerAttachment, setImageViewerAttachment] = useState<Attachment | null>(null)
   const [isMessageSearchOpen, setIsMessageSearchOpen] = useState(false)
   const [messageSearchQuery, setMessageSearchQuery] = useState('')
+  const [visibleMessageCount, setVisibleMessageCount] = useState(INITIAL_VISIBLE_MESSAGE_COUNT)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const otherMemberId = conversation.memberIds.find((id) => id !== myUserId)
   const otherProfile = getProfile(otherMemberId ?? '')
@@ -734,9 +738,11 @@ function ChatView({
   const pinnedMessage = conversation.pinnedMessageId
     ? messages.find((message) => message.id === conversation.pinnedMessageId && !message.deletedAt)
     : undefined
+  const hasOlderMessages = messages.length > visibleMessageCount
+  const visibleMessages = hasOlderMessages ? messages.slice(-visibleMessageCount) : messages
   const messageSearchResults = useMemo(
-    () => buildConversationMessageResults(messageSearchQuery, conversation, messages, getProfile),
-    [conversation, getProfile, messageSearchQuery, messages],
+    () => buildConversationMessageResults(messageSearchQuery, conversation, visibleMessages, getProfile),
+    [conversation, getProfile, messageSearchQuery, visibleMessages],
   )
 
   function submit(event: FormEvent) {
@@ -792,6 +798,9 @@ function ChatView({
           {messageSearchQuery.trim() && (
             <div className="inline-results">
               <strong>{messageSearchResults.length} 条结果</strong>
+              {hasOlderMessages && (
+                <p className="search-scope-note">当前只搜索已加载消息。可先加载更早消息后再搜索。</p>
+              )}
               {messageSearchResults.length === 0 ? (
                 <p>没有找到匹配的消息。</p>
               ) : (
@@ -850,34 +859,48 @@ function ChatView({
             body="发送第一条消息，开始这段对话。"
           />
         ) : (
-          messages.map((message) => (
-            <MessageBubble
-              canDelete={canDeleteGroupMessageFromView(
-                conversation,
-                conversationMembers,
-                message,
-                myUserId,
-              )}
-              canPin={conversation.type === 'group' && isGroupManager && !message.deletedAt}
-              isMine={message.senderId === myUserId}
-              isPinned={conversation.pinnedMessageId === message.id}
-              key={message.id}
-              message={message}
-              onOpenImage={(attachment) => setImageViewerAttachment(attachment)}
-              onDelete={() => {
-                void onDeleteMessage(conversation.id, message.id)
-              }}
-              onPin={() => {
-                void onPinMessage(conversation.id, message.id)
-              }}
-              onUnpin={() => {
-                void onUnpinMessage(conversation.id)
-              }}
-              onRemoveFailedUpload={() => onRemoveFailedUpload(message.id)}
-              onRetryUpload={() => onRetryUpload(message.id)}
-              sender={getProfile(message.senderId)}
-            />
-          ))
+          <>
+            {hasOlderMessages && (
+              <div className="message-window-controls">
+                <button
+                  className="ghost-button compact-button"
+                  onClick={() => setVisibleMessageCount((count) => count + MESSAGE_LOAD_STEP)}
+                  type="button"
+                >
+                  加载更早消息
+                </button>
+                <small>{`已显示最近 ${visibleMessages.length} / ${messages.length} 条消息`}</small>
+              </div>
+            )}
+            {visibleMessages.map((message) => (
+              <MessageBubble
+                canDelete={canDeleteGroupMessageFromView(
+                  conversation,
+                  conversationMembers,
+                  message,
+                  myUserId,
+                )}
+                canPin={conversation.type === 'group' && isGroupManager && !message.deletedAt}
+                isMine={message.senderId === myUserId}
+                isPinned={conversation.pinnedMessageId === message.id}
+                key={message.id}
+                message={message}
+                onOpenImage={(attachment) => setImageViewerAttachment(attachment)}
+                onDelete={() => {
+                  void onDeleteMessage(conversation.id, message.id)
+                }}
+                onPin={() => {
+                  void onPinMessage(conversation.id, message.id)
+                }}
+                onUnpin={() => {
+                  void onUnpinMessage(conversation.id)
+                }}
+                onRemoveFailedUpload={() => onRemoveFailedUpload(message.id)}
+                onRetryUpload={() => onRetryUpload(message.id)}
+                sender={getProfile(message.senderId)}
+              />
+            ))}
+          </>
         )}
       </div>
 

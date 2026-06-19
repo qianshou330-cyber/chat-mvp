@@ -32,6 +32,33 @@ describe('聊天 MVP', () => {
     expect(screen.getByText('第一版移动聊天 MVP 可以发出去了。')).toBeInTheDocument()
   })
 
+  it('renders long conversations in recent-message batches', async () => {
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: '使用 Demo 账号' }))
+    fireEvent.click(await screen.findByText('林小米'))
+
+    for (let index = 0; index < 84; index += 1) {
+      fireEvent.change(screen.getByLabelText('消息'), {
+        target: { value: `批量消息 ${index}` },
+      })
+      fireEvent.click(screen.getByRole('button', { name: '发送消息' }))
+    }
+
+    expect(screen.queryByText('批量消息 0')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '加载更早消息' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: '搜索当前会话' }))
+    fireEvent.change(screen.getByLabelText('搜索当前会话消息'), {
+      target: { value: '批量消息 0' },
+    })
+    expect(screen.getByText('当前只搜索已加载消息。可先加载更早消息后再搜索。')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: '加载更早消息' }))
+
+    expect(screen.getAllByText('批量消息 0').length).toBeGreaterThan(0)
+  })
+
   it('sends a demo contact request without opening a direct chat', async () => {
     render(<App />)
 

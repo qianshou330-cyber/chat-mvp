@@ -56,6 +56,7 @@
 - Confirm owner/admin can open “试用巡检” and see recent error, notification failure, attachment failure, and management activity counts.
 - Confirm the v0.6.1 handoff smoke is recorded in `docs/v0.6.1-production-smoke.md`, including Web Push coverage, cleanup status, and any skipped items.
 - Confirm the v0.6.2 performance handoff is recorded in `docs/v0.6.2-performance-handoff.md`, including before/after bundle sizes and PWA service worker warning status.
+- Confirm the v0.6.3 maintainability handoff is recorded in `docs/v0.6.3-maintainability-handoff.md`, including helper extraction scope and the long-conversation render-window behavior.
 - Confirm Vercel Production loads the split chunks for group details and profile settings, and that `manifest.webmanifest` plus `sw.js` still return 200.
 - Confirm `docs/company-trial-safety.md` remains available for company-trial safety guidance.
 - Sign in to the same account from two browsers or windows and confirm both devices are listed.
@@ -83,5 +84,6 @@
 - Tag the company-trial stability baseline as `v0.6.0-beta` after member invitation, trial inspection, permissions, media performance, and 20-30 person smoke paths pass.
 - Tag the company-trial handoff patch as `v0.6.1-beta` after v0.6 smoke data cleanup, real Chrome Web Push smoke, documentation sync, and production hygiene checks pass.
 - Tag the performance and maintainability patch as `v0.6.2-beta` after the main JS bundle is reduced below 500 kB, the PWA service worker warning is resolved or documented, and production smoke confirms lazy-loaded screens and Web Push still work.
+- Tag the data-layer maintainability patch as `v0.6.3-beta` after extracted helpers, long-message rendering, current-conversation search scope, and production smoke pass.
 - Use `docs/beta-test-plan.md` for tester instructions and issue triage.
 - Collect feedback through GitHub Issue templates before prioritizing the next beta scope.

@@ -4,7 +4,7 @@ Telegram-style mobile PWA MVP for chat, built with React, TypeScript, Vite, Supa
 
 生产 beta 地址：`https://chat-mvp-tau.vercel.app`
 
-当前阶段：`v0.6.2-beta` 公司试用性能与可维护性收口，重点降低首屏 bundle、消除 PWA service worker 构建警告，并保持 20-30 人试用核心路径稳定。
+当前阶段：`v0.6.3-beta` 公司试用数据层可维护性与消息列表性能收口，重点拆分 `useChatApp` 纯逻辑、限制长会话首屏渲染数量，并保持 20-30 人试用核心路径稳定。
 
 ## 已包含能力
 
@@ -128,6 +128,8 @@ Use `docs/deployment-checklist.md` before promoting a Preview deployment to Prod
 `v0.6.1-beta` 作为试用前运维收口补丁使用：清理 `codex.v060.*` 自动验收数据、补一次真实 Chrome Web Push smoke、同步公司试用文档，并在 `docs/v0.6.1-production-smoke.md` 固定生产 smoke 记录。
 
 `v0.6.2-beta` 作为性能与可维护性补丁使用：拆分群详情/个人资料页懒加载组件，主 JS bundle 从约 `514 kB` 降到约 `489 kB`，并将 PWA service worker 改为 `iife` 构建以消除 `inlineDynamicImports` 警告。记录见 `docs/v0.6.2-performance-handoff.md`。
+
+`v0.6.3-beta` 作为数据层可维护性和消息列表性能补丁使用：`useChatApp()` 对外接口保持不变，纯逻辑拆到 `src/hooks/chatApp/`，聊天页默认先渲染最近 80 条消息并支持“加载更早消息”。记录见 `docs/v0.6.3-maintainability-handoff.md`。
 
 所有反馈统一进入 GitHub Issues，使用已有的缺陷反馈、体验反馈和功能建议模板。
 

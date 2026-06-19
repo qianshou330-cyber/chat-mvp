@@ -839,6 +839,25 @@ mark {
   margin: 0;
 }
 
+.search-scope-note {
+  background: #f7fbff;
+  border-radius: 10px;
+  padding: 7px 9px;
+}
+
+.message-window-controls {
+  align-items: center;
+  color: var(--text-muted);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 4px 0 8px;
+}
+
+.message-window-controls small {
+  font-size: 12px;
+}
+
 .inline-result-row {
   gap: 2px;
   min-height: 48px;
