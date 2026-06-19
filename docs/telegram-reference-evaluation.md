@@ -133,6 +133,12 @@
 - 记录生产 smoke 结果，作为进入真实 20-30 人试用前的交接凭据。
 - 大 bundle 拆分、服务端搜索或更重的性能工程另行进入 v0.6.2+，不夹在收口补丁里。
 
+### v0.6.2-beta：性能与可维护性收口
+
+- 不新增 Telegram 式功能，只拆分群详情页、个人资料页和通用展示工具，降低首屏主 bundle。
+- 保持 Telegram/Figma clean-room 边界不变：只参考结构节奏，不复制源码、Logo、图标、资源或文案。
+- 将 PWA service worker 切到 `iife` 构建，消除 `inlineDynamicImports` 警告，并继续用生产 smoke 覆盖 Web Push。
+
 ## 开发守则
 
 - 只从公开界面和产品行为总结需求，不阅读或移植具体源码实现。

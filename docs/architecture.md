@@ -27,8 +27,9 @@
 - Reference is limited to product structure and interaction patterns such as chat list density, profile/settings grouping, media viewer behavior, upload progress, group details, and group permission flows.
 
 ## Next Production Tasks
-- Finish the v0.6.1 company-trial handoff: clean v0.6 smoke data, complete one real Chrome Web Push smoke, and record the production smoke result.
+- Finish the v0.6.2 performance handoff: keep the lazily loaded group/profile screens under smoke coverage, confirm the PWA service worker still registers, and record bundle sizes in `docs/v0.6.2-performance-handoff.md`.
 - Keep using `docs/telegram-reference-evaluation.md` as the clean-room boundary for Telegram-style chat and detail page polish.
 - Keep v0.6 focused on member invitation, trial inspection, permission regression, media performance, and mobile stability rather than new headline features.
+- Defer deeper state-layer extraction from `useChatApp.ts` until a later v0.6.x patch, after company-trial feedback confirms no data-flow regressions.
 - Add server-side search only after client search reaches real data limits.
 - Add Playwright tests for multi-user realtime flows.

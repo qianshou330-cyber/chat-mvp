@@ -147,7 +147,7 @@ describe('聊天 MVP', () => {
 
     expect(screen.queryByRole('button', { name: '上传图片头像' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '上传视频头像' })).not.toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: '头像操作' }))
+    fireEvent.click(await screen.findByRole('button', { name: '头像操作' }))
 
     expect(screen.getByRole('menu', { name: '头像操作菜单' })).toBeInTheDocument()
     expect(screen.getByRole('menuitem', { name: '更换图片头像' })).toBeInTheDocument()
@@ -169,7 +169,7 @@ describe('聊天 MVP', () => {
     fireEvent.click(await screen.findByRole('button', { name: '打开个人资料' }))
 
     expect(screen.queryByRole('button', { name: '保存资料' })).not.toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: /昵称/ }))
+    fireEvent.click(await screen.findByRole('button', { name: /昵称/ }))
     fireEvent.change(screen.getByLabelText('昵称'), {
       target: { value: '新的昵称' },
     })
@@ -187,7 +187,7 @@ describe('聊天 MVP', () => {
     fireEvent.click(screen.getByRole('button', { name: '使用 Demo 账号' }))
     fireEvent.click(await screen.findByRole('button', { name: '打开个人资料' }))
 
-    expect(screen.getByRole('region', { name: '消息通知' })).toBeInTheDocument()
+    expect(await screen.findByRole('region', { name: '消息通知' })).toBeInTheDocument()
     expect(screen.getByText('当前浏览器不支持推送通知。')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '开启通知' })).toBeDisabled()
   })
