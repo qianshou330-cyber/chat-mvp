@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import App from './App'
 
 describe('聊天 MVP', () => {
@@ -139,14 +139,19 @@ describe('聊天 MVP', () => {
     ).toBeInTheDocument()
   })
 
-  it('updates the demo profile avatar from the camera button', async () => {
+  it('updates the demo profile avatar from the avatar action menu', async () => {
     render(<App />)
 
     fireEvent.click(screen.getByRole('button', { name: '使用 Demo 账号' }))
     fireEvent.click(await screen.findByRole('button', { name: '打开个人资料' }))
 
-    expect(screen.getByRole('button', { name: '上传图片头像' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '上传视频头像' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '上传图片头像' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '上传视频头像' })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '头像操作' }))
+
+    expect(screen.getByRole('menu', { name: '头像操作菜单' })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: '更换图片头像' })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: '更换视频头像' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '移除视频头像' })).not.toBeInTheDocument()
 
     const avatar = new File(['avatar'], 'avatar.png', { type: 'image/png' })
@@ -155,6 +160,25 @@ describe('聊天 MVP', () => {
     })
 
     expect(await screen.findByText('头像已更新。')).toBeInTheDocument()
+  })
+
+  it('edits demo profile fields from lightweight setting rows', async () => {
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: '使用 Demo 账号' }))
+    fireEvent.click(await screen.findByRole('button', { name: '打开个人资料' }))
+
+    expect(screen.queryByRole('button', { name: '保存资料' })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /昵称/ }))
+    fireEvent.change(screen.getByLabelText('昵称'), {
+      target: { value: '新的昵称' },
+    })
+
+    expect(screen.getByRole('button', { name: '保存资料' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '保存资料' }))
+
+    expect(screen.queryByLabelText('昵称')).not.toBeInTheDocument()
+    expect(screen.getAllByText('新的昵称').length).toBeGreaterThan(0)
   })
 
   it('shows notification settings in the profile screen', async () => {
@@ -203,6 +227,10 @@ describe('聊天 MVP', () => {
     fireEvent.click(await screen.findByRole('button', { name: '打开个人资料' }))
 
     expect(screen.getByRole('region', { name: '登录设备' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /登录设备/ })).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByText('当前浏览器')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /登录设备/ }))
+
     expect(screen.getByText('当前浏览器')).toBeInTheDocument()
     expect(screen.getByText('当前设备')).toBeInTheDocument()
     expect(screen.getByText('备用设备')).toBeInTheDocument()
@@ -331,6 +359,7 @@ describe('聊天 MVP', () => {
 
   it('shows a demo image attachment as a thumbnail after upload', async () => {
     render(<App />)
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null)
 
     fireEvent.click(screen.getByRole('button', { name: '使用 Demo 账号' }))
     fireEvent.click(await screen.findByText('林小米'))
@@ -347,10 +376,20 @@ describe('聊天 MVP', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '打开图片 photo.png' }))
     expect(await screen.findByRole('dialog', { name: '图片预览' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '图片操作' }))
+    expect(screen.getByRole('button', { name: '保存图片' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '打开原图' })).toHaveAttribute(
+      'href',
+      'blob:test-attachment',
+    )
+    expect(screen.getByRole('button', { name: '取消' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '取消' }))
+    expect(screen.queryByRole('button', { name: '保存图片' })).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '关闭图片预览' }))
     await waitFor(() => {
       expect(screen.queryByRole('dialog', { name: '图片预览' })).not.toBeInTheDocument()
     })
+    openSpy.mockRestore()
   })
 
   it('shows a demo video attachment after upload', async () => {
@@ -364,6 +403,8 @@ describe('聊天 MVP', () => {
       target: { files: [attachment] },
     })
 
-    expect(await screen.findByText('clip.webm')).toBeInTheDocument()
+    expect(await screen.findByLabelText('视频消息 clip.webm')).toBeInTheDocument()
+    expect(screen.getByText('clip.webm')).toBeInTheDocument()
+    expect(screen.getByText(/点击播放/)).toBeInTheDocument()
   })
 })

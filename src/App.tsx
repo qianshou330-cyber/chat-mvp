@@ -13,6 +13,7 @@ import {
   Menu,
   MessageCircle,
   Monitor,
+  MoreHorizontal,
   Paperclip,
   Search,
   SendHorizontal,
@@ -160,6 +161,8 @@ function App() {
             onDeleteMessage={chat.deleteGroupMessage}
             onOpenInfo={() => setScreen(chat.activeConversation?.type === 'group' ? 'group' : 'profile')}
             onPinMessage={chat.pinGroupMessage}
+            onRemoveFailedUpload={chat.removeFailedMessage}
+            onRetryUpload={chat.retryFileMessage}
             onSendFile={chat.sendFile}
             onSendText={chat.sendText}
             onUnpinMessage={chat.unpinGroupMessage}
@@ -684,6 +687,8 @@ function ChatView({
   onDeleteMessage,
   onOpenInfo,
   onPinMessage,
+  onRemoveFailedUpload,
+  onRetryUpload,
   onSendFile,
   onSendText,
   onUnpinMessage,
@@ -699,6 +704,8 @@ function ChatView({
   onDeleteMessage: (conversationId: string, messageId: string) => Promise<boolean>
   onOpenInfo: () => void
   onPinMessage: (conversationId: string, messageId: string) => Promise<boolean>
+  onRemoveFailedUpload: (messageId: string) => void
+  onRetryUpload: (messageId: string) => void
   onSendFile: (file: File) => void
   onSendText: (body: string) => void
   onUnpinMessage: (conversationId: string) => Promise<boolean>
@@ -859,6 +866,8 @@ function ChatView({
               onUnpin={() => {
                 void onUnpinMessage(conversation.id)
               }}
+              onRemoveFailedUpload={() => onRemoveFailedUpload(message.id)}
+              onRetryUpload={() => onRetryUpload(message.id)}
               sender={getProfile(message.senderId)}
             />
           ))
@@ -981,6 +990,16 @@ function buildConversationMessageResults(
     .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
 }
 
+function shouldRenderMessageBody(message: Message) {
+  if (!message.body.trim()) return false
+  if (!message.attachment) return true
+  if (message.attachment.deletedAt) return false
+  if (message.type === 'image' && message.body === '图片') return false
+  if (message.type === 'video' && message.body === '视频') return false
+  if (message.type === 'file' && message.body === message.attachment.fileName) return false
+  return true
+}
+
 function MessageBubble({
   canDelete,
   canPin,
@@ -990,6 +1009,8 @@ function MessageBubble({
   onDelete,
   onOpenImage,
   onPin,
+  onRemoveFailedUpload,
+  onRetryUpload,
   onUnpin,
   sender,
 }: {
@@ -1001,9 +1022,13 @@ function MessageBubble({
   onDelete: () => void
   onOpenImage: (attachment: Attachment) => void
   onPin: () => void
+  onRemoveFailedUpload: () => void
+  onRetryUpload: () => void
   onUnpin: () => void
   sender: Profile | undefined
 }) {
+  const canManageFailedUpload = isMine && message.status === 'failed' && Boolean(message.uploadError)
+
   return (
     <article className={`message ${isMine ? 'mine' : 'theirs'} ${message.deletedAt ? 'deleted' : ''}`}>
       {!isMine && <Avatar profile={sender} size="small" />}
@@ -1019,7 +1044,7 @@ function MessageBubble({
             ) : message.attachment ? (
               <AttachmentPreview message={message} onOpenImage={onOpenImage} />
             ) : null}
-            {!message.attachment?.deletedAt && <p>{message.body}</p>}
+            {shouldRenderMessageBody(message) && <p>{message.body}</p>}
           </>
         )}
         <span className="message-meta">
@@ -1033,6 +1058,16 @@ function MessageBubble({
           </div>
         )}
         {message.uploadError && <p className="upload-error">{message.uploadError}</p>}
+        {canManageFailedUpload && (
+          <div className="upload-actions" aria-label="上传失败操作">
+            <button className="text-action" onClick={onRetryUpload} type="button">
+              重试
+            </button>
+            <button className="text-action danger" onClick={onRemoveFailedUpload} type="button">
+              移除
+            </button>
+          </div>
+        )}
         {!message.deletedAt && (canDelete || canPin) && (
           <div className="message-actions">
             {canPin && (
@@ -1086,9 +1121,15 @@ function AttachmentPreview({
 
   if (shouldShowVideo) {
     return (
-      <div className="video-attachment">
+      <div className="video-attachment" aria-label={`视频消息 ${attachment.fileName}`}>
         <video controls preload="metadata" src={attachment.url} />
-        <span>{attachment.fileName}</span>
+        <div className="video-attachment-meta">
+          <span className="video-attachment-title">
+            <Video size={15} />
+            {attachment.fileName}
+          </span>
+          <small>{formatFileSize(attachment.sizeBytes)} · 点击播放</small>
+        </div>
       </div>
     )
   }
@@ -1109,6 +1150,7 @@ function ImageViewer({
   onClose: () => void
 }) {
   const [isActionSheetOpen, setIsActionSheetOpen] = useState(false)
+  const [fallbackNotice, setFallbackNotice] = useState('')
   const longPressTimer = useRef<number | null>(null)
 
   function clearLongPressTimer() {
@@ -1120,8 +1162,10 @@ function ImageViewer({
 
   async function saveImage() {
     setIsActionSheetOpen(false)
+    setFallbackNotice('')
     try {
       const response = await fetch(attachment.url)
+      if (!response.ok) throw new Error('Image download failed')
       const blob = await response.blob()
       const blobUrl = URL.createObjectURL(blob)
       const link = document.createElement('a')
@@ -1133,6 +1177,7 @@ function ImageViewer({
       window.setTimeout(() => URL.revokeObjectURL(blobUrl), 1000)
     } catch {
       window.open(attachment.url, '_blank', 'noopener,noreferrer')
+      setFallbackNotice('已打开原图；如果没有自动保存，请使用系统长按保存。')
     }
   }
 
@@ -1141,6 +1186,18 @@ function ImageViewer({
       <button className="image-viewer-back" onClick={onClose} type="button">
         <ArrowLeft size={22} />
         返回
+      </button>
+      <button
+        aria-label="图片操作"
+        className="image-viewer-more"
+        onClick={() => {
+          setFallbackNotice('')
+          setIsActionSheetOpen(true)
+        }}
+        type="button"
+      >
+        <MoreHorizontal size={22} />
+        操作
       </button>
       <button
         aria-label="关闭图片预览"
@@ -1178,6 +1235,7 @@ function ImageViewer({
           </button>
         </div>
       )}
+      {fallbackNotice && <p className="image-viewer-notice">{fallbackNotice}</p>}
     </div>
   )
 }
@@ -1822,10 +1880,14 @@ function ProfileSettings({
 }) {
   const [displayName, setDisplayName] = useState(profile.displayName)
   const [bio, setBio] = useState(profile.bio)
+  const [editingField, setEditingField] = useState<'displayName' | 'bio' | null>(null)
+  const [isAvatarMenuOpen, setIsAvatarMenuOpen] = useState(false)
   const [isDeviceBusy, setIsDeviceBusy] = useState(false)
+  const [isDeviceSectionOpen, setIsDeviceSectionOpen] = useState(false)
   const avatarInputRef = useRef<HTMLInputElement | null>(null)
   const avatarVideoInputRef = useRef<HTMLInputElement | null>(null)
   const pushNotifications = usePushNotifications(profile.id, activeWorkspace?.id)
+  const hasProfileChanges = displayName !== profile.displayName || bio !== profile.bio
 
   async function handleRevokeOtherDevices() {
     setIsDeviceBusy(true)
@@ -1849,13 +1911,23 @@ function ProfileSettings({
           <p className="eyebrow">设置</p>
           <h1>个人资料</h1>
         </div>
-        <button aria-label="退出登录" className="icon-button" onClick={onSignOut} type="button">
-          <LogOut size={22} />
-        </button>
       </header>
 
       <section className="profile-hero">
-        <Avatar allowMotion profile={profile} size="large" />
+        <button
+          aria-expanded={isAvatarMenuOpen}
+          aria-haspopup="menu"
+          aria-label="头像操作"
+          className="profile-avatar-trigger"
+          onClick={() => setIsAvatarMenuOpen((current) => !current)}
+          type="button"
+        >
+          <Avatar allowMotion profile={profile} size="large" />
+        </button>
+        <div className="profile-identity-summary">
+          <strong>{profile.displayName}</strong>
+          <small>{email}</small>
+        </div>
         <input
           ref={avatarInputRef}
           accept="image/png,image/jpeg,image/webp"
@@ -1880,35 +1952,48 @@ function ProfileSettings({
           }}
           type="file"
         />
-        <div className="profile-avatar-actions">
+        {isAvatarMenuOpen && (
+          <div className="profile-avatar-menu" role="menu" aria-label="头像操作菜单">
           <button
-            className="secondary-button compact-button"
-            onClick={() => avatarInputRef.current?.click()}
+            onClick={() => {
+              setIsAvatarMenuOpen(false)
+              avatarInputRef.current?.click()
+            }}
+            role="menuitem"
             type="button"
           >
             <ImageIcon size={16} />
-            上传图片头像
+            更换图片头像
           </button>
           <button
-            className="secondary-button compact-button"
-            onClick={() => avatarVideoInputRef.current?.click()}
+            onClick={() => {
+              setIsAvatarMenuOpen(false)
+              avatarVideoInputRef.current?.click()
+            }}
+            role="menuitem"
             type="button"
           >
             <Video size={16} />
-            上传视频头像
+            更换视频头像
           </button>
           {profile.avatarMediaType === 'video' && (
             <button
-              className="ghost-button compact-button"
+              className="danger-menu-item"
               onClick={() => {
+                setIsAvatarMenuOpen(false)
                 void onRemoveVideoAvatar()
               }}
+              role="menuitem"
               type="button"
             >
               移除视频头像
             </button>
           )}
+          <button onClick={() => setIsAvatarMenuOpen(false)} role="menuitem" type="button">
+            取消
+          </button>
         </div>
+        )}
         {uploadProgress && (
           <div className="profile-upload-progress" aria-label="头像上传进度">
             <strong>{uploadProgress.label}</strong>
@@ -1925,95 +2010,142 @@ function ProfileSettings({
         onSubmit={(event) => {
           event.preventDefault()
           onSave({ displayName, bio })
-          onBack()
+          setEditingField(null)
         }}
       >
-        <label htmlFor="displayName">昵称</label>
-        <input
-          id="displayName"
-          onChange={(event) => setDisplayName(event.target.value)}
-          value={displayName}
-        />
-        <label htmlFor="bio">简介</label>
-        <textarea id="bio" onChange={(event) => setBio(event.target.value)} value={bio} />
-        <div className="readonly-field">
-          <span>邮箱</span>
-          <strong>{email}</strong>
-        </div>
-        <section className="device-card" aria-label="登录设备">
-          <div className="workspace-card-header">
-            <span className="notification-icon">
-              <Monitor size={20} />
-            </span>
-            <div>
-              <strong>登录设备</strong>
-              <p>{deviceSessions.length} 台设备正在使用这个账号</p>
-            </div>
-            <button
-              className="secondary-button compact-button"
-              disabled={isDeviceBusy}
-              onClick={() => {
-                void onRefreshDeviceSessions()
-              }}
-              type="button"
-            >
-              刷新
-            </button>
-          </div>
-
-          <div className="device-session-list">
-            {deviceSessions.length === 0 ? (
-              <p className="device-note">当前还没有设备记录，刷新后会自动登记。</p>
-            ) : (
-              deviceSessions.map((device) => {
-                const isCurrentDevice =
-                  device.deviceId === currentDeviceId || device.deviceId === 'demo-current-device'
-
-                return (
-                  <div className="device-session-row" key={device.id}>
-                    <Monitor size={18} />
-                    <span>
-                      <strong>{device.deviceName}</strong>
-                      <small>
-                        {device.browserName} · {device.platform} ·{' '}
-                        {formatDeviceLastSeen(device.lastSeenAt)}
-                      </small>
-                    </span>
-                    <div className="device-row-actions">
-                      <span className="role-badge">{formatDeviceStatus(device.lastSeenAt)}</span>
-                      {isCurrentDevice ? (
-                        <span className="current-device-badge">当前设备</span>
-                      ) : (
-                        <button
-                          className="icon-button danger-icon-button"
-                          disabled={isDeviceBusy}
-                          aria-label={`移除设备 ${device.deviceName}`}
-                          onClick={() => {
-                            void handleRevokeDevice(device.deviceId)
-                          }}
-                          type="button"
-                        >
-                          <Trash2 size={18} />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                )
-              })
-            )}
-          </div>
-
+        <section className="profile-settings-section" aria-label="个人信息">
           <button
-            className="secondary-button danger-secondary-button"
-            disabled={isDeviceBusy || deviceSessions.length <= 1}
-            onClick={() => {
-              void handleRevokeOtherDevices()
-            }}
+            className="profile-setting-row"
+            onClick={() => setEditingField(editingField === 'displayName' ? null : 'displayName')}
             type="button"
           >
-            {isDeviceBusy ? '处理中' : '退出其他设备'}
+            <span>
+              <small>昵称</small>
+              <strong>{displayName || '未设置'}</strong>
+            </span>
+            <em>{editingField === 'displayName' ? '收起' : '编辑'}</em>
           </button>
-          <p className="device-note">移除单台设备后，该设备下次刷新或心跳时会退出。</p>
+          {editingField === 'displayName' && (
+            <input
+              aria-label="昵称"
+              id="displayName"
+              onChange={(event) => setDisplayName(event.target.value)}
+              value={displayName}
+            />
+          )}
+
+          <button
+            className="profile-setting-row"
+            onClick={() => setEditingField(editingField === 'bio' ? null : 'bio')}
+            type="button"
+          >
+            <span>
+              <small>简介</small>
+              <strong>{bio || '未填写'}</strong>
+            </span>
+            <em>{editingField === 'bio' ? '收起' : '编辑'}</em>
+          </button>
+          {editingField === 'bio' && (
+            <textarea aria-label="简介" id="bio" onChange={(event) => setBio(event.target.value)} value={bio} />
+          )}
+
+          <div className="profile-setting-row readonly-row">
+            <span>
+              <small>邮箱</small>
+              <strong>{email}</strong>
+            </span>
+          </div>
+        </section>
+
+        {hasProfileChanges && (
+          <button className="primary-button" type="submit">
+            保存资料
+          </button>
+        )}
+
+        <section className="profile-settings-section device-card" aria-label="登录设备">
+          <button
+            aria-controls="device-session-panel"
+            aria-expanded={isDeviceSectionOpen}
+            className="profile-disclosure-row"
+            onClick={() => setIsDeviceSectionOpen((current) => !current)}
+            type="button"
+          >
+            <Monitor size={20} />
+            <span>
+              <strong>登录设备</strong>
+              <small>{deviceSessions.length} 台设备正在使用这个账号</small>
+            </span>
+            <em>{isDeviceSectionOpen ? '收起' : '查看'}</em>
+          </button>
+
+          {isDeviceSectionOpen && (
+            <div className="device-session-panel" id="device-session-panel">
+              <button
+                className="secondary-button compact-button"
+                disabled={isDeviceBusy}
+                onClick={() => {
+                  void onRefreshDeviceSessions()
+                }}
+                type="button"
+              >
+                刷新设备
+              </button>
+              <div className="device-session-list">
+                {deviceSessions.length === 0 ? (
+                  <p className="device-note">当前还没有设备记录，刷新后会自动登记。</p>
+                ) : (
+                  deviceSessions.map((device) => {
+                    const isCurrentDevice =
+                      device.deviceId === currentDeviceId || device.deviceId === 'demo-current-device'
+
+                    return (
+                      <div className="device-session-row" key={device.id}>
+                        <Monitor size={18} />
+                        <span>
+                          <strong>{device.deviceName}</strong>
+                          <small>
+                            {device.browserName} · {device.platform} ·{' '}
+                            {formatDeviceLastSeen(device.lastSeenAt)}
+                          </small>
+                        </span>
+                        <div className="device-row-actions">
+                          <span className="role-badge">{formatDeviceStatus(device.lastSeenAt)}</span>
+                          {isCurrentDevice ? (
+                            <span className="current-device-badge">当前设备</span>
+                          ) : (
+                            <button
+                              className="icon-button danger-icon-button"
+                              disabled={isDeviceBusy}
+                              aria-label={`移除设备 ${device.deviceName}`}
+                              onClick={() => {
+                                void handleRevokeDevice(device.deviceId)
+                              }}
+                              type="button"
+                            >
+                              <Trash2 size={18} />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })
+                )}
+              </div>
+
+              <button
+                className="secondary-button danger-secondary-button"
+                disabled={isDeviceBusy || deviceSessions.length <= 1}
+                onClick={() => {
+                  void handleRevokeOtherDevices()
+                }}
+                type="button"
+              >
+                {isDeviceBusy ? '处理中' : '退出其他设备'}
+              </button>
+              <p className="device-note">移除单台设备后，该设备下次刷新或心跳时会退出。</p>
+            </div>
+          )}
         </section>
         <section className="notification-card" aria-label="消息通知">
           <span className="notification-icon">
@@ -2048,8 +2180,12 @@ function ProfileSettings({
                 : '开启通知'}
           </button>
         </section>
-        <button className="primary-button" type="submit">
-          保存资料
+        <button className="profile-sign-out-row" onClick={onSignOut} type="button">
+          <LogOut size={20} />
+          <span>
+            <strong>退出登录</strong>
+            <small>退出当前账号并回到登录页</small>
+          </span>
         </button>
         {authNotice && <p className="notice">{authNotice}</p>}
       </form>

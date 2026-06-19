@@ -40,6 +40,9 @@
 - Send a text message.
 - Upload an allowed attachment under 10 MB.
 - Send an MP4/WebM video message under 10 MB and confirm another member can play it.
+- Click an image message and confirm the in-app preview opens, closes from the image/background/close button, and shows Save Image/Open Original actions.
+- Confirm image, file, and video uploads show message-level progress; failed uploads show Retry and Remove without staying stuck as sending.
+- Confirm video messages render as a compact video card with filename, size, and a manual play entry.
 - Open the uploaded attachment from another member account.
 - Enable notifications on member B, send a message from member A, and confirm B receives a generic notification.
 - Confirm `push_subscriptions.last_sent_at` updates without `last_error` after a real browser subscription receives a push.
@@ -47,6 +50,7 @@
 - Confirm a non-member cannot read conversation rows in Supabase.
 - Confirm a non-member cannot read attachment metadata or create a signed download URL.
 - Confirm the profile page only shows personal profile, notifications, and “登录设备”.
+- Confirm the profile page uses the lightweight settings layout: avatar action menu, editable nickname/bio rows, readonly email row, collapsed login devices, and bottom sign-out row.
 - Confirm group details show grouped sections for “群公告与权限”, “群成员”, “群文件”, and owner/admin-only “群管理记录”.
 - Confirm `docs/company-trial-safety.md` remains available for company-trial safety guidance.
 - Sign in to the same account from two browsers or windows and confirm both devices are listed.
@@ -57,6 +61,7 @@
 - Confirm a removed group member cannot read group messages or attachments after refresh.
 - Confirm owner/admin can see only the current group’s “群管理记录”, while member cannot see that region.
 - Trigger one member-management failure and confirm a sanitized error event is created without message body, attachment filename, token, or secret.
+- Confirm video avatar processing/upload status appears only in the profile avatar area, not on the chat list.
 - Run `docs/test-data-cleanup-sop.md` after smoke tests if temporary `codex.*` users or test uploads are no longer needed.
 
 ## Beta Release
@@ -66,5 +71,6 @@
 - Tag the company-trial-gate commit as `v0.3.1-beta` after the trial safety entry and smoke test pass.
 - Tag the stability baseline as `v0.4-beta` after operational logs pass production smoke test.
 - Tag the operational-maintenance baseline as `v0.4.1-beta` after cleanup SOP, backup checklist, daily report template, and production smoke test pass.
+- Tag the combined media/profile-polish baseline as `v0.5.6-beta` after image preview, upload retry, video message, video avatar, profile settings UI, avatar action menu, notification, and login-device smoke tests pass.
 - Use `docs/beta-test-plan.md` for tester instructions and issue triage.
 - Collect feedback through GitHub Issue templates before prioritizing the next beta scope.

@@ -257,6 +257,7 @@ export function useChatApp() {
   const stateChannel = useRef<ReturnType<NonNullable<typeof supabase>['channel']> | null>(
     null,
   )
+  const pendingUploadFilesRef = useRef<Map<string, File>>(new Map())
 
   const activeConversation = state.conversations.find(
     (conversation) => conversation.id === activeConversationId,
@@ -458,6 +459,7 @@ export function useChatApp() {
 
       if (currentSession.data?.revoked_at && !allowRevokedRestore) {
         await supabase.auth.signOut({ scope: 'local' })
+        pendingUploadFilesRef.current.clear()
         setUser(null)
         setState(createDemoState())
         setAuthNotice('这台设备已被退出，请重新登录。')
@@ -1113,6 +1115,7 @@ export function useChatApp() {
       }
       await supabase.auth.signOut({ scope: 'local' })
     }
+    pendingUploadFilesRef.current.clear()
     setUser(null)
     setNotice({ message: '', scope: 'global' })
     setState(createDemoState())
@@ -1295,8 +1298,12 @@ export function useChatApp() {
     }
 
     setState((previous) => withNewMessage(previous, message))
+    pendingUploadFilesRef.current.set(message.id, file)
 
-    if (!supabase) return
+    if (!supabase) {
+      pendingUploadFilesRef.current.delete(message.id)
+      return
+    }
 
     const storagePath = `${user.id}/${activeConversation.id}/${Date.now()}-${safeFileName(
       file.name,
@@ -1388,6 +1395,7 @@ export function useChatApp() {
         sizeBytes: file.size,
       })
     } else {
+      pendingUploadFilesRef.current.delete(message.id)
       setState((previous) => ({
         ...previous,
         messages: previous.messages.map((item) =>
@@ -1397,6 +1405,36 @@ export function useChatApp() {
         ),
       }))
     }
+  }
+
+  function removeFailedMessage(messageId: string) {
+    pendingUploadFilesRef.current.delete(messageId)
+    setState((previous) => ({
+      ...previous,
+      messages: previous.messages.filter((message) => message.id !== messageId),
+    }))
+  }
+
+  async function retryFileMessage(messageId: string) {
+    const file = pendingUploadFilesRef.current.get(messageId)
+    const failedMessage = state.messages.find((message) => message.id === messageId)
+
+    if (!file || !failedMessage) {
+      setScopedNotice('chat', '无法重试这个文件，请重新选择上传。')
+      return
+    }
+
+    if (!activeConversation || activeConversation.id !== failedMessage.conversationId) {
+      setScopedNotice('chat', '请先回到这条失败消息所在的会话再重试。')
+      return
+    }
+
+    pendingUploadFilesRef.current.delete(messageId)
+    setState((previous) => ({
+      ...previous,
+      messages: previous.messages.filter((message) => message.id !== messageId),
+    }))
+    await sendFile(file)
   }
 
   function updateProfile(nextProfile: Pick<Profile, 'displayName' | 'bio'>) {
@@ -1543,9 +1581,10 @@ export function useChatApp() {
       return
     }
 
-    setProfileUploadProgress({ label: '处理视频头像', percent: 8 })
+    setProfileUploadProgress({ label: '正在检查视频头像', percent: 5 })
     let processedVideo: Awaited<ReturnType<typeof processAvatarVideo>>
     try {
+      setProfileUploadProgress({ label: '正在压缩视频头像', percent: 12 })
       processedVideo = await processAvatarVideo(file)
     } catch {
       setProfileUploadProgress(null)
@@ -1585,12 +1624,13 @@ export function useChatApp() {
     const posterPath = `${currentUser.id}/avatar-video-poster-${timestamp}.jpg`
 
     try {
+      setProfileUploadProgress({ label: '正在上传视频头像', percent: 15 })
       await uploadStorageObject(avatarVideoStorageBucket, videoPath, processedVideo.videoBlob, {
         cacheControl: '3600',
         contentType: processedVideo.videoBlob.type || file.type,
         onProgress: (percent) =>
           setProfileUploadProgress({
-            label: '上传视频头像',
+            label: '正在上传视频头像',
             percent: Math.min(75, 15 + Math.round(percent * 0.6)),
           }),
       })
@@ -1607,12 +1647,13 @@ export function useChatApp() {
     }
 
     try {
+      setProfileUploadProgress({ label: '正在上传视频封面', percent: 76 })
       await uploadStorageObject(avatarStorageBucket, posterPath, processedVideo.posterBlob, {
         cacheControl: '3600',
         contentType: 'image/jpeg',
         onProgress: (percent) =>
           setProfileUploadProgress({
-            label: '上传视频封面',
+            label: '正在上传视频封面',
             percent: Math.min(96, 76 + Math.round(percent * 0.2)),
           }),
       })
@@ -1635,6 +1676,7 @@ export function useChatApp() {
       data: { publicUrl: posterUrl },
     } = supabase.storage.from(avatarStorageBucket).getPublicUrl(posterPath)
 
+    setProfileUploadProgress({ label: '正在保存头像资料', percent: 98 })
     const profileUpdate = await supabase
       .from('profiles')
       .update({
@@ -3095,8 +3137,10 @@ export function useChatApp() {
     state,
     refreshDeviceSessions,
     respondToContactRequest,
+    retryFileMessage,
     revokeDeviceSession,
     revokeOtherDevices,
+    removeFailedMessage,
     removeWorkspaceMember,
     removeGroupMember,
     renameGroup,

@@ -22,13 +22,13 @@
 - Push notification payloads intentionally omit message body, attachment filename, and email.
 
 ## External References
-- `docs/telegram-reference-evaluation.md` defines how DrKLO/Telegram may be used as a clean-room interaction reference.
+- `docs/telegram-reference-evaluation.md` defines how DrKLO/Telegram and Telegram-style Figma references may be used as clean-room interaction references.
 - Do not copy Telegram source code, brand assets, logos, proprietary icons, translations, stickers, animations, MTProto, or Telegram API logic into this PWA.
-- Reference is limited to product structure and interaction patterns such as chat list density, media viewer behavior, upload progress, group details, and group permission flows.
+- Reference is limited to product structure and interaction patterns such as chat list density, profile/settings grouping, media viewer behavior, upload progress, group details, and group permission flows.
 
 ## Next Production Tasks
-- Finish v0.5.4 group permission detail polish and production smoke before tagging `v0.5.4-beta`.
-- Keep using `docs/telegram-reference-evaluation.md` as the clean-room boundary for group permission and media UX polish.
-- Continue v0.5.x with media viewer, upload progress, group file, and message governance refinements.
+- Finish v0.5.6 profile settings UI smoke before tagging `v0.5.6-beta`.
+- Keep using `docs/telegram-reference-evaluation.md` as the clean-room boundary for media UX and group permission polish.
+- Continue v0.5.x with profile polish, media upload reliability, group file, and message governance refinements.
 - Add server-side search only after client search reaches real data limits.
 - Add Playwright tests for multi-user realtime flows.

@@ -8,6 +8,7 @@
 
 - GitHub: <https://github.com/DrKLO/Telegram>
 - License: <https://github.com/DrKLO/Telegram/blob/master/LICENSE>
+- Figma Community reference: Telegram UI Screens Community, used only for visible structure, spacing, and information density.
 
 ## 不能直接使用
 
@@ -16,6 +17,7 @@
 - 不复制翻译文本、字符串资源或界面文案。
 - 不引入 MTProto、Telegram API 或 Telegram 账号体系。
 - 不把 GPL-2.0 源码混入当前 PWA 代码库。
+- 不复制 Figma Community 文件中的 Telegram 品牌素材、图标、截图、组件实例或可识别视觉资产。
 
 原因：
 
@@ -90,12 +92,12 @@
 - 上传进度和失败重试。
 - 视频消息卡片体验优化。
 
-### v0.5.6-beta：群文件与消息治理
+### v0.5.6-beta：媒体体验与个人资料页 UI 收口
 
-- 群文件中心。
-- 附件隐藏。
-- 消息软删除展示。
-- 置顶消息和群公告体验优化。
+- 合并 v0.5.5 媒体体验改动，不单独拆 tag。
+- 个人资料页改成轻量设置页：头像操作菜单、设置列表、邮箱只读、登录设备折叠。
+- 图片预览、保存/打开原图、上传进度、失败重试和视频消息卡片完成 smoke。
+- 媒体错误提示只出现在当前聊天或个人资料页，不回到聊天首页。
 
 ## 开发守则
 
