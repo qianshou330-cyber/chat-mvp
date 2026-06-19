@@ -175,6 +175,8 @@ export interface SearchResult {
   conversationId: string
   conversationTitle: string
   kind: 'conversation' | 'message'
+  messageId?: string
+  messageType?: MessageType
   title: string
   snippet: string
   senderName: string

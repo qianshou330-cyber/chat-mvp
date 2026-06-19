@@ -66,11 +66,14 @@ import type {
   MemberRole,
   Message,
   Profile,
+  SearchResult,
   WorkspaceMember,
   WorkspaceRole,
 } from '../types'
 
 const initialState = createDemoState()
+const SERVER_MESSAGE_PAGE_SIZE = 80
+const SERVER_MESSAGE_SEARCH_LIMIT = 30
 
 const uid = () =>
   typeof crypto !== 'undefined' && 'randomUUID' in crypto
@@ -100,6 +103,40 @@ interface UploadProgressState {
   percent: number
 }
 
+interface MessagePageState {
+  hasMore: boolean
+  isLoading: boolean
+}
+
+function mapServerSearchResult(row: Record<string, unknown>): SearchResult {
+  const kind = row.kind === 'conversation' ? 'conversation' : 'message'
+  const resultId = String(row.result_id ?? `${kind}-${row.conversation_id ?? uid()}`)
+  const inferredMessageId = resultId.startsWith('message-')
+    ? resultId.slice('message-'.length)
+    : undefined
+  const rawMessageType = String(row.message_type ?? '')
+  const messageType =
+    rawMessageType === 'text' ||
+    rawMessageType === 'image' ||
+    rawMessageType === 'video' ||
+    rawMessageType === 'file'
+      ? rawMessageType
+      : undefined
+
+  return {
+    id: resultId,
+    conversationId: String(row.conversation_id ?? ''),
+    conversationTitle: String(row.conversation_title ?? row.title ?? '会话'),
+    kind,
+    messageId: row.message_id ? String(row.message_id) : inferredMessageId,
+    messageType,
+    title: String(row.title ?? row.conversation_title ?? '会话'),
+    snippet: String(row.snippet ?? ''),
+    senderName: String(row.sender_name ?? '成员'),
+    createdAt: String(row.created_at ?? new Date().toISOString()),
+  }
+}
+
 export function useChatApp() {
   const [state, setState] = useState<ChatState>(initialState)
   const [user, setUser] = useState<AppUser | null>(null)
@@ -109,6 +146,8 @@ export function useChatApp() {
   const [profileUploadProgress, setProfileUploadProgress] = useState<UploadProgressState | null>(null)
   const [isLoading, setIsLoading] = useState(Boolean(supabase))
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>(initialConnectionStatus)
+  const [messagePages, setMessagePages] = useState<Record<string, MessagePageState>>({})
+  const [serverSearchResults, setServerSearchResults] = useState<SearchResult[]>([])
   const currentDeviceId = useMemo(() => getOrCreateDeviceId(), [])
   const allowDeviceRestore = useRef(false)
   const currentChannel = useRef<ReturnType<NonNullable<typeof supabase>['channel']> | null>(
@@ -122,6 +161,7 @@ export function useChatApp() {
     new Map(),
   )
   const pendingTextSendsRef = useRef<Set<string>>(new Set())
+  const messageLoadLocksRef = useRef<Set<string>>(new Set())
 
   const activeConversation = state.conversations.find(
     (conversation) => conversation.id === activeConversationId,
@@ -129,13 +169,13 @@ export function useChatApp() {
 
   const authNotice = notice.message
 
-  function setAuthNotice(message: string) {
+  const setAuthNotice = useCallback((message: string) => {
     setNotice({ message, scope: 'global' })
-  }
+  }, [])
 
-  function setScopedNotice(scope: NoticeScope, message: string) {
+  const setScopedNotice = useCallback((scope: NoticeScope, message: string) => {
     setNotice({ message, scope })
-  }
+  }, [])
 
   function noticeFor(scope: NoticeScope) {
     if (!notice.message) return ''
@@ -149,10 +189,27 @@ export function useChatApp() {
     [state.profiles],
   )
 
-  const searchResults = useMemo(
+  const localSearchResults = useMemo(
     () => buildSearchResults(query, state.conversations, state.messages, profilesById),
     [profilesById, query, state.conversations, state.messages],
   )
+
+  const searchResults = useMemo(() => {
+    if (!normalizeSearch(query)) return localSearchResults
+
+    const results = [...localSearchResults]
+    const seenIds = new Set(results.map((result) => result.id))
+
+    serverSearchResults.forEach((result) => {
+      if (seenIds.has(result.id)) return
+      results.push(result)
+      seenIds.add(result.id)
+    })
+
+    return results
+      .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
+      .slice(0, SERVER_MESSAGE_SEARCH_LIMIT)
+  }, [localSearchResults, query, serverSearchResults])
 
   const visibleConversations = useMemo(() => {
     const normalized = normalizeSearch(query)
@@ -168,6 +225,43 @@ export function useChatApp() {
       .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
   }, [query, searchResults, state.conversations])
 
+  useEffect(() => {
+    const client = supabase
+    if (!client || !user) return
+
+    const normalized = normalizeSearch(query)
+    if (!normalized) return
+
+    let cancelled = false
+
+    const runServerSearch = async () => {
+      const { data, error } = await client.rpc('search_messages', {
+        search_query: query,
+        target_conversation_id: null,
+        result_limit: SERVER_MESSAGE_SEARCH_LIMIT,
+      })
+
+      if (cancelled) return
+
+      if (error) {
+        setServerSearchResults([])
+        setScopedNotice('list', friendlyErrorMessage(error.message, '无法完成服务端搜索，请稍后重试。'))
+        return
+      }
+
+      setServerSearchResults((data ?? []).map(mapServerSearchResult))
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      void runServerSearch()
+    }, 250)
+
+    return () => {
+      cancelled = true
+      window.clearTimeout(timeoutId)
+    }
+  }, [query, setScopedNotice, user])
+
   const activeMessages = useMemo(
     () =>
       state.messages
@@ -175,6 +269,7 @@ export function useChatApp() {
         .sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt)),
     [activeConversationId, state.messages],
   )
+  const activeMessagePage = activeConversationId ? messagePages[activeConversationId] : undefined
 
   const me = user ? state.profiles.find((profile) => profile.id === user.id) : null
 
@@ -366,11 +461,12 @@ export function useChatApp() {
 
       return { ok: true, rows: sessionsResult.data ?? [] }
     },
-    [currentDeviceId],
+    [currentDeviceId, setAuthNotice],
   )
 
   const loadSupabaseState = useCallback(async (userId: string) => {
     if (!supabase) return
+    const client = supabase
     setIsLoading(true)
 
     const [profileResult, memberResult, contactsResult] = await Promise.all([
@@ -555,20 +651,25 @@ export function useChatApp() {
     let conversationRows: Record<string, unknown>[] = []
     let memberRows: Record<string, unknown>[] = []
     let messageRows: Record<string, unknown>[] = []
+    const nextMessagePages: Record<string, MessagePageState> = {}
 
     if (conversationIds.length > 0) {
-      const [conversationsResult, membersResult, messagesResult] = await Promise.all([
+      const [conversationsResult, membersResult] = await Promise.all([
         supabase.from('conversations').select('*').in('id', conversationIds),
         supabase
           .from('conversation_members')
           .select('*')
           .in('conversation_id', conversationIds),
-        supabase
-          .from('messages')
-          .select('*, attachments(*)')
-          .in('conversation_id', conversationIds)
-          .order('created_at', { ascending: true }),
       ])
+      const messagePageResults = await Promise.all(
+        conversationIds.map((conversationId) =>
+          client.rpc('get_conversation_messages', {
+            target_conversation_id: conversationId,
+            before_created_at: null,
+            page_size: SERVER_MESSAGE_PAGE_SIZE,
+          }),
+        ),
+      )
 
       if (conversationsResult.error) {
         setAuthNotice(
@@ -582,15 +683,44 @@ export function useChatApp() {
         )
       }
 
-      if (messagesResult.error) {
+      const messagePageError = messagePageResults.find((result) => result.error)?.error
+
+      if (messagePageError) {
         setAuthNotice(
-          friendlyErrorMessage(messagesResult.error.message, '无法加载消息，请刷新后重试。'),
+          friendlyErrorMessage(
+            messagePageError.message,
+            '无法加载分页消息，请确认已运行 v0.7.0 消息分页 migration。',
+          ),
         )
       }
 
       conversationRows = conversationsResult.data ?? []
       memberRows = membersResult.data ?? []
-      messageRows = messagesResult.data ?? []
+
+      if (messagePageError) {
+        const messagesResult = await supabase
+          .from('messages')
+          .select('*, attachments(*)')
+          .in('conversation_id', conversationIds)
+          .order('created_at', { ascending: true })
+
+        if (messagesResult.error) {
+          setAuthNotice(
+            friendlyErrorMessage(messagesResult.error.message, '无法加载消息，请刷新后重试。'),
+          )
+        }
+
+        messageRows = messagesResult.data ?? []
+      } else {
+        conversationIds.forEach((conversationId, index) => {
+          const rows = messagePageResults[index].data ?? []
+          nextMessagePages[conversationId] = {
+            hasMore: rows.length === SERVER_MESSAGE_PAGE_SIZE,
+            isLoading: false,
+          }
+          messageRows.push(...rows)
+        })
+      }
     }
 
     const canReadGroupRecords =
@@ -687,11 +817,12 @@ export function useChatApp() {
       adminActivityLogs: adminActivityLogRows.map(mapAdminActivityLog),
       activeWorkspaceId,
     })
+    setMessagePages(nextMessagePages)
     setActiveConversationId((previous) =>
       conversationIds.includes(previous) ? previous : (conversationIds[0] ?? ''),
     )
     setIsLoading(false)
-  }, [refreshCurrentDeviceSession])
+  }, [refreshCurrentDeviceSession, setAuthNotice])
 
   const refreshCurrentConversation = useCallback(async () => {
     if (!user) return false
@@ -705,6 +836,160 @@ export function useChatApp() {
     setConnectionStatus('connected')
     return true
   }, [loadSupabaseState, user])
+
+  const loadOlderMessages = useCallback(async (conversationId: string) => {
+    const client = supabase
+    if (!client) return false
+
+    const existingMessages = state.messages
+      .filter((message) => message.conversationId === conversationId)
+      .sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt))
+    const oldestMessage = existingMessages[0]
+
+    if (
+      !oldestMessage ||
+      messagePages[conversationId]?.isLoading ||
+      messageLoadLocksRef.current.has(conversationId)
+    ) {
+      return false
+    }
+    messageLoadLocksRef.current.add(conversationId)
+
+    setMessagePages((previous) => ({
+      ...previous,
+      [conversationId]: {
+        hasMore: previous[conversationId]?.hasMore ?? true,
+        isLoading: true,
+      },
+    }))
+
+    const { data, error } = await client.rpc('get_conversation_messages', {
+      target_conversation_id: conversationId,
+      before_created_at: oldestMessage.createdAt,
+      page_size: SERVER_MESSAGE_PAGE_SIZE,
+    })
+
+    if (error) {
+      setScopedNotice(
+        'chat',
+        friendlyErrorMessage(error.message, '无法加载更早消息，请稍后重试。'),
+      )
+      setMessagePages((previous) => ({
+        ...previous,
+        [conversationId]: {
+          hasMore: previous[conversationId]?.hasMore ?? true,
+          isLoading: false,
+        },
+      }))
+      messageLoadLocksRef.current.delete(conversationId)
+      return false
+    }
+
+    const olderMessages = await Promise.all((data ?? []).map(mapMessage))
+
+    setState((previous) => {
+      const previousIds = new Set(previous.messages.map((message) => message.id))
+
+      return {
+        ...previous,
+        messages: [...olderMessages.filter((message) => !previousIds.has(message.id)), ...previous.messages]
+          .sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt)),
+      }
+    })
+    setMessagePages((previous) => ({
+      ...previous,
+      [conversationId]: {
+        hasMore: olderMessages.length === SERVER_MESSAGE_PAGE_SIZE,
+        isLoading: false,
+      },
+    }))
+    messageLoadLocksRef.current.delete(conversationId)
+    return true
+  }, [messagePages, setScopedNotice, state.messages])
+
+  const loadMessageContext = useCallback(async (conversationId: string, messageId: string) => {
+    const client = supabase
+    if (!client || !messageId) return false
+    if (messagePages[conversationId]?.isLoading || messageLoadLocksRef.current.has(conversationId)) {
+      return false
+    }
+    messageLoadLocksRef.current.add(conversationId)
+
+    setMessagePages((previous) => ({
+      ...previous,
+      [conversationId]: {
+        hasMore: previous[conversationId]?.hasMore ?? true,
+        isLoading: true,
+      },
+    }))
+
+    const { data, error } = await client.rpc('get_conversation_message_context', {
+      target_conversation_id: conversationId,
+      target_message_id: messageId,
+      page_size: SERVER_MESSAGE_PAGE_SIZE,
+    })
+
+    if (error) {
+      setScopedNotice(
+        'chat',
+        friendlyErrorMessage(
+          error.message,
+          '无法加载这条消息附近的历史记录，请先加载更早消息。',
+        ),
+      )
+      setMessagePages((previous) => ({
+        ...previous,
+        [conversationId]: {
+          hasMore: previous[conversationId]?.hasMore ?? true,
+          isLoading: false,
+        },
+      }))
+      messageLoadLocksRef.current.delete(conversationId)
+      return false
+    }
+
+    const contextMessages = await Promise.all((data ?? []).map(mapMessage))
+
+    setState((previous) => {
+      const previousIds = new Set(previous.messages.map((message) => message.id))
+
+      return {
+        ...previous,
+        messages: [...previous.messages, ...contextMessages.filter((message) => !previousIds.has(message.id))]
+          .sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt)),
+      }
+    })
+    setMessagePages((previous) => ({
+      ...previous,
+      [conversationId]: {
+        hasMore: contextMessages.length === SERVER_MESSAGE_PAGE_SIZE,
+        isLoading: false,
+      },
+    }))
+    messageLoadLocksRef.current.delete(conversationId)
+    return contextMessages.some((message) => message.id === messageId)
+  }, [messagePages, setScopedNotice])
+
+  const searchConversationMessages = useCallback(async (conversationId: string, searchQuery: string) => {
+    const client = supabase
+    if (!client || !normalizeSearch(searchQuery)) return []
+
+    const { data, error } = await client.rpc('search_messages', {
+      search_query: searchQuery,
+      target_conversation_id: conversationId,
+      result_limit: SERVER_MESSAGE_SEARCH_LIMIT,
+    })
+
+    if (error) {
+      setScopedNotice(
+        'chat',
+        friendlyErrorMessage(error.message, '无法搜索历史消息，请稍后重试。'),
+      )
+      return []
+    }
+
+    return (data ?? []).map(mapServerSearchResult)
+  }, [setScopedNotice])
 
   useEffect(() => {
     if (!supabase) return
@@ -978,7 +1263,7 @@ export function useChatApp() {
         currentChannel.current = null
       }
     }
-  }, [activeConversationId, loadSupabaseState, user])
+  }, [activeConversationId, loadSupabaseState, setAuthNotice, user])
 
   async function createAccountWithEmail(email: string, password: string) {
     const trimmed = email.trim().toLowerCase()
@@ -3089,9 +3374,12 @@ export function useChatApp() {
     deviceSessions: state.deviceSessions,
     getProfile,
     hideGroupAttachment,
+    hasOlderActiveMessages: Boolean(activeMessagePage?.hasMore),
     incomingContactRequests,
     isLoading,
+    isLoadingOlderMessages: Boolean(activeMessagePage?.isLoading),
     isSupabaseConfigured,
+    isServerMessagePagingEnabled: Boolean(supabase),
     me,
     noticeFor,
     outgoingContactRequests,
@@ -3099,10 +3387,13 @@ export function useChatApp() {
     query,
     refreshCurrentConversation,
     searchResults,
+    searchConversationMessages,
     sendFile,
     sendContactRequestByEmail,
     sendText,
     setActiveConversationId,
+    loadMessageContext,
+    loadOlderMessages,
     setQuery,
     createAccountWithEmail,
     signInWithPassword,

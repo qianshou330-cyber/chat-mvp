@@ -54,6 +54,7 @@ const MESSAGE_LOAD_STEP = 80
 function App() {
   const chat = useChatApp()
   const [screen, setScreen] = useState<Screen>('login')
+  const [focusedMessageId, setFocusedMessageId] = useState('')
 
   const activeTitle = displayConversationTitle(chat.activeConversation?.title ?? '聊天')
   const activeScreen = chat.user && screen === 'login' ? 'list' : screen
@@ -82,6 +83,18 @@ function App() {
   async function handleSignOut() {
     await chat.signOut()
     setScreen('login')
+    setFocusedMessageId('')
+  }
+
+  async function openSearchResult(result: SearchResult) {
+    chat.setActiveConversationId(result.conversationId)
+    if (result.messageId) {
+      await chat.loadMessageContext(result.conversationId, result.messageId)
+      setFocusedMessageId(result.messageId)
+    } else {
+      setFocusedMessageId('')
+    }
+    setScreen('chat')
   }
 
   if (chat.isLoading) {
@@ -131,16 +144,17 @@ function App() {
             searchResults={chat.searchResults}
             onCreateGroup={async () => {
               const created = await chat.createGroup()
+              setFocusedMessageId('')
               if (created) setScreen('chat')
             }}
             onOpenConversation={(id) => {
               chat.setActiveConversationId(id)
+              setFocusedMessageId('')
               setScreen('chat')
             }}
             onOpenProfile={() => setScreen('profile')}
             onOpenSearchResult={(result) => {
-              chat.setActiveConversationId(result.conversationId)
-              setScreen('chat')
+              void openSearchResult(result)
             }}
             onQueryChange={chat.setQuery}
             onSignOut={handleSignOut}
@@ -148,6 +162,7 @@ function App() {
               const conversationId = await chat.respondToContactRequest(requestId, action)
               if (conversationId) {
                 chat.setActiveConversationId(conversationId)
+                setFocusedMessageId('')
                 setScreen('chat')
               }
               return action === 'declined' || Boolean(conversationId)
@@ -162,14 +177,21 @@ function App() {
             conversation={chat.activeConversation}
             conversationMembers={chat.state.members}
             getProfile={chat.getProfile}
+            hasOlderMessages={chat.hasOlderActiveMessages}
+            focusedMessageId={focusedMessageId}
+            isLoadingOlderMessages={chat.isLoadingOlderMessages}
+            isServerMessagePagingEnabled={chat.isServerMessagePagingEnabled}
             messages={chat.activeMessages}
             myUserId={chat.user?.id ?? ''}
             onBack={() => setScreen('list')}
             onDeleteMessage={chat.deleteGroupMessage}
+            onLoadMessageContext={chat.loadMessageContext}
+            onLoadOlderMessages={chat.loadOlderMessages}
             onOpenInfo={() => setScreen(chat.activeConversation?.type === 'group' ? 'group' : 'profile')}
             onPinMessage={chat.pinGroupMessage}
             onRemoveFailedUpload={chat.removeFailedMessage}
             onRetryUpload={chat.retryFileMessage}
+            onSearchMessages={chat.searchConversationMessages}
             onSendFile={chat.sendFile}
             onSendText={chat.sendText}
             onUnpinMessage={chat.unpinGroupMessage}
@@ -673,9 +695,7 @@ function SearchResults({
             <span className="result-copy">
               <strong>{displayConversationTitle(result.title)}</strong>
               <small>
-                {result.kind === 'message'
-                  ? `${result.senderName} · ${formatTime(result.createdAt)}`
-                  : `${result.senderName} · ${formatTime(result.createdAt)}`}
+                {`${searchResultTypeText(result)} · ${result.senderName} · ${formatTime(result.createdAt)}`}
               </small>
               <span className="result-snippet">
                 <HighlightedText query={query} text={result.snippet} />
@@ -693,15 +713,22 @@ function ChatView({
   connectionStatus,
   conversation,
   conversationMembers,
+  focusedMessageId,
   getProfile,
+  hasOlderMessages: hasServerOlderMessages,
+  isLoadingOlderMessages,
+  isServerMessagePagingEnabled,
   messages,
   myUserId,
   onBack,
   onDeleteMessage,
+  onLoadMessageContext,
+  onLoadOlderMessages,
   onOpenInfo,
   onPinMessage,
   onRemoveFailedUpload,
   onRetryUpload,
+  onSearchMessages,
   onSendFile,
   onSendText,
   onUnpinMessage,
@@ -711,15 +738,22 @@ function ChatView({
   connectionStatus: ConnectionStatus
   conversation: Conversation
   conversationMembers: ConversationMember[]
+  focusedMessageId: string
   getProfile: (profileId: string) => Profile | undefined
+  hasOlderMessages: boolean
+  isLoadingOlderMessages: boolean
+  isServerMessagePagingEnabled: boolean
   messages: Message[]
   myUserId: string
   onBack: () => void
   onDeleteMessage: (conversationId: string, messageId: string) => Promise<boolean>
+  onLoadMessageContext: (conversationId: string, messageId: string) => Promise<boolean>
+  onLoadOlderMessages: (conversationId: string) => Promise<boolean>
   onOpenInfo: () => void
   onPinMessage: (conversationId: string, messageId: string) => Promise<boolean>
   onRemoveFailedUpload: (messageId: string) => void
   onRetryUpload: (messageId: string) => void
+  onSearchMessages: (conversationId: string, searchQuery: string) => Promise<SearchResult[]>
   onSendFile: (file: File) => void
   onSendText: (body: string) => void
   onUnpinMessage: (conversationId: string) => Promise<boolean>
@@ -729,8 +763,15 @@ function ChatView({
   const [imageViewerAttachment, setImageViewerAttachment] = useState<Attachment | null>(null)
   const [isMessageSearchOpen, setIsMessageSearchOpen] = useState(false)
   const [messageSearchQuery, setMessageSearchQuery] = useState('')
+  const [focusedInlineMessageId, setFocusedInlineMessageId] = useState('')
+  const [highlightedMessageId, setHighlightedMessageId] = useState('')
+  const [openingSearchResultId, setOpeningSearchResultId] = useState('')
+  const [serverMessageSearchResults, setServerMessageSearchResults] = useState<SearchResult[]>([])
+  const [isServerMessageSearchLoading, setIsServerMessageSearchLoading] = useState(false)
   const [visibleMessageCount, setVisibleMessageCount] = useState(INITIAL_VISIBLE_MESSAGE_COUNT)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const messageListRef = useRef<HTMLDivElement | null>(null)
+  const messageRefs = useRef<Record<string, HTMLElement | null>>({})
   const otherMemberId = conversation.memberIds.find((id) => id !== myUserId)
   const otherProfile = getProfile(otherMemberId ?? '')
   const currentMember = conversationMembers.find(
@@ -744,12 +785,99 @@ function ChatView({
   const pinnedMessage = conversation.pinnedMessageId
     ? messages.find((message) => message.id === conversation.pinnedMessageId && !message.deletedAt)
     : undefined
-  const hasOlderMessages = messages.length > visibleMessageCount
-  const visibleMessages = hasOlderMessages ? messages.slice(-visibleMessageCount) : messages
-  const messageSearchResults = useMemo(
+  const hasClientOlderMessages = !isServerMessagePagingEnabled && messages.length > visibleMessageCount
+  const visibleMessages = hasClientOlderMessages ? messages.slice(-visibleMessageCount) : messages
+  const hasOlderMessages = hasServerOlderMessages || hasClientOlderMessages
+  const localMessageSearchResults = useMemo(
     () => buildConversationMessageResults(messageSearchQuery, conversation, visibleMessages, getProfile),
     [conversation, getProfile, messageSearchQuery, visibleMessages],
   )
+  const hasMessageSearchQuery = Boolean(messageSearchQuery.trim())
+  const messageSearchResults = !hasMessageSearchQuery
+    ? []
+    : isServerMessagePagingEnabled
+      ? serverMessageSearchResults
+      : localMessageSearchResults
+  const isMessageSearchLoading = hasMessageSearchQuery && isServerMessageSearchLoading
+  const effectiveFocusedMessageId = focusedInlineMessageId || focusedMessageId
+
+  useEffect(() => {
+    if (!isServerMessagePagingEnabled) return
+
+    const normalizedQuery = messageSearchQuery.trim()
+    if (!normalizedQuery) return
+
+    let cancelled = false
+
+    const timeoutId = window.setTimeout(() => {
+      setIsServerMessageSearchLoading(true)
+      void onSearchMessages(conversation.id, normalizedQuery).then((results) => {
+        if (cancelled) return
+        setServerMessageSearchResults(results)
+        setIsServerMessageSearchLoading(false)
+      })
+    }, 250)
+
+    return () => {
+      cancelled = true
+      window.clearTimeout(timeoutId)
+    }
+  }, [conversation.id, isServerMessagePagingEnabled, messageSearchQuery, onSearchMessages])
+
+  useEffect(() => {
+    if (!effectiveFocusedMessageId) return
+
+    const target = messageRefs.current[effectiveFocusedMessageId]
+    if (!target) return
+
+    setHighlightedMessageId(effectiveFocusedMessageId)
+    window.requestAnimationFrame(() => {
+      target.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    })
+
+    const timeoutId = window.setTimeout(() => {
+      setHighlightedMessageId('')
+    }, 2600)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [effectiveFocusedMessageId, visibleMessages])
+
+  async function openMessageSearchResult(result: SearchResult) {
+    setOpeningSearchResultId(result.id)
+
+    if (result.messageId && isServerMessagePagingEnabled) {
+      await onLoadMessageContext(conversation.id, result.messageId)
+    }
+
+    if (result.messageId) {
+      setFocusedInlineMessageId(result.messageId)
+    }
+    setOpeningSearchResultId('')
+    setIsMessageSearchOpen(false)
+  }
+
+  async function loadOlderMessagesWithScrollAnchor() {
+    const list = messageListRef.current
+    const previousHeight = list?.scrollHeight ?? 0
+    const previousTop = list?.scrollTop ?? 0
+
+    if (isServerMessagePagingEnabled) {
+      const didLoad = await onLoadOlderMessages(conversation.id)
+      if (didLoad && list) {
+        window.requestAnimationFrame(() => {
+          list.scrollTop = previousTop + (list.scrollHeight - previousHeight)
+        })
+      }
+      return
+    }
+
+    setVisibleMessageCount((count) => count + MESSAGE_LOAD_STEP)
+    if (list) {
+      window.requestAnimationFrame(() => {
+        list.scrollTop = previousTop + (list.scrollHeight - previousHeight)
+      })
+    }
+  }
 
   function submit(event: FormEvent) {
     event.preventDefault()
@@ -807,28 +935,37 @@ function ChatView({
           </div>
           {messageSearchQuery.trim() && (
             <div className="inline-results">
-              <strong>{messageSearchResults.length} 条结果</strong>
-              {hasOlderMessages && (
+              <strong>{isMessageSearchLoading ? '正在搜索...' : `${messageSearchResults.length} 条结果`}</strong>
+              {isServerMessagePagingEnabled ? (
+                <p className="search-scope-note">正在搜索当前会话的已保存消息。</p>
+              ) : hasOlderMessages && (
                 <p className="search-scope-note">当前只搜索已加载消息。可先加载更早消息后再搜索。</p>
               )}
-              {messageSearchResults.length === 0 ? (
+              {!isMessageSearchLoading && messageSearchResults.length === 0 ? (
                 <p>没有找到匹配的消息。</p>
-              ) : (
+              ) : !isMessageSearchLoading ? (
                 messageSearchResults.map((result) => (
                   <button
                     aria-label={`当前会话搜索结果：${result.snippet}`}
                     className="inline-result-row"
                     key={result.id}
-                    onClick={() => setIsMessageSearchOpen(false)}
+                    disabled={openingSearchResultId === result.id}
+                    onClick={() => {
+                      void openMessageSearchResult(result)
+                    }}
                     type="button"
                   >
                     <span>
                       <HighlightedText query={messageSearchQuery} text={result.snippet} />
                     </span>
-                    <small>{`${result.senderName} · ${formatTime(result.createdAt)}`}</small>
+                    <small>
+                      {openingSearchResultId === result.id
+                        ? '正在定位...'
+                        : `${searchResultTypeText(result)} · ${result.senderName} · ${formatTime(result.createdAt)}`}
+                    </small>
                   </button>
                 ))
-              )}
+              ) : null}
             </div>
           )}
         </section>
@@ -861,7 +998,7 @@ function ChatView({
         </section>
       )}
 
-      <div className="message-list" role="log">
+      <div className="message-list" ref={messageListRef} role="log">
         {messages.length === 0 ? (
           <EmptyState
             icon={<MessageCircle size={28} />}
@@ -874,12 +1011,19 @@ function ChatView({
               <div className="message-window-controls">
                 <button
                   className="ghost-button compact-button"
-                  onClick={() => setVisibleMessageCount((count) => count + MESSAGE_LOAD_STEP)}
+                  disabled={isLoadingOlderMessages}
+                  onClick={() => {
+                    void loadOlderMessagesWithScrollAnchor()
+                  }}
                   type="button"
                 >
-                  加载更早消息
+                  {isLoadingOlderMessages ? '正在加载...' : '加载更早消息'}
                 </button>
-                <small>{`已显示最近 ${visibleMessages.length} / ${messages.length} 条消息`}</small>
+                <small>
+                  {isServerMessagePagingEnabled
+                    ? `已加载 ${visibleMessages.length} 条消息`
+                    : `已显示最近 ${visibleMessages.length} / ${messages.length} 条消息`}
+                </small>
               </div>
             )}
             {visibleMessages.map((message) => (
@@ -892,9 +1036,13 @@ function ChatView({
                 )}
                 canPin={conversation.type === 'group' && isGroupManager && !message.deletedAt}
                 isMine={message.senderId === myUserId}
+                isHighlighted={highlightedMessageId === message.id}
                 isPinned={conversation.pinnedMessageId === message.id}
                 key={message.id}
                 message={message}
+                messageRef={(node) => {
+                  messageRefs.current[message.id] = node
+                }}
                 onOpenImage={(attachment) => setImageViewerAttachment(attachment)}
                 onDelete={() => {
                   void onDeleteMessage(conversation.id, message.id)
@@ -1005,6 +1153,14 @@ function HighlightedText({ query, text }: { query: string; text: string }) {
   )
 }
 
+function searchResultTypeText(result: SearchResult) {
+  if (result.kind === 'conversation') return '会话'
+  if (result.messageType === 'image') return '图片'
+  if (result.messageType === 'video') return '视频'
+  if (result.messageType === 'file') return '文件'
+  return '消息'
+}
+
 function buildConversationMessageResults(
   query: string,
   conversation: Conversation,
@@ -1022,6 +1178,8 @@ function buildConversationMessageResults(
       conversationId: conversation.id,
       conversationTitle: conversation.title,
       kind: 'message' as const,
+      messageId: message.id,
+      messageType: message.type,
       title: conversation.title,
       snippet: message.body,
       senderName: getProfile(message.senderId)?.displayName ?? '成员',
@@ -1044,8 +1202,10 @@ function MessageBubble({
   canDelete,
   canPin,
   isMine,
+  isHighlighted,
   isPinned,
   message,
+  messageRef,
   onDelete,
   onOpenImage,
   onPin,
@@ -1056,9 +1216,11 @@ function MessageBubble({
 }: {
   canDelete: boolean
   canPin: boolean
+  isHighlighted: boolean
   isMine: boolean
   isPinned: boolean
   message: Message
+  messageRef: (node: HTMLElement | null) => void
   onDelete: () => void
   onOpenImage: (attachment: Attachment) => void
   onPin: () => void
@@ -1070,7 +1232,12 @@ function MessageBubble({
   const canManageFailedUpload = isMine && message.status === 'failed' && Boolean(message.uploadError)
 
   return (
-    <article className={`message ${isMine ? 'mine' : 'theirs'} ${message.deletedAt ? 'deleted' : ''}`}>
+    <article
+      className={`message ${isMine ? 'mine' : 'theirs'} ${message.deletedAt ? 'deleted' : ''} ${
+        isHighlighted ? 'highlighted' : ''
+      }`}
+      ref={messageRef}
+    >
       {!isMine && <Avatar profile={sender} size="small" />}
       <div className="bubble">
         {!isMine && <span className="sender-name">{sender?.displayName ?? '成员'}</span>}

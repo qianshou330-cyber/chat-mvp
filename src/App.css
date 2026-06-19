@@ -889,6 +889,11 @@ mark {
   padding: 8px 10px;
 }
 
+.inline-result-row:disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
+
 .message {
   align-items: end;
   display: flex;
@@ -902,6 +907,24 @@ mark {
 
 .message.theirs {
   align-self: flex-start;
+}
+
+.message.highlighted .bubble {
+  animation: message-highlight 2.4s ease;
+  border-color: rgba(37, 164, 232, 0.58);
+  box-shadow: 0 0 0 3px rgba(37, 164, 232, 0.14);
+}
+
+@keyframes message-highlight {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(37, 164, 232, 0);
+  }
+
+  20%,
+  70% {
+    box-shadow: 0 0 0 3px rgba(37, 164, 232, 0.18);
+  }
 }
 
 .bubble {

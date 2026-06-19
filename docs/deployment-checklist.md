@@ -20,6 +20,8 @@
 - Confirm `app_error_events` and `admin_activity_logs` exist after the v0.4 migration and RLS is enabled.
 - Confirm `20260618140000_group_log_visibility.sql` has run so current group owner/admin can read only that group’s logs.
 - Confirm `messages.message_type` accepts `video` after running `20260618120000_video_messages.sql`.
+- Confirm `20260619000000_message_pagination_search.sql` has run so `get_conversation_messages` and `search_messages` exist.
+- Confirm `20260619010000_message_search_context.sql` has run so `get_conversation_message_context` exists and `search_messages` returns message context fields.
 - Deploy the `send-message-push` Edge Function after setting server-only secrets.
 - Create a Database Webhook for `public.messages` `INSERT` events with the `x-webhook-secret` header. If the Dashboard Webhook form fails because the internal `supabase_functions` schema is unavailable, install the reviewed `pg_net` trigger fallback that calls the same Edge Function URL with the same header.
 - Do not create or use Supabase secret keys for the frontend.
@@ -65,6 +67,8 @@
 - Confirm the v0.6.7 production trial gate is recorded in `docs/v0.6.7-production-trial-gate.md`, including GitHub Actions status, Vercel asset checks, Chrome smoke scope, and temporary data cleanup.
 - Confirm the v0.6.8 production smoke is recorded in `docs/v0.6.8-production-smoke.md`, including temporary A/B/C accounts, real Supabase permission checks, Web Push coverage, media coverage, cleanup status, and the company-trial launch decision.
 - Confirm the v0.6.9 first-trial feedback pass is recorded in `docs/v0.6.9-trial-feedback-report.md`, including P0/P1/P2 counts, linked GitHub Issues, fix decisions, and `codex.v069.*` cleanup status when temporary data is used.
+- Confirm the v0.7.0 message scale handoff is recorded in `docs/v0.7.0-message-scale-search.md`, including pagination, server search, permission checks, and `codex.v070.*` cleanup status when temporary data is used.
+- Confirm the v0.7.1 search context reliability handoff is recorded in `docs/v0.7.1-search-context-reliability.md`, including search-result navigation, scroll-stable history loading, permission checks, and `codex.v071.*` cleanup status when temporary data is used.
 - Confirm Vercel Production loads the split chunks for group details and profile settings, and that `manifest.webmanifest` plus `sw.js` still return 200.
 - Confirm `docs/company-trial-safety.md` remains available for company-trial safety guidance.
 - Sign in to the same account from two browsers or windows and confirm both devices are listed.
@@ -99,5 +103,7 @@
 - Tag the production trial-gate patch as `v0.6.7-beta` after GitHub Actions is green, Vercel Production app/PWA assets return 200, Chrome production smoke is recorded, and temporary smoke data has a cleanup path.
 - Tag the real production trial launch gate as `v0.6.8-beta` after A/B/C Chrome production smoke passes, `codex.v068.*` temporary data has a cleanup path, and the 20-30 person launch checklist is ready.
 - Tag the first-trial feedback convergence patch as `v0.6.9-beta` after trial feedback has no unresolved P0, every P1 has a fix or explicit decision, local checks and CI pass, and Chrome production smoke confirms no regression.
+- Tag the message scale baseline as `v0.7.0-beta` after the v0.7.0 migration, long-conversation pagination, Chinese message search, A/B/C permission smoke, and cleanup path pass.
+- Tag the search context reliability patch as `v0.7.1-beta` after the v0.7.1 migration, search-result context loading, highlighted navigation, scroll-stable history loading, A/B/C permission smoke, and cleanup path pass.
 - Use `docs/beta-test-plan.md` for tester instructions and issue triage.
 - Collect feedback through GitHub Issue templates before prioritizing the next beta scope.

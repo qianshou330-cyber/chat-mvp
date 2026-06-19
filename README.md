@@ -59,6 +59,10 @@ v0.5 视频动态头像需要运行 `supabase/migrations/20260618100000_video_av
 
 v0.5.2 视频消息需要运行 `supabase/migrations/20260618120000_video_messages.sql`。运行后 `messages.message_type` 支持 `video`，聊天附件可发送 MP4/WebM 视频。
 
+v0.7.0 消息规模与搜索需要运行 `supabase/migrations/20260619000000_message_pagination_search.sql`。运行后聊天页按会话分页加载历史消息，当前会话搜索和全局消息搜索可查询服务端已保存消息。
+
+v0.7.1 搜索体验与历史消息可靠性需要运行 `supabase/migrations/20260619010000_message_search_context.sql`。运行后搜索结果会带消息定位信息，并可按目标消息加载附近历史上下文。
+
 ## Web Push Setup
 
 1. Generate a VAPID key pair.
@@ -98,6 +102,10 @@ npm run e2e
 `v0.6.8-beta` turns that gate into the real production trial launch check: temporary `codex.v068.*` A/B/C accounts run the full production smoke, the result is recorded in `docs/v0.6.8-production-smoke.md`, and the company-trial launch materials are aligned to this baseline.
 
 `v0.6.9-beta` is reserved for the first company-trial feedback convergence pass after the `v0.6.8-beta` smoke passes. It records P0/P1/P2 feedback in `docs/v0.6.9-trial-feedback-report.md` and only allows minimal stability, permission, notification, media, member-management, and mobile-blocking fixes.
+
+`v0.7.0-beta` adds server-backed message pagination and message search for longer company-trial conversations. See `docs/v0.7.0-message-scale-search.md`.
+
+`v0.7.1-beta` improves search-result context loading, highlighted result navigation, long-conversation scroll stability, and server-search documentation. See `docs/v0.7.1-search-context-reliability.md`.
 
 ## Deployment
 
@@ -148,4 +156,4 @@ Use `docs/deployment-checklist.md` before promoting a Preview deployment to Prod
 
 所有反馈统一进入 GitHub Issues，使用已有的缺陷反馈、体验反馈和功能建议模板。
 
-已知 beta 限制：暂不支持端到端加密、原生移动 App、语音/视频通话和服务端全文搜索。视频动态头像不等于语音/视频通话。当前产品路线图不包含频道和机器人。Web Push 第一版重点支持 Chrome/Edge 和 Android Chrome，iOS/Safari 需要单独验收。
+已知 beta 限制：暂不支持端到端加密、原生移动 App、语音/视频通话和企业级全文搜索服务。视频动态头像不等于语音/视频通话。当前产品路线图不包含频道和机器人。Web Push 第一版重点支持 Chrome/Edge 和 Android Chrome，iOS/Safari 需要单独验收。
