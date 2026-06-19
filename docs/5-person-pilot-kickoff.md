@@ -2,12 +2,12 @@
 
 ## 目标
 
-以 `v0.5.1-beta` 为基线，用 5 个真实核心用户验证公司内部试用的核心路径。先导阶段只收集和修复 P0/P1，不引入新功能。
+以 `v0.6.0-beta` 为基线，用 5 个真实核心用户验证公司内部试用的核心路径。先导阶段只收集和修复 P0/P1，不引入新功能。`v0.6.1-beta` 只作为清理、通知 smoke 和文档同步后的运维收口标签，不改变功能基线。
 
 ## 启动前准备
 
 - Production URL：`https://chat-mvp-tau.vercel.app`
-- 基线版本：`v0.5.1-beta`
+- 基线版本：`v0.6.0-beta`
 - 管理员账号：选择 1 个 owner 作为正式试用管理员。
 - 群聊：创建或确认 1 个正式试用群聊，命名为公司或团队名称。
 - 试用用户：准备 5 个真实邮箱，要求每个用户先完成注册和登录。
@@ -106,7 +106,7 @@ P2/P3：先收集，不阻塞先导。
 ## 修复流程
 
 ```text
-复现 -> 最小修复 -> npm run lint -> npm run test -- --run -> npm run build -> push main -> Vercel Production smoke -> tag v0.4.x-beta
+复现 -> 最小修复 -> npm run lint -> npm run test -- --run -> npm run build -> push main -> Vercel Production smoke -> tag v0.6.x-beta
 ```
 
 修复范围只包含稳定性、权限、通知、附件、成员管理和移动端阻塞问题，不夹带视频动态头像、频道、机器人或语音/视频功能。

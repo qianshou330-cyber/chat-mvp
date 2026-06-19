@@ -125,6 +125,8 @@ Use `docs/deployment-checklist.md` before promoting a Preview deployment to Prod
 
 `v0.6.0-beta` 作为 20-30 人公司试用稳定基线使用。管理员可在群详情复制邀请说明给未注册成员，并通过“更多管理 -> 试用巡检”查看最近错误、通知失败、附件失败和管理操作。
 
+`v0.6.1-beta` 作为试用前运维收口补丁使用：清理 `codex.v060.*` 自动验收数据、补一次真实 Chrome Web Push smoke、同步公司试用文档，并在 `docs/v0.6.1-production-smoke.md` 固定生产 smoke 记录。
+
 所有反馈统一进入 GitHub Issues，使用已有的缺陷反馈、体验反馈和功能建议模板。
 
 已知 beta 限制：暂不支持端到端加密、原生移动 App、语音/视频通话和服务端全文搜索。视频动态头像不等于语音/视频通话。当前产品路线图不包含频道和机器人。Web Push 第一版重点支持 Chrome/Edge 和 Android Chrome，iOS/Safari 需要单独验收。

@@ -54,6 +54,7 @@
 - Confirm group details show grouped sections for “群公告与权限”, “群成员”, “群文件”, and owner/admin-only “群管理记录”.
 - Confirm owner/admin can copy the group invite instructions for not-yet-registered members from group details.
 - Confirm owner/admin can open “试用巡检” and see recent error, notification failure, attachment failure, and management activity counts.
+- Confirm the v0.6.1 handoff smoke is recorded in `docs/v0.6.1-production-smoke.md`, including Web Push coverage, cleanup status, and any skipped items.
 - Confirm `docs/company-trial-safety.md` remains available for company-trial safety guidance.
 - Sign in to the same account from two browsers or windows and confirm both devices are listed.
 - Use “退出其他设备” and confirm the current device remains signed in while the other device exits after refresh or heartbeat.
@@ -78,5 +79,6 @@
 - Tag the combined media/profile-polish baseline as `v0.5.6-beta` after image preview, upload retry, video message, video avatar, profile settings UI, avatar action menu, notification, and login-device smoke tests pass.
 - Tag the chat shell UI baseline as `v0.5.9-beta` after chat list, chat header, message bubbles, composer, media, group governance, and permission smoke tests pass.
 - Tag the company-trial stability baseline as `v0.6.0-beta` after member invitation, trial inspection, permissions, media performance, and 20-30 person smoke paths pass.
+- Tag the company-trial handoff patch as `v0.6.1-beta` after v0.6 smoke data cleanup, real Chrome Web Push smoke, documentation sync, and production hygiene checks pass.
 - Use `docs/beta-test-plan.md` for tester instructions and issue triage.
 - Collect feedback through GitHub Issue templates before prioritizing the next beta scope.

@@ -27,7 +27,7 @@
 - Reference is limited to product structure and interaction patterns such as chat list density, profile/settings grouping, media viewer behavior, upload progress, group details, and group permission flows.
 
 ## Next Production Tasks
-- Finish v0.6.0 company-trial stability smoke before tagging `v0.6.0-beta`.
+- Finish the v0.6.1 company-trial handoff: clean v0.6 smoke data, complete one real Chrome Web Push smoke, and record the production smoke result.
 - Keep using `docs/telegram-reference-evaluation.md` as the clean-room boundary for Telegram-style chat and detail page polish.
 - Keep v0.6 focused on member invitation, trial inspection, permission regression, media performance, and mobile stability rather than new headline features.
 - Add server-side search only after client search reaches real data limits.

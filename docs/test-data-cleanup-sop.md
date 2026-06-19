@@ -21,6 +21,8 @@
 - 5 人先导自动验收可能留下 `codex-pilot-` 测试附件；必须通过 Storage 控制台删除，不能直接 SQL 删除 `storage.objects`。
 - v0.4.3-beta 收口已删除 17 个 `codex.pilot.*@example.com` 临时 Auth 用户；复验数量为 0。
 - v0.4.3-beta 收口已删除 `chat-uploads` 中唯一 `codex-pilot-` 测试附件；复验数量为 0。
+- v0.6.0-beta 生产 smoke 使用 `codex.v060.*@example.com` 临时 Auth 用户；v0.6.1 收口前必须预览并清理。
+- v0.6.0-beta smoke 可能留下 `codex-v060-` 测试附件；必须通过 Storage 控制台删除，不能直接 SQL 删除 `storage.objects`。
 
 ## 测试前缀
 
@@ -31,6 +33,7 @@
 - `codex.v031.`
 - `codex.v04.`
 - `codex.v042.`
+- `codex.v060.`
 - `codex.pilot.`
 - `codex.push.`
 - `codex.browserpush.`
@@ -39,6 +42,7 @@
 - `codex-pilot-`
 - `codex-v03-`
 - `codex-v042-`
+- `codex-v060-`
 - `device-smoke-`
 - `workspace-smoke-`
 
@@ -55,6 +59,7 @@ with test_users as (
      or email like 'codex.v031.%@example.com'
      or email like 'codex.v04.%@example.com'
      or email like 'codex.v042.%@example.com'
+     or email like 'codex.v060.%@example.com'
      or email like 'codex.pilot.%@example.com'
      or email like 'codex.push.%@example.com'
      or email like 'codex.browserpush.%@example.com'
@@ -69,6 +74,7 @@ where objects.name ilike '%device-smoke-%'
    or objects.name ilike '%codex-smoke-%'
    or objects.name ilike '%codex-pilot-%'
    or objects.name ilike '%codex-v042-%'
+   or objects.name ilike '%codex-v060-%'
    or exists (
      select 1 from test_users
      where objects.owner_id = test_users.id::text
@@ -95,6 +101,7 @@ where users.email like 'codex.v02.%@example.com'
    or users.email like 'codex.v031.%@example.com'
    or users.email like 'codex.v04.%@example.com'
    or users.email like 'codex.v042.%@example.com'
+   or users.email like 'codex.v060.%@example.com'
    or users.email like 'codex.pilot.%@example.com'
    or users.email like 'codex.push.%@example.com'
    or users.email like 'codex.browserpush.%@example.com'
@@ -110,6 +117,7 @@ Storage 清理不要直接删除 `storage.objects`。Supabase 会阻止这类 SQ
 - `codex-pilot-`
 - `codex-v03-`
 - `codex-v042-`
+- `codex-v060-`
 - `workspace-smoke-`
 
 ## 安全边界
