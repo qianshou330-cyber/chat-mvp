@@ -187,10 +187,22 @@ export interface SearchResult {
   createdAt: string
 }
 
+export interface SearchCursor {
+  createdAt: string
+  messageId: string
+}
+
 export interface SearchFilters {
   messageType: SearchMessageTypeFilter
   senderId: string
   dateRange: SearchDateRangeFilter
+}
+
+export interface SearchPage {
+  results: SearchResult[]
+  cursor?: SearchCursor
+  hasMore: boolean
+  error?: string
 }
 
 export interface ChatState {

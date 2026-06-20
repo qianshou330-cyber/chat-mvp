@@ -73,8 +73,10 @@ import type {
   MemberRole,
   Message,
   Profile,
+  SearchCursor,
   SearchResult,
   SearchFilters,
+  SearchPage,
   WorkspaceMember,
   WorkspaceRole,
 } from '../types'
@@ -116,6 +118,18 @@ interface MessagePageState {
   isLoading: boolean
 }
 
+interface ServerSearchState extends SearchPage {
+  isLoading: boolean
+  isLoadingMore: boolean
+}
+
+const emptyServerSearchState: ServerSearchState = {
+  results: [],
+  hasMore: false,
+  isLoading: false,
+  isLoadingMore: false,
+}
+
 function mapServerSearchResult(row: Record<string, unknown>): SearchResult {
   const kind = row.kind === 'conversation' ? 'conversation' : 'message'
   const resultId = String(row.result_id ?? `${kind}-${row.conversation_id ?? uid()}`)
@@ -149,8 +163,11 @@ function rpcSearchArguments(
   searchQuery: string,
   filters: SearchFilters,
   targetConversationId: string | null,
+  cursor: SearchCursor | null = null,
 ) {
   return {
+    before_created_at: cursor?.createdAt ?? null,
+    before_message_id: cursor?.messageId ?? null,
     created_after: searchDateRangeToIso(filters.dateRange) || null,
     created_before: null,
     result_limit: SERVER_MESSAGE_SEARCH_LIMIT,
@@ -158,6 +175,80 @@ function rpcSearchArguments(
     target_conversation_id: targetConversationId,
     target_message_type: filters.messageType === 'all' ? null : filters.messageType,
     target_sender_id: filters.senderId || null,
+  }
+}
+
+function cursorFromSearchResults(results: SearchResult[]): SearchCursor | undefined {
+  const lastMessageResult = [...results]
+    .reverse()
+    .find((result) => result.kind === 'message' && result.messageId)
+
+  if (!lastMessageResult?.messageId) return undefined
+
+  return {
+    createdAt: lastMessageResult.createdAt,
+    messageId: lastMessageResult.messageId,
+  }
+}
+
+function mergeSearchResults(existing: SearchResult[], incoming: SearchResult[]) {
+  const seen = new Set(existing.map((result) => result.id))
+  const merged = [...existing]
+
+  incoming.forEach((result) => {
+    if (seen.has(result.id)) return
+    merged.push(result)
+    seen.add(result.id)
+  })
+
+  return merged.sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
+}
+
+function isMissingSearchV3Schema(message: string) {
+  return message.includes('search_messages_v3') || message.includes('PGRST202')
+}
+
+async function fetchServerSearchPage(
+  client: NonNullable<typeof supabase>,
+  searchQuery: string,
+  filters: SearchFilters,
+  targetConversationId: string | null,
+  cursor: SearchCursor | null = null,
+): Promise<SearchPage> {
+  let result = await client.rpc(
+    'search_messages_v3',
+    rpcSearchArguments(searchQuery, filters, targetConversationId, cursor),
+  )
+
+  if (result.error && !cursor && isMissingSearchV3Schema(result.error.message)) {
+    result = await client.rpc(
+      'search_messages_v2',
+      rpcSearchArguments(searchQuery, filters, targetConversationId),
+    )
+  }
+
+  if (result.error && !cursor && !hasActiveSearchFilters(filters)) {
+    result = await client.rpc('search_messages', {
+      search_query: searchQuery,
+      target_conversation_id: targetConversationId,
+      result_limit: SERVER_MESSAGE_SEARCH_LIMIT,
+    })
+  }
+
+  if (result.error) {
+    return {
+      results: [],
+      hasMore: false,
+      error: friendlyErrorMessage(result.error.message, '无法完成服务端搜索，请稍后重试。'),
+    }
+  }
+
+  const results = (result.data ?? []).map(mapServerSearchResult)
+
+  return {
+    results,
+    cursor: cursorFromSearchResults(results),
+    hasMore: results.length === SERVER_MESSAGE_SEARCH_LIMIT,
   }
 }
 
@@ -172,7 +263,8 @@ export function useChatApp() {
   const [isLoading, setIsLoading] = useState(Boolean(supabase))
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>(initialConnectionStatus)
   const [messagePages, setMessagePages] = useState<Record<string, MessagePageState>>({})
-  const [serverSearchResults, setServerSearchResults] = useState<SearchResult[]>([])
+  const [serverSearchState, setServerSearchState] =
+    useState<ServerSearchState>(emptyServerSearchState)
   const currentDeviceId = useMemo(() => getOrCreateDeviceId(), [])
   const allowDeviceRestore = useRef(false)
   const currentChannel = useRef<ReturnType<NonNullable<typeof supabase>['channel']> | null>(
@@ -187,6 +279,7 @@ export function useChatApp() {
   )
   const pendingTextSendsRef = useRef<Set<string>>(new Set())
   const messageLoadLocksRef = useRef<Set<string>>(new Set())
+  const serverSearchRequestIdRef = useRef(0)
 
   const activeConversation = state.conversations.find(
     (conversation) => conversation.id === activeConversationId,
@@ -225,16 +318,14 @@ export function useChatApp() {
     const results = [...localSearchResults]
     const seenIds = new Set(results.map((result) => result.id))
 
-    serverSearchResults.forEach((result) => {
+    serverSearchState.results.forEach((result) => {
       if (seenIds.has(result.id)) return
       results.push(result)
       seenIds.add(result.id)
     })
 
-    return results
-      .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
-      .slice(0, SERVER_MESSAGE_SEARCH_LIMIT)
-  }, [localSearchResults, query, serverSearchResults])
+    return results.sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
+  }, [localSearchResults, query, serverSearchState.results])
 
   const visibleConversations = useMemo(() => {
     if (!normalizeSearch(query)) {
@@ -247,46 +338,6 @@ export function useChatApp() {
       .filter((conversation) => matchingConversationIds.has(conversation.id))
       .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
   }, [query, searchResults, state.conversations])
-
-  useEffect(() => {
-    const client = supabase
-    if (!client || !user) return
-
-    if (!isSearchQueryReady(query)) return
-
-    let cancelled = false
-
-    const runServerSearch = async () => {
-      let result = await client.rpc('search_messages_v2', rpcSearchArguments(query, searchFilters, null))
-
-      if (result.error && !hasActiveSearchFilters(searchFilters)) {
-        result = await client.rpc('search_messages', {
-          search_query: query,
-          target_conversation_id: null,
-          result_limit: SERVER_MESSAGE_SEARCH_LIMIT,
-        })
-      }
-
-      if (cancelled) return
-
-      if (result.error) {
-        setServerSearchResults([])
-        setScopedNotice('list', friendlyErrorMessage(result.error.message, '无法完成服务端搜索，请稍后重试。'))
-        return
-      }
-
-      setServerSearchResults((result.data ?? []).map(mapServerSearchResult))
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      void runServerSearch()
-    }, 250)
-
-    return () => {
-      cancelled = true
-      window.clearTimeout(timeoutId)
-    }
-  }, [query, searchFilters, setScopedNotice, user])
 
   const activeMessages = useMemo(
     () =>
@@ -318,11 +369,11 @@ export function useChatApp() {
   const activeWorkspaceRole =
     workspaceMembers.find((member) => member.userId === user?.id)?.role ?? 'member'
 
-  function recordAppError(
+  const recordAppError = useCallback((
     module: AppErrorModule,
     message: string,
     context: Record<string, unknown> = {},
-  ) {
+  ) => {
     const currentUser = user ?? (!supabase ? demoUser : null)
     if (!currentUser) return
 
@@ -357,7 +408,45 @@ export function useChatApp() {
         () => undefined,
         () => undefined,
       )
-  }
+  }, [activeWorkspace, user])
+
+  useEffect(() => {
+    const client = supabase
+    const requestId = serverSearchRequestIdRef.current + 1
+    serverSearchRequestIdRef.current = requestId
+    const shouldSearch = Boolean(client && user && isSearchQueryReady(query))
+
+    const timeoutId = window.setTimeout(() => {
+      if (!client || !user || !isSearchQueryReady(query)) {
+        setServerSearchState(emptyServerSearchState)
+        return
+      }
+
+      setServerSearchState({ ...emptyServerSearchState, isLoading: true })
+
+      void fetchServerSearchPage(client, query.trim(), searchFilters, null).then((page) => {
+        if (serverSearchRequestIdRef.current !== requestId) return
+
+        if (page.error) {
+          recordAppError('messages', page.error, {
+            hasFilters: hasActiveSearchFilters(searchFilters),
+            queryLength: query.trim().length,
+            scope: 'global_search',
+          })
+        }
+
+        setServerSearchState({
+          ...page,
+          isLoading: false,
+          isLoadingMore: false,
+        })
+      })
+    }, shouldSearch ? 300 : 0)
+
+    return () => {
+      window.clearTimeout(timeoutId)
+    }
+  }, [query, recordAppError, searchFilters, user])
 
   function recordAdminActivity(
     action: AdminActivityAction,
@@ -996,34 +1085,119 @@ export function useChatApp() {
     return contextMessages.some((message) => message.id === messageId)
   }, [messagePages, setScopedNotice])
 
+  async function retrySearchResults() {
+    const client = supabase
+    const normalizedQuery = query.trim()
+    if (!client || !user || !isSearchQueryReady(normalizedQuery)) return false
+
+    const requestId = serverSearchRequestIdRef.current + 1
+    serverSearchRequestIdRef.current = requestId
+    setServerSearchState({ ...emptyServerSearchState, isLoading: true })
+
+    const page = await fetchServerSearchPage(client, normalizedQuery, searchFilters, null)
+    if (serverSearchRequestIdRef.current !== requestId) return false
+
+    if (page.error) {
+      recordAppError('messages', page.error, {
+        hasFilters: hasActiveSearchFilters(searchFilters),
+        queryLength: normalizedQuery.length,
+        scope: 'global_search_retry',
+      })
+    }
+
+    setServerSearchState({
+      ...page,
+      isLoading: false,
+      isLoadingMore: false,
+    })
+
+    return !page.error
+  }
+
+  async function loadMoreSearchResults() {
+    const client = supabase
+    const normalizedQuery = query.trim()
+    const cursor = serverSearchState.cursor ?? null
+
+    if (
+      !client ||
+      !user ||
+      !isSearchQueryReady(normalizedQuery) ||
+      !cursor ||
+      !serverSearchState.hasMore ||
+      serverSearchState.isLoading ||
+      serverSearchState.isLoadingMore
+    ) {
+      return false
+    }
+
+    const requestId = serverSearchRequestIdRef.current + 1
+    serverSearchRequestIdRef.current = requestId
+    setServerSearchState((previous) => ({
+      ...previous,
+      error: undefined,
+      isLoadingMore: true,
+    }))
+
+    const page = await fetchServerSearchPage(client, normalizedQuery, searchFilters, null, cursor)
+    if (serverSearchRequestIdRef.current !== requestId) return false
+
+    if (page.error) {
+      recordAppError('messages', page.error, {
+        hasFilters: hasActiveSearchFilters(searchFilters),
+        queryLength: normalizedQuery.length,
+        scope: 'global_search_load_more',
+      })
+      setServerSearchState((previous) => ({
+        ...previous,
+        error: page.error,
+        isLoadingMore: false,
+      }))
+      return false
+    }
+
+    setServerSearchState((previous) => {
+      const merged = mergeSearchResults(previous.results, page.results)
+      return {
+        results: merged,
+        cursor: cursorFromSearchResults(merged),
+        hasMore: page.hasMore,
+        isLoading: false,
+        isLoadingMore: false,
+      }
+    })
+    return true
+  }
+
   const searchConversationMessages = useCallback(async (
     conversationId: string,
     searchQuery: string,
     filters: SearchFilters = defaultSearchFilters,
+    cursor: SearchCursor | null = null,
   ) => {
     const client = supabase
-    if (!client || !isSearchQueryReady(searchQuery)) return []
-
-    let result = await client.rpc('search_messages_v2', rpcSearchArguments(searchQuery, filters, conversationId))
-
-    if (result.error && !hasActiveSearchFilters(filters)) {
-      result = await client.rpc('search_messages', {
-        search_query: searchQuery,
-        target_conversation_id: conversationId,
-        result_limit: SERVER_MESSAGE_SEARCH_LIMIT,
-      })
+    if (!client || !isSearchQueryReady(searchQuery)) {
+      return { results: [], hasMore: false }
     }
 
-    if (result.error) {
+    const page = await fetchServerSearchPage(client, searchQuery, filters, conversationId, cursor)
+
+    if (page.error) {
+      recordAppError('messages', page.error, {
+        conversationId,
+        hasFilters: hasActiveSearchFilters(filters),
+        isPaginated: Boolean(cursor),
+        queryLength: searchQuery.trim().length,
+        scope: 'conversation_search',
+      })
       setScopedNotice(
         'chat',
-        friendlyErrorMessage(result.error.message, '无法搜索历史消息，请稍后重试。'),
+        page.error,
       )
-      return []
     }
 
-    return (result.data ?? []).map(mapServerSearchResult)
-  }, [setScopedNotice])
+    return page
+  }, [recordAppError, setScopedNotice])
 
   useEffect(() => {
     if (!supabase) return
@@ -3414,6 +3588,9 @@ export function useChatApp() {
     isLoadingOlderMessages: Boolean(activeMessagePage?.isLoading),
     isSupabaseConfigured,
     isServerMessagePagingEnabled: Boolean(supabase),
+    isSearchLoading: serverSearchState.isLoading,
+    isSearchLoadingMore: serverSearchState.isLoadingMore,
+    hasMoreSearchResults: serverSearchState.hasMore,
     me,
     noticeFor,
     outgoingContactRequests,
@@ -3421,6 +3598,7 @@ export function useChatApp() {
     query,
     refreshCurrentConversation,
     searchFilters,
+    searchError: serverSearchState.error ?? '',
     searchResults,
     searchConversationMessages,
     sendFile,
@@ -3429,6 +3607,7 @@ export function useChatApp() {
     setActiveConversationId,
     setSearchFilters,
     loadMessageContext,
+    loadMoreSearchResults,
     loadOlderMessages,
     setQuery,
     createAccountWithEmail,
@@ -3438,6 +3617,7 @@ export function useChatApp() {
     refreshDeviceSessions,
     respondToContactRequest,
     retryFileMessage,
+    retrySearchResults,
     revokeDeviceSession,
     revokeOtherDevices,
     removeFailedMessage,

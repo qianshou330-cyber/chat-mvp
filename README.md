@@ -4,7 +4,7 @@ Telegram-style mobile PWA MVP for chat, built with React, TypeScript, Vite, Supa
 
 生产 beta 地址：`https://chat-mvp-tau.vercel.app`
 
-当前阶段：`v0.6.8-beta` 真实生产试用启动闸门；`v0.6.9-beta` 已准备为真实公司试用首轮反馈收敛补丁，用于记录和处理试用前 1-3 天暴露的 P0/P1/P2。
+当前阶段：`v0.7.4-beta` 搜索性能与生产可观测性补丁；v0.7 系列用于把公司试用中的长会话历史消息、服务端搜索、筛选、分页和搜索失败记录收口。
 
 ## 已包含能力
 
@@ -13,7 +13,7 @@ Telegram-style mobile PWA MVP for chat, built with React, TypeScript, Vite, Supa
 - Supabase 邮箱密码登录、Realtime 消息、Storage 上传和 signed URL 下载。
 - Supabase schema、RLS、头像上传 bucket、好友申请 RPC migrations，位于 `supabase/migrations`。
 - 附件类型校验和 10 MB 上传限制；支持图片、视频、PDF 和文本文件；头像图片限制 2 MB，视频头像会自动处理到 5 秒/5 MB 内。
-- 客户端消息搜索：支持聊天列表搜索和当前会话搜索。
+- 服务端消息搜索：支持聊天列表搜索、当前会话搜索、历史消息分页、搜索结果上下文、类型/发送人/时间筛选和结果加载更多。
 - Web Push/PWA 通知基础设施：浏览器订阅、Supabase 订阅表、Edge Function 和隐私保护通知 payload。
 - v0.3 公司试用基础设施：默认工作区、管理员成员管理、群聊工作区归属和登录设备管理。
 - v0.4 稳定化基础设施：关键错误记录、管理员操作记录和管理员可见的最近记录入口。
@@ -65,6 +65,10 @@ v0.7.1 搜索体验与历史消息可靠性需要运行 `supabase/migrations/202
 
 v0.7.2 搜索筛选与结果质量需要运行 `supabase/migrations/20260619020000_message_search_filters.sql`。运行后全局搜索支持类型/时间筛选，当前会话搜索支持类型/发送人/时间筛选。
 
+v0.7.3 搜索结果分页与请求可靠性需要运行 `supabase/migrations/20260620000000_message_search_pagination.sql`。运行后全局搜索和当前会话搜索都支持“加载更多结果”，并使用请求防抖和旧请求丢弃避免结果错乱。
+
+v0.7.4 搜索性能与可观测性需要运行 `supabase/migrations/20260620010000_message_search_performance.sql`。运行后搜索相关索引和 trigram 支持会增强，搜索失败会以脱敏上下文进入现有错误记录。
+
 ## Web Push Setup
 
 1. Generate a VAPID key pair.
@@ -110,6 +114,10 @@ npm run e2e
 `v0.7.1-beta` improves search-result context loading, highlighted result navigation, long-conversation scroll stability, and server-search documentation. See `docs/v0.7.1-search-context-reliability.md`.
 
 `v0.7.2-beta` adds lightweight type, sender, and date filters for message search while keeping the Supabase RPC contains-search approach. See `docs/v0.7.2-search-filters-quality.md`.
+
+`v0.7.3-beta` adds search-result pagination, 300 ms request debounce, stale-response protection, and retryable search errors. See `docs/v0.7.3-search-pagination-reliability.md`.
+
+`v0.7.4-beta` adds search performance indexes and sanitized search failure observability without changing the search RPC response shape. See `docs/v0.7.4-search-performance-handoff.md`.
 
 ## Deployment
 

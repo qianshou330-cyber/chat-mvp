@@ -36,7 +36,9 @@ import type {
   ConversationMember,
   Message,
   Profile,
+  SearchCursor,
   SearchFilters,
+  SearchPage,
   SearchResult,
 } from './types'
 
@@ -69,6 +71,24 @@ const DATE_RANGE_FILTERS: Array<{ label: string; value: SearchFilters['dateRange
   { label: '近 7 天', value: '7d' },
   { label: '近 30 天', value: '30d' },
 ]
+
+function mergeSearchResultPages(existing: SearchResult[], incoming: SearchResult[]) {
+  const seen = new Set(existing.map((result) => result.id))
+  const merged = [...existing]
+
+  incoming.forEach((result) => {
+    if (seen.has(result.id)) return
+    merged.push(result)
+    seen.add(result.id)
+  })
+
+  return merged.sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
+}
+
+const emptySearchPage: SearchPage = {
+  results: [],
+  hasMore: false,
+}
 
 function App() {
   const chat = useChatApp()
@@ -162,6 +182,10 @@ function App() {
             query={chat.query}
             searchFilters={chat.searchFilters}
             searchResults={chat.searchResults}
+            hasMoreSearchResults={chat.hasMoreSearchResults}
+            isSearchLoading={chat.isSearchLoading}
+            isSearchLoadingMore={chat.isSearchLoadingMore}
+            searchError={chat.searchError}
             onCreateGroup={async () => {
               const created = await chat.createGroup()
               setFocusedMessageId('')
@@ -176,6 +200,8 @@ function App() {
             onOpenSearchResult={(result) => {
               void openSearchResult(result)
             }}
+            onLoadMoreSearchResults={chat.loadMoreSearchResults}
+            onRetrySearchResults={chat.retrySearchResults}
             onSearchFiltersChange={chat.setSearchFilters}
             onQueryChange={chat.setQuery}
             onSignOut={handleSignOut}
@@ -389,29 +415,39 @@ function ConversationList({
   authNotice,
   conversations,
   getProfile,
+  hasMoreSearchResults,
   incomingContactRequests,
+  isSearchLoading,
+  isSearchLoadingMore,
   me,
   outgoingContactRequests,
   onCreateGroup,
+  onLoadMoreSearchResults,
   onOpenConversation,
   onOpenProfile,
   onOpenSearchResult,
   onQueryChange,
   onRespondToContactRequest,
+  onRetrySearchResults,
   onSearchFiltersChange,
   onSendContactRequest,
   onSignOut,
   query,
+  searchError,
   searchFilters,
   searchResults,
 }: {
   authNotice: string
   conversations: Conversation[]
   getProfile: (profileId: string) => Profile | undefined
+  hasMoreSearchResults: boolean
   incomingContactRequests: ContactRequest[]
+  isSearchLoading: boolean
+  isSearchLoadingMore: boolean
   me: Profile | null | undefined
   outgoingContactRequests: ContactRequest[]
   onCreateGroup: () => void
+  onLoadMoreSearchResults: () => Promise<boolean>
   onOpenConversation: (id: string) => void
   onOpenProfile: () => void
   onOpenSearchResult: (result: SearchResult) => void
@@ -420,10 +456,12 @@ function ConversationList({
     requestId: string,
     action: 'accepted' | 'declined',
   ) => Promise<boolean>
+  onRetrySearchResults: () => Promise<boolean>
   onSearchFiltersChange: (filters: SearchFilters) => void
   onSendContactRequest: (email: string) => Promise<boolean>
   onSignOut: () => void
   query: string
+  searchError: string
   searchFilters: SearchFilters
   searchResults: SearchResult[]
 }) {
@@ -645,7 +683,17 @@ function ConversationList({
       {isSearching ? (
         <SearchResults
           canRunSearch={canRunSearch}
+          error={searchError}
+          hasMore={hasMoreSearchResults}
+          isLoading={isSearchLoading}
+          isLoadingMore={isSearchLoadingMore}
+          onLoadMore={() => {
+            void onLoadMoreSearchResults()
+          }}
           onOpenResult={onOpenSearchResult}
+          onRetry={() => {
+            void onRetrySearchResults()
+          }}
           query={query}
           results={searchResults}
         />
@@ -697,12 +745,24 @@ function ConversationList({
 
 function SearchResults({
   canRunSearch,
+  error,
+  hasMore,
+  isLoading,
+  isLoadingMore,
+  onLoadMore,
   onOpenResult,
+  onRetry,
   query,
   results,
 }: {
   canRunSearch: boolean
+  error: string
+  hasMore: boolean
+  isLoading: boolean
+  isLoadingMore: boolean
+  onLoadMore: () => void
   onOpenResult: (result: SearchResult) => void
+  onRetry: () => void
   query: string
   results: SearchResult[]
 }) {
@@ -712,11 +772,25 @@ function SearchResults({
         <strong>搜索结果</strong>
         <span>{results.length}</span>
       </div>
+      {error && (
+        <div className="search-error" role="alert">
+          <span>{error}</span>
+          <button onClick={onRetry} type="button">
+            重试
+          </button>
+        </div>
+      )}
       {!canRunSearch ? (
         <EmptyState
           icon={<Search size={28} />}
           title="继续输入关键词"
           body="中文 1 个字即可搜索；英文或数字请至少输入 2 个字符。"
+        />
+      ) : isLoading && results.length === 0 ? (
+        <EmptyState
+          icon={<Search size={28} />}
+          title="正在搜索"
+          body="正在查询已保存消息，请稍候。"
         />
       ) : results.length === 0 ? (
         <EmptyState
@@ -725,28 +799,40 @@ function SearchResults({
           body="换个联系人、群名或消息关键词试试。"
         />
       ) : (
-        results.map((result) => (
-          <button
-            aria-label={`打开搜索结果：${result.title}`}
-            className="search-result-row"
-            key={result.id}
-            onClick={() => onOpenResult(result)}
-            type="button"
-          >
-            <span className="result-kind">
-              {result.kind === 'conversation' ? <MessageCircle size={17} /> : <Search size={17} />}
-            </span>
-            <span className="result-copy">
-              <strong>{displayConversationTitle(result.title)}</strong>
-              <small>
-                {`${searchResultTypeText(result)} · ${result.senderName} · ${formatTime(result.createdAt)}`}
-              </small>
-              <span className="result-snippet">
-                <HighlightedText query={query} text={result.snippet} />
+        <>
+          {results.map((result) => (
+            <button
+              aria-label={`打开搜索结果：${result.title}`}
+              className="search-result-row"
+              key={result.id}
+              onClick={() => onOpenResult(result)}
+              type="button"
+            >
+              <span className="result-kind">
+                {result.kind === 'conversation' ? <MessageCircle size={17} /> : <Search size={17} />}
               </span>
-            </span>
-          </button>
-        ))
+              <span className="result-copy">
+                <strong>{displayConversationTitle(result.title)}</strong>
+                <small>
+                  {`${searchResultTypeText(result)} · ${result.senderName} · ${formatTime(result.createdAt)}`}
+                </small>
+                <span className="result-snippet">
+                  <HighlightedText query={query} text={result.snippet} />
+                </span>
+              </span>
+            </button>
+          ))}
+          {hasMore && (
+            <button
+              className="search-load-more"
+              disabled={isLoadingMore}
+              onClick={onLoadMore}
+              type="button"
+            >
+              {isLoadingMore ? '正在加载...' : '加载更多结果'}
+            </button>
+          )}
+        </>
       )}
     </section>
   )
@@ -886,7 +972,8 @@ function ChatView({
     conversationId: string,
     searchQuery: string,
     filters?: SearchFilters,
-  ) => Promise<SearchResult[]>
+    cursor?: SearchCursor | null,
+  ) => Promise<SearchPage>
   onSendFile: (file: File) => void
   onSendText: (body: string) => void
   onUnpinMessage: (conversationId: string) => Promise<boolean>
@@ -900,12 +987,14 @@ function ChatView({
   const [focusedInlineMessageId, setFocusedInlineMessageId] = useState('')
   const [highlightedMessageId, setHighlightedMessageId] = useState('')
   const [openingSearchResultId, setOpeningSearchResultId] = useState('')
-  const [serverMessageSearchResults, setServerMessageSearchResults] = useState<SearchResult[]>([])
+  const [serverMessageSearchPage, setServerMessageSearchPage] = useState<SearchPage>(emptySearchPage)
   const [isServerMessageSearchLoading, setIsServerMessageSearchLoading] = useState(false)
+  const [isServerMessageSearchLoadingMore, setIsServerMessageSearchLoadingMore] = useState(false)
   const [visibleMessageCount, setVisibleMessageCount] = useState(INITIAL_VISIBLE_MESSAGE_COUNT)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const messageListRef = useRef<HTMLDivElement | null>(null)
   const messageRefs = useRef<Record<string, HTMLElement | null>>({})
+  const messageSearchRequestIdRef = useRef(0)
   const otherMemberId = conversation.memberIds.find((id) => id !== myUserId)
   const otherProfile = getProfile(otherMemberId ?? '')
   const currentMember = conversationMembers.find(
@@ -945,7 +1034,7 @@ function ChatView({
   const messageSearchResults = !hasMessageSearchQuery
     ? []
     : isServerMessagePagingEnabled
-      ? serverMessageSearchResults
+      ? serverMessageSearchPage.results
       : localMessageSearchResults
   const isMessageSearchLoading = canRunMessageSearch && isServerMessageSearchLoading
   const effectiveFocusedMessageId = focusedInlineMessageId || focusedMessageId
@@ -957,24 +1046,30 @@ function ChatView({
     }))
 
   useEffect(() => {
-    if (!isServerMessagePagingEnabled) return
-
     const normalizedQuery = messageSearchQuery.trim()
-    if (!isSearchQueryReady(normalizedQuery)) return
-
-    let cancelled = false
+    const requestId = messageSearchRequestIdRef.current + 1
+    messageSearchRequestIdRef.current = requestId
+    const shouldSearch = isServerMessagePagingEnabled && isSearchQueryReady(normalizedQuery)
 
     const timeoutId = window.setTimeout(() => {
+      setServerMessageSearchPage(emptySearchPage)
+      setIsServerMessageSearchLoadingMore(false)
+
+      if (!isServerMessagePagingEnabled || !isSearchQueryReady(normalizedQuery)) {
+        setIsServerMessageSearchLoading(false)
+        return
+      }
+
       setIsServerMessageSearchLoading(true)
-      void onSearchMessages(conversation.id, normalizedQuery, messageSearchFilters).then((results) => {
-        if (cancelled) return
-        setServerMessageSearchResults(results)
+
+      void onSearchMessages(conversation.id, normalizedQuery, messageSearchFilters, null).then((page) => {
+        if (messageSearchRequestIdRef.current !== requestId) return
+        setServerMessageSearchPage(page)
         setIsServerMessageSearchLoading(false)
       })
-    }, 250)
+    }, shouldSearch ? 300 : 0)
 
     return () => {
-      cancelled = true
       window.clearTimeout(timeoutId)
     }
   }, [conversation.id, isServerMessagePagingEnabled, messageSearchFilters, messageSearchQuery, onSearchMessages])
@@ -996,6 +1091,58 @@ function ChatView({
 
     return () => window.clearTimeout(timeoutId)
   }, [effectiveFocusedMessageId, visibleMessages])
+
+  async function retryConversationSearch() {
+    const normalizedQuery = messageSearchQuery.trim()
+    if (!isSearchQueryReady(normalizedQuery)) return
+
+    const requestId = messageSearchRequestIdRef.current + 1
+    messageSearchRequestIdRef.current = requestId
+    setIsServerMessageSearchLoading(true)
+    setIsServerMessageSearchLoadingMore(false)
+
+    const page = await onSearchMessages(conversation.id, normalizedQuery, messageSearchFilters, null)
+    if (messageSearchRequestIdRef.current !== requestId) return
+
+    setServerMessageSearchPage(page)
+    setIsServerMessageSearchLoading(false)
+  }
+
+  async function loadMoreConversationSearchResults() {
+    const normalizedQuery = messageSearchQuery.trim()
+    const cursor = serverMessageSearchPage.cursor ?? null
+
+    if (
+      !isSearchQueryReady(normalizedQuery) ||
+      !cursor ||
+      !serverMessageSearchPage.hasMore ||
+      isServerMessageSearchLoading ||
+      isServerMessageSearchLoadingMore
+    ) {
+      return
+    }
+
+    const requestId = messageSearchRequestIdRef.current + 1
+    messageSearchRequestIdRef.current = requestId
+    setIsServerMessageSearchLoadingMore(true)
+    setServerMessageSearchPage((page) => ({ ...page, error: undefined }))
+
+    const nextPage = await onSearchMessages(conversation.id, normalizedQuery, messageSearchFilters, cursor)
+    if (messageSearchRequestIdRef.current !== requestId) return
+
+    if (nextPage.error) {
+      setServerMessageSearchPage((page) => ({ ...page, error: nextPage.error }))
+      setIsServerMessageSearchLoadingMore(false)
+      return
+    }
+
+    setServerMessageSearchPage((page) => ({
+      results: mergeSearchResultPages(page.results, nextPage.results),
+      cursor: nextPage.cursor,
+      hasMore: nextPage.hasMore,
+    }))
+    setIsServerMessageSearchLoadingMore(false)
+  }
 
   async function openMessageSearchResult(result: SearchResult) {
     setOpeningSearchResultId(result.id)
@@ -1098,6 +1245,19 @@ function ChatView({
           {messageSearchQuery.trim() && (
             <div className="inline-results">
               <strong>{isMessageSearchLoading ? '正在搜索...' : `${messageSearchResults.length} 条结果`}</strong>
+              {serverMessageSearchPage.error && (
+                <div className="search-error compact" role="alert">
+                  <span>{serverMessageSearchPage.error}</span>
+                  <button
+                    onClick={() => {
+                      void retryConversationSearch()
+                    }}
+                    type="button"
+                  >
+                    重试
+                  </button>
+                </div>
+              )}
               {!canRunMessageSearch ? (
                 <p className="search-scope-note">中文 1 个字即可搜索；英文或数字请至少输入 2 个字符。</p>
               ) : isServerMessagePagingEnabled ? (
@@ -1130,6 +1290,18 @@ function ChatView({
                   </button>
                 ))
               ) : null}
+              {canRunMessageSearch && serverMessageSearchPage.hasMore && (
+                <button
+                  className="search-load-more compact"
+                  disabled={isServerMessageSearchLoadingMore}
+                  onClick={() => {
+                    void loadMoreConversationSearchResults()
+                  }}
+                  type="button"
+                >
+                  {isServerMessageSearchLoadingMore ? '正在加载...' : '加载更多结果'}
+                </button>
+              )}
             </div>
           )}
         </section>
