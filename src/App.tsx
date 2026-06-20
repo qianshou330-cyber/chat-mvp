@@ -23,6 +23,11 @@ import './App.css'
 import { useChatApp } from './hooks/useChatApp'
 import Avatar from './components/Avatar'
 import { displayConversationTitle, formatFileSize, formatStatus, formatTime } from './lib/uiFormat'
+import {
+  buildSearchResults,
+  defaultSearchFilters,
+  isSearchQueryReady,
+} from './hooks/chatApp/search'
 import type {
   Attachment,
   ConnectionStatus,
@@ -31,6 +36,7 @@ import type {
   ConversationMember,
   Message,
   Profile,
+  SearchFilters,
   SearchResult,
 } from './types'
 
@@ -50,6 +56,19 @@ function ScreenFallback() {
 const APP_DISPLAY_NAME = '聊天 MVP'
 const INITIAL_VISIBLE_MESSAGE_COUNT = 80
 const MESSAGE_LOAD_STEP = 80
+const MESSAGE_TYPE_FILTERS: Array<{ label: string; value: SearchFilters['messageType'] }> = [
+  { label: '全部', value: 'all' },
+  { label: '文本', value: 'text' },
+  { label: '图片', value: 'image' },
+  { label: '视频', value: 'video' },
+  { label: '文件', value: 'file' },
+]
+const DATE_RANGE_FILTERS: Array<{ label: string; value: SearchFilters['dateRange'] }> = [
+  { label: '全部时间', value: 'all' },
+  { label: '今天', value: 'today' },
+  { label: '近 7 天', value: '7d' },
+  { label: '近 30 天', value: '30d' },
+]
 
 function App() {
   const chat = useChatApp()
@@ -141,6 +160,7 @@ function App() {
             me={chat.me}
             outgoingContactRequests={chat.outgoingContactRequests}
             query={chat.query}
+            searchFilters={chat.searchFilters}
             searchResults={chat.searchResults}
             onCreateGroup={async () => {
               const created = await chat.createGroup()
@@ -156,6 +176,7 @@ function App() {
             onOpenSearchResult={(result) => {
               void openSearchResult(result)
             }}
+            onSearchFiltersChange={chat.setSearchFilters}
             onQueryChange={chat.setQuery}
             onSignOut={handleSignOut}
             onRespondToContactRequest={async (requestId, action) => {
@@ -377,9 +398,11 @@ function ConversationList({
   onOpenSearchResult,
   onQueryChange,
   onRespondToContactRequest,
+  onSearchFiltersChange,
   onSendContactRequest,
   onSignOut,
   query,
+  searchFilters,
   searchResults,
 }: {
   authNotice: string
@@ -397,9 +420,11 @@ function ConversationList({
     requestId: string,
     action: 'accepted' | 'declined',
   ) => Promise<boolean>
+  onSearchFiltersChange: (filters: SearchFilters) => void
   onSendContactRequest: (email: string) => Promise<boolean>
   onSignOut: () => void
   query: string
+  searchFilters: SearchFilters
   searchResults: SearchResult[]
 }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
@@ -445,6 +470,7 @@ function ConversationList({
   }
 
   const isSearching = query.trim().length > 0
+  const canRunSearch = isSearchQueryReady(query)
 
   async function respondToRequest(requestId: string, action: 'accepted' | 'declined') {
     setRespondingRequestId(requestId)
@@ -516,6 +542,15 @@ function ConversationList({
           value={query}
         />
       </div>
+
+      {isSearching && (
+        <SearchFilterBar
+          filters={searchFilters}
+          onChange={onSearchFiltersChange}
+          query={query}
+          scope="global"
+        />
+      )}
 
       {isContactFormOpen && (
         <form className="contact-panel" onSubmit={submitContact}>
@@ -609,6 +644,7 @@ function ConversationList({
 
       {isSearching ? (
         <SearchResults
+          canRunSearch={canRunSearch}
           onOpenResult={onOpenSearchResult}
           query={query}
           results={searchResults}
@@ -660,10 +696,12 @@ function ConversationList({
 }
 
 function SearchResults({
+  canRunSearch,
   onOpenResult,
   query,
   results,
 }: {
+  canRunSearch: boolean
   onOpenResult: (result: SearchResult) => void
   query: string
   results: SearchResult[]
@@ -674,7 +712,13 @@ function SearchResults({
         <strong>搜索结果</strong>
         <span>{results.length}</span>
       </div>
-      {results.length === 0 ? (
+      {!canRunSearch ? (
+        <EmptyState
+          icon={<Search size={28} />}
+          title="继续输入关键词"
+          body="中文 1 个字即可搜索；英文或数字请至少输入 2 个字符。"
+        />
+      ) : results.length === 0 ? (
         <EmptyState
           icon={<Search size={28} />}
           title="没有搜索结果"
@@ -703,6 +747,91 @@ function SearchResults({
             </span>
           </button>
         ))
+      )}
+    </section>
+  )
+}
+
+function SearchFilterBar({
+  filters,
+  onChange,
+  query,
+  scope,
+  senderOptions = [],
+}: {
+  filters: SearchFilters
+  onChange: (filters: SearchFilters) => void
+  query: string
+  scope: 'global' | 'conversation'
+  senderOptions?: Array<{ id: string; name: string }>
+}) {
+  const hasFilters =
+    filters.messageType !== 'all' || filters.senderId || filters.dateRange !== 'all'
+
+  function update(nextFilters: Partial<SearchFilters>) {
+    onChange({ ...filters, ...nextFilters })
+  }
+
+  return (
+    <section className="search-filter-bar" aria-label="搜索筛选">
+      <div className="filter-row" role="group" aria-label="消息类型">
+        {MESSAGE_TYPE_FILTERS.map((option) => (
+          <button
+            className={filters.messageType === option.value ? 'filter-chip active' : 'filter-chip'}
+            key={option.value}
+            onClick={() => update({ messageType: option.value })}
+            type="button"
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+      <div className="filter-row compact">
+        {scope === 'conversation' && (
+          <label className="filter-select">
+            <span>发送人</span>
+            <select
+              aria-label="按发送人筛选"
+              onChange={(event) => update({ senderId: event.target.value })}
+              value={filters.senderId}
+            >
+              <option value="">全部成员</option>
+              {senderOptions.map((sender) => (
+                <option key={sender.id} value={sender.id}>
+                  {sender.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        <label className="filter-select">
+          <span>时间</span>
+          <select
+            aria-label="按时间筛选"
+            onChange={(event) =>
+              update({ dateRange: event.target.value as SearchFilters['dateRange'] })
+            }
+            value={filters.dateRange}
+          >
+            {DATE_RANGE_FILTERS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        {hasFilters && (
+          <button
+            className="filter-reset"
+            onClick={() => onChange(defaultSearchFilters)}
+            type="button"
+          >
+            清除筛选
+          </button>
+        )}
+      </div>
+      {query.trim() && !isSearchQueryReady(query) && (
+        <p className="search-scope-note">中文 1 个字即可搜索；英文或数字请至少输入 2 个字符。</p>
       )}
     </section>
   )
@@ -753,7 +882,11 @@ function ChatView({
   onPinMessage: (conversationId: string, messageId: string) => Promise<boolean>
   onRemoveFailedUpload: (messageId: string) => void
   onRetryUpload: (messageId: string) => void
-  onSearchMessages: (conversationId: string, searchQuery: string) => Promise<SearchResult[]>
+  onSearchMessages: (
+    conversationId: string,
+    searchQuery: string,
+    filters?: SearchFilters,
+  ) => Promise<SearchResult[]>
   onSendFile: (file: File) => void
   onSendText: (body: string) => void
   onUnpinMessage: (conversationId: string) => Promise<boolean>
@@ -763,6 +896,7 @@ function ChatView({
   const [imageViewerAttachment, setImageViewerAttachment] = useState<Attachment | null>(null)
   const [isMessageSearchOpen, setIsMessageSearchOpen] = useState(false)
   const [messageSearchQuery, setMessageSearchQuery] = useState('')
+  const [messageSearchFilters, setMessageSearchFilters] = useState<SearchFilters>(defaultSearchFilters)
   const [focusedInlineMessageId, setFocusedInlineMessageId] = useState('')
   const [highlightedMessageId, setHighlightedMessageId] = useState('')
   const [openingSearchResultId, setOpeningSearchResultId] = useState('')
@@ -785,33 +919,54 @@ function ChatView({
   const pinnedMessage = conversation.pinnedMessageId
     ? messages.find((message) => message.id === conversation.pinnedMessageId && !message.deletedAt)
     : undefined
+  const conversationProfilesById = useMemo(() => {
+    const entries: Array<[string, Profile]> = []
+    conversation.memberIds.forEach((id) => {
+      const profile = getProfile(id)
+      if (profile) entries.push([id, profile])
+    })
+    return new Map(entries)
+  }, [conversation.memberIds, getProfile])
   const hasClientOlderMessages = !isServerMessagePagingEnabled && messages.length > visibleMessageCount
   const visibleMessages = hasClientOlderMessages ? messages.slice(-visibleMessageCount) : messages
   const hasOlderMessages = hasServerOlderMessages || hasClientOlderMessages
   const localMessageSearchResults = useMemo(
-    () => buildConversationMessageResults(messageSearchQuery, conversation, visibleMessages, getProfile),
-    [conversation, getProfile, messageSearchQuery, visibleMessages],
+    () => buildSearchResults(
+      messageSearchQuery,
+      [conversation],
+      visibleMessages,
+      conversationProfilesById,
+      messageSearchFilters,
+    ).filter((result) => result.kind === 'message'),
+    [conversation, conversationProfilesById, messageSearchFilters, messageSearchQuery, visibleMessages],
   )
   const hasMessageSearchQuery = Boolean(messageSearchQuery.trim())
+  const canRunMessageSearch = isSearchQueryReady(messageSearchQuery)
   const messageSearchResults = !hasMessageSearchQuery
     ? []
     : isServerMessagePagingEnabled
       ? serverMessageSearchResults
       : localMessageSearchResults
-  const isMessageSearchLoading = hasMessageSearchQuery && isServerMessageSearchLoading
+  const isMessageSearchLoading = canRunMessageSearch && isServerMessageSearchLoading
   const effectiveFocusedMessageId = focusedInlineMessageId || focusedMessageId
+  const senderOptions = conversationMembers
+    .filter((member) => member.conversationId === conversation.id)
+    .map((member) => ({
+      id: member.userId,
+      name: getProfile(member.userId)?.displayName ?? '成员',
+    }))
 
   useEffect(() => {
     if (!isServerMessagePagingEnabled) return
 
     const normalizedQuery = messageSearchQuery.trim()
-    if (!normalizedQuery) return
+    if (!isSearchQueryReady(normalizedQuery)) return
 
     let cancelled = false
 
     const timeoutId = window.setTimeout(() => {
       setIsServerMessageSearchLoading(true)
-      void onSearchMessages(conversation.id, normalizedQuery).then((results) => {
+      void onSearchMessages(conversation.id, normalizedQuery, messageSearchFilters).then((results) => {
         if (cancelled) return
         setServerMessageSearchResults(results)
         setIsServerMessageSearchLoading(false)
@@ -822,7 +977,7 @@ function ChatView({
       cancelled = true
       window.clearTimeout(timeoutId)
     }
-  }, [conversation.id, isServerMessagePagingEnabled, messageSearchQuery, onSearchMessages])
+  }, [conversation.id, isServerMessagePagingEnabled, messageSearchFilters, messageSearchQuery, onSearchMessages])
 
   useEffect(() => {
     if (!effectiveFocusedMessageId) return
@@ -933,17 +1088,26 @@ function ChatView({
               value={messageSearchQuery}
             />
           </div>
+          <SearchFilterBar
+            filters={messageSearchFilters}
+            onChange={setMessageSearchFilters}
+            query={messageSearchQuery}
+            scope="conversation"
+            senderOptions={senderOptions}
+          />
           {messageSearchQuery.trim() && (
             <div className="inline-results">
               <strong>{isMessageSearchLoading ? '正在搜索...' : `${messageSearchResults.length} 条结果`}</strong>
-              {isServerMessagePagingEnabled ? (
+              {!canRunMessageSearch ? (
+                <p className="search-scope-note">中文 1 个字即可搜索；英文或数字请至少输入 2 个字符。</p>
+              ) : isServerMessagePagingEnabled ? (
                 <p className="search-scope-note">正在搜索当前会话的已保存消息。</p>
               ) : hasOlderMessages && (
                 <p className="search-scope-note">当前只搜索已加载消息。可先加载更早消息后再搜索。</p>
               )}
-              {!isMessageSearchLoading && messageSearchResults.length === 0 ? (
+              {!isMessageSearchLoading && canRunMessageSearch && messageSearchResults.length === 0 ? (
                 <p>没有找到匹配的消息。</p>
-              ) : !isMessageSearchLoading ? (
+              ) : !isMessageSearchLoading && canRunMessageSearch ? (
                 messageSearchResults.map((result) => (
                   <button
                     aria-label={`当前会话搜索结果：${result.snippet}`}
@@ -1159,33 +1323,6 @@ function searchResultTypeText(result: SearchResult) {
   if (result.messageType === 'video') return '视频'
   if (result.messageType === 'file') return '文件'
   return '消息'
-}
-
-function buildConversationMessageResults(
-  query: string,
-  conversation: Conversation,
-  messages: Message[],
-  getProfile: (profileId: string) => Profile | undefined,
-): SearchResult[] {
-  const normalizedQuery = query.trim().toLocaleLowerCase('zh-CN')
-
-  if (!normalizedQuery) return []
-
-  return messages
-    .filter((message) => !message.deletedAt && message.body.toLocaleLowerCase('zh-CN').includes(normalizedQuery))
-    .map((message) => ({
-      id: `current-message-${message.id}`,
-      conversationId: conversation.id,
-      conversationTitle: conversation.title,
-      kind: 'message' as const,
-      messageId: message.id,
-      messageType: message.type,
-      title: conversation.title,
-      snippet: message.body,
-      senderName: getProfile(message.senderId)?.displayName ?? '成员',
-      createdAt: message.createdAt,
-    }))
-    .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
 }
 
 function shouldRenderMessageBody(message: Message) {

@@ -491,6 +491,76 @@
   padding: 0 16px 14px;
 }
 
+.search-filter-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 0 16px 10px;
+}
+
+.in-chat-search .search-filter-bar {
+  padding: 0;
+}
+
+.filter-row {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.filter-row::-webkit-scrollbar {
+  display: none;
+}
+
+.filter-row.compact {
+  align-items: center;
+  flex-wrap: wrap;
+  overflow: visible;
+}
+
+.filter-chip,
+.filter-reset,
+.filter-select select {
+  background: var(--surface-soft);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  min-height: 30px;
+  padding: 0 11px;
+}
+
+.filter-chip {
+  flex: 0 0 auto;
+}
+
+.filter-chip.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #ffffff;
+}
+
+.filter-select {
+  align-items: center;
+  color: var(--text-muted);
+  display: inline-flex;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.filter-select select {
+  color: var(--text);
+  outline: none;
+}
+
+.filter-reset {
+  color: var(--accent-strong);
+}
+
 .search-result-row,
 .inline-result-row {
   background: var(--surface-soft);

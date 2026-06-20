@@ -22,6 +22,7 @@
 - Confirm `messages.message_type` accepts `video` after running `20260618120000_video_messages.sql`.
 - Confirm `20260619000000_message_pagination_search.sql` has run so `get_conversation_messages` and `search_messages` exist.
 - Confirm `20260619010000_message_search_context.sql` has run so `get_conversation_message_context` exists and `search_messages` returns message context fields.
+- Confirm `20260619020000_message_search_filters.sql` has run so `search_messages_v2` exists and filtered message search is available.
 - Deploy the `send-message-push` Edge Function after setting server-only secrets.
 - Create a Database Webhook for `public.messages` `INSERT` events with the `x-webhook-secret` header. If the Dashboard Webhook form fails because the internal `supabase_functions` schema is unavailable, install the reviewed `pg_net` trigger fallback that calls the same Edge Function URL with the same header.
 - Do not create or use Supabase secret keys for the frontend.
@@ -69,6 +70,7 @@
 - Confirm the v0.6.9 first-trial feedback pass is recorded in `docs/v0.6.9-trial-feedback-report.md`, including P0/P1/P2 counts, linked GitHub Issues, fix decisions, and `codex.v069.*` cleanup status when temporary data is used.
 - Confirm the v0.7.0 message scale handoff is recorded in `docs/v0.7.0-message-scale-search.md`, including pagination, server search, permission checks, and `codex.v070.*` cleanup status when temporary data is used.
 - Confirm the v0.7.1 search context reliability handoff is recorded in `docs/v0.7.1-search-context-reliability.md`, including search-result navigation, scroll-stable history loading, permission checks, and `codex.v071.*` cleanup status when temporary data is used.
+- Confirm the v0.7.2 search filters handoff is recorded in `docs/v0.7.2-search-filters-quality.md`, including type/sender/date filters, query threshold behavior, permission checks, and `codex.v072.*` cleanup status when temporary data is used.
 - Confirm Vercel Production loads the split chunks for group details and profile settings, and that `manifest.webmanifest` plus `sw.js` still return 200.
 - Confirm `docs/company-trial-safety.md` remains available for company-trial safety guidance.
 - Sign in to the same account from two browsers or windows and confirm both devices are listed.
@@ -105,5 +107,6 @@
 - Tag the first-trial feedback convergence patch as `v0.6.9-beta` after trial feedback has no unresolved P0, every P1 has a fix or explicit decision, local checks and CI pass, and Chrome production smoke confirms no regression.
 - Tag the message scale baseline as `v0.7.0-beta` after the v0.7.0 migration, long-conversation pagination, Chinese message search, A/B/C permission smoke, and cleanup path pass.
 - Tag the search context reliability patch as `v0.7.1-beta` after the v0.7.1 migration, search-result context loading, highlighted navigation, scroll-stable history loading, A/B/C permission smoke, and cleanup path pass.
+- Tag the search filters quality patch as `v0.7.2-beta` after the v0.7.2 migration, type/sender/date filter smoke, query threshold checks, A/B/C permission smoke, and cleanup path pass.
 - Use `docs/beta-test-plan.md` for tester instructions and issue triage.
 - Collect feedback through GitHub Issue templates before prioritizing the next beta scope.

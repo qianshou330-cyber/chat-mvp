@@ -33,7 +33,7 @@
 - Use `docs/v0.6.9-trial-feedback-report.md` for the first 1-3 days of real company-trial feedback; P0/P1 fixes must stay minimal and pass local checks, CI, Vercel deploy, and Chrome production smoke.
 - Keep using `docs/telegram-reference-evaluation.md` as the clean-room boundary for Telegram-style chat and detail page polish.
 - Keep v0.6 focused on production trial readiness, member invitation, trial inspection, permission regression, media performance, and mobile stability rather than new headline features.
-- v0.7.0 introduces server-backed message pagination and message search through `get_conversation_messages` and `search_messages`; v0.7.1 adds search-result context loading through `get_conversation_message_context`, highlighted navigation, and scroll-stable older-message loading.
+- v0.7.0 introduces server-backed message pagination and message search through `get_conversation_messages` and `search_messages`; v0.7.1 adds search-result context loading through `get_conversation_message_context`, highlighted navigation, and scroll-stable older-message loading; v0.7.2 adds lightweight type, sender, and date filters through `search_messages_v2`.
 - Defer deeper nested hook extraction until a later patch, after company-trial feedback confirms no data-flow regressions.
 - Evaluate a dedicated enterprise search service only after the v0.7 contains-search approach reaches real data limits.
 - Keep real Supabase multi-user Realtime and RLS checks in Chrome production smoke; never store production credentials in CI or the repository.

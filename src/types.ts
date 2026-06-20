@@ -2,6 +2,10 @@ export type ConversationType = 'direct' | 'group'
 
 export type MessageType = 'text' | 'image' | 'video' | 'file'
 
+export type SearchMessageTypeFilter = 'all' | MessageType
+
+export type SearchDateRangeFilter = 'all' | 'today' | '7d' | '30d'
+
 export type MessageStatus = 'sending' | 'sent' | 'read' | 'failed'
 
 export type ConnectionStatus = 'connecting' | 'connected' | 'reconnecting' | 'offline'
@@ -181,6 +185,12 @@ export interface SearchResult {
   snippet: string
   senderName: string
   createdAt: string
+}
+
+export interface SearchFilters {
+  messageType: SearchMessageTypeFilter
+  senderId: string
+  dateRange: SearchDateRangeFilter
 }
 
 export interface ChatState {

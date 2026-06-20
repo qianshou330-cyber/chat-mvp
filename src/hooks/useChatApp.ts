@@ -33,7 +33,14 @@ import {
   mapWorkspace,
   mapWorkspaceMember,
 } from './chatApp/mappers'
-import { buildSearchResults, normalizeSearch } from './chatApp/search'
+import {
+  buildSearchResults,
+  defaultSearchFilters,
+  hasActiveSearchFilters,
+  isSearchQueryReady,
+  normalizeSearch,
+  searchDateRangeToIso,
+} from './chatApp/search'
 import {
   canDeleteGroupMessage,
   findConversationMember,
@@ -67,6 +74,7 @@ import type {
   Message,
   Profile,
   SearchResult,
+  SearchFilters,
   WorkspaceMember,
   WorkspaceRole,
 } from '../types'
@@ -137,11 +145,28 @@ function mapServerSearchResult(row: Record<string, unknown>): SearchResult {
   }
 }
 
+function rpcSearchArguments(
+  searchQuery: string,
+  filters: SearchFilters,
+  targetConversationId: string | null,
+) {
+  return {
+    created_after: searchDateRangeToIso(filters.dateRange) || null,
+    created_before: null,
+    result_limit: SERVER_MESSAGE_SEARCH_LIMIT,
+    search_query: searchQuery,
+    target_conversation_id: targetConversationId,
+    target_message_type: filters.messageType === 'all' ? null : filters.messageType,
+    target_sender_id: filters.senderId || null,
+  }
+}
+
 export function useChatApp() {
   const [state, setState] = useState<ChatState>(initialState)
   const [user, setUser] = useState<AppUser | null>(null)
   const [activeConversationId, setActiveConversationId] = useState('conv-mira')
   const [query, setQuery] = useState('')
+  const [searchFilters, setSearchFilters] = useState<SearchFilters>(defaultSearchFilters)
   const [notice, setNotice] = useState<ScopedNotice>({ message: '', scope: 'global' })
   const [profileUploadProgress, setProfileUploadProgress] = useState<UploadProgressState | null>(null)
   const [isLoading, setIsLoading] = useState(Boolean(supabase))
@@ -190,12 +215,12 @@ export function useChatApp() {
   )
 
   const localSearchResults = useMemo(
-    () => buildSearchResults(query, state.conversations, state.messages, profilesById),
-    [profilesById, query, state.conversations, state.messages],
+    () => buildSearchResults(query, state.conversations, state.messages, profilesById, searchFilters),
+    [profilesById, query, searchFilters, state.conversations, state.messages],
   )
 
   const searchResults = useMemo(() => {
-    if (!normalizeSearch(query)) return localSearchResults
+    if (!isSearchQueryReady(query)) return localSearchResults
 
     const results = [...localSearchResults]
     const seenIds = new Set(results.map((result) => result.id))
@@ -212,9 +237,7 @@ export function useChatApp() {
   }, [localSearchResults, query, serverSearchResults])
 
   const visibleConversations = useMemo(() => {
-    const normalized = normalizeSearch(query)
-
-    if (!normalized) {
+    if (!normalizeSearch(query)) {
       return [...state.conversations].sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
     }
 
@@ -229,27 +252,30 @@ export function useChatApp() {
     const client = supabase
     if (!client || !user) return
 
-    const normalized = normalizeSearch(query)
-    if (!normalized) return
+    if (!isSearchQueryReady(query)) return
 
     let cancelled = false
 
     const runServerSearch = async () => {
-      const { data, error } = await client.rpc('search_messages', {
-        search_query: query,
-        target_conversation_id: null,
-        result_limit: SERVER_MESSAGE_SEARCH_LIMIT,
-      })
+      let result = await client.rpc('search_messages_v2', rpcSearchArguments(query, searchFilters, null))
+
+      if (result.error && !hasActiveSearchFilters(searchFilters)) {
+        result = await client.rpc('search_messages', {
+          search_query: query,
+          target_conversation_id: null,
+          result_limit: SERVER_MESSAGE_SEARCH_LIMIT,
+        })
+      }
 
       if (cancelled) return
 
-      if (error) {
+      if (result.error) {
         setServerSearchResults([])
-        setScopedNotice('list', friendlyErrorMessage(error.message, '无法完成服务端搜索，请稍后重试。'))
+        setScopedNotice('list', friendlyErrorMessage(result.error.message, '无法完成服务端搜索，请稍后重试。'))
         return
       }
 
-      setServerSearchResults((data ?? []).map(mapServerSearchResult))
+      setServerSearchResults((result.data ?? []).map(mapServerSearchResult))
     }
 
     const timeoutId = window.setTimeout(() => {
@@ -260,7 +286,7 @@ export function useChatApp() {
       cancelled = true
       window.clearTimeout(timeoutId)
     }
-  }, [query, setScopedNotice, user])
+  }, [query, searchFilters, setScopedNotice, user])
 
   const activeMessages = useMemo(
     () =>
@@ -970,25 +996,33 @@ export function useChatApp() {
     return contextMessages.some((message) => message.id === messageId)
   }, [messagePages, setScopedNotice])
 
-  const searchConversationMessages = useCallback(async (conversationId: string, searchQuery: string) => {
+  const searchConversationMessages = useCallback(async (
+    conversationId: string,
+    searchQuery: string,
+    filters: SearchFilters = defaultSearchFilters,
+  ) => {
     const client = supabase
-    if (!client || !normalizeSearch(searchQuery)) return []
+    if (!client || !isSearchQueryReady(searchQuery)) return []
 
-    const { data, error } = await client.rpc('search_messages', {
-      search_query: searchQuery,
-      target_conversation_id: conversationId,
-      result_limit: SERVER_MESSAGE_SEARCH_LIMIT,
-    })
+    let result = await client.rpc('search_messages_v2', rpcSearchArguments(searchQuery, filters, conversationId))
 
-    if (error) {
+    if (result.error && !hasActiveSearchFilters(filters)) {
+      result = await client.rpc('search_messages', {
+        search_query: searchQuery,
+        target_conversation_id: conversationId,
+        result_limit: SERVER_MESSAGE_SEARCH_LIMIT,
+      })
+    }
+
+    if (result.error) {
       setScopedNotice(
         'chat',
-        friendlyErrorMessage(error.message, '无法搜索历史消息，请稍后重试。'),
+        friendlyErrorMessage(result.error.message, '无法搜索历史消息，请稍后重试。'),
       )
       return []
     }
 
-    return (data ?? []).map(mapServerSearchResult)
+    return (result.data ?? []).map(mapServerSearchResult)
   }, [setScopedNotice])
 
   useEffect(() => {
@@ -3386,12 +3420,14 @@ export function useChatApp() {
     profileUploadProgress,
     query,
     refreshCurrentConversation,
+    searchFilters,
     searchResults,
     searchConversationMessages,
     sendFile,
     sendContactRequestByEmail,
     sendText,
     setActiveConversationId,
+    setSearchFilters,
     loadMessageContext,
     loadOlderMessages,
     setQuery,

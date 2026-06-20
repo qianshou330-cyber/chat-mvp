@@ -63,6 +63,8 @@ v0.7.0 消息规模与搜索需要运行 `supabase/migrations/20260619000000_mes
 
 v0.7.1 搜索体验与历史消息可靠性需要运行 `supabase/migrations/20260619010000_message_search_context.sql`。运行后搜索结果会带消息定位信息，并可按目标消息加载附近历史上下文。
 
+v0.7.2 搜索筛选与结果质量需要运行 `supabase/migrations/20260619020000_message_search_filters.sql`。运行后全局搜索支持类型/时间筛选，当前会话搜索支持类型/发送人/时间筛选。
+
 ## Web Push Setup
 
 1. Generate a VAPID key pair.
@@ -106,6 +108,8 @@ npm run e2e
 `v0.7.0-beta` adds server-backed message pagination and message search for longer company-trial conversations. See `docs/v0.7.0-message-scale-search.md`.
 
 `v0.7.1-beta` improves search-result context loading, highlighted result navigation, long-conversation scroll stability, and server-search documentation. See `docs/v0.7.1-search-context-reliability.md`.
+
+`v0.7.2-beta` adds lightweight type, sender, and date filters for message search while keeping the Supabase RPC contains-search approach. See `docs/v0.7.2-search-filters-quality.md`.
 
 ## Deployment
 
