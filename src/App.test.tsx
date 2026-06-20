@@ -145,10 +145,17 @@ describe('聊天 MVP', () => {
 
     expect(await screen.findByText('搜索结果')).toBeInTheDocument()
     expect(screen.getByText(/全部会话 · 已显示/)).toBeInTheDocument()
+    expect(
+      screen.getByText('已加载全部匹配结果；进入会话后返回，关键词和筛选会保留。'),
+    ).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '打开搜索结果：上线准备群' }))
 
     expect(await screen.findByLabelText('消息')).toBeInTheDocument()
     expect(screen.getByText('上线准备群')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '返回聊天列表' }))
+
+    expect(await screen.findByLabelText('搜索聊天')).toHaveValue('上线准备群')
+    expect(screen.getByText(/全部会话 · 已显示/)).toBeInTheDocument()
   })
 
   it('searches loaded message content with Chinese keywords', async () => {
@@ -178,6 +185,7 @@ describe('聊天 MVP', () => {
     })
 
     expect(screen.getByText('当前会话 · 已显示 1 条结果')).toBeInTheDocument()
+    expect(screen.getByText('已加载当前会话全部匹配结果。')).toBeInTheDocument()
     expect(
       screen.getByRole('button', {
         name: '当前会话搜索结果：移动端布局已经可以开始评审了。',

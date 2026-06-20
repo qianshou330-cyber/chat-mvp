@@ -815,7 +815,7 @@ function SearchResults({
         <EmptyState
           icon={<Search size={28} />}
           title="没有搜索结果"
-          body="换个联系人、群名或消息关键词试试。"
+          body="可以清除筛选、缩短关键词，或切换到全部会话后再试。"
         />
       ) : (
         <>
@@ -853,6 +853,9 @@ function SearchResults({
                 {isLoadingMore ? '正在加载...' : '加载更多结果'}
               </button>
             </>
+          )}
+          {!hasMore && !isLoading && !isLoadingMore && (
+            <p className="search-scope-note">已加载全部匹配结果；进入会话后返回，关键词和筛选会保留。</p>
           )}
         </>
       )}
@@ -1296,7 +1299,7 @@ function ChatView({
                 <p className="search-scope-note">当前只搜索已加载消息。可先加载更早消息后再搜索。</p>
               )}
               {!isMessageSearchLoading && canRunMessageSearch && messageSearchResults.length === 0 ? (
-                <p>没有找到匹配的消息。</p>
+                <p>没有找到匹配的消息。可以清除筛选、缩短关键词，或切换到全部会话搜索。</p>
               ) : !isMessageSearchLoading && canRunMessageSearch ? (
                 messageSearchResults.map((result) => (
                   <button
@@ -1335,6 +1338,13 @@ function ChatView({
                   </button>
                 </>
               )}
+              {canRunMessageSearch &&
+                !isMessageSearchLoading &&
+                !isServerMessageSearchLoadingMore &&
+                messageSearchResults.length > 0 &&
+                !serverMessageSearchPage.hasMore && (
+                  <p className="search-scope-note">已加载当前会话全部匹配结果。</p>
+                )}
             </div>
           )}
         </section>
