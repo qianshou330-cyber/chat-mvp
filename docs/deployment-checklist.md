@@ -75,6 +75,7 @@
 - Confirm the v0.7.2 search filters handoff is recorded in `docs/v0.7.2-search-filters-quality.md`, including type/sender/date filters, query threshold behavior, permission checks, and `codex.v072.*` cleanup status when temporary data is used.
 - Confirm the v0.7.3 search pagination handoff is recorded in `docs/v0.7.3-search-pagination-reliability.md`, including load-more behavior, stale request protection, retry behavior, permission checks, and `codex.v073.*` cleanup status when temporary data is used.
 - Confirm the v0.7.4 search performance handoff is recorded in `docs/v0.7.4-search-performance-handoff.md`, including index migration, sanitized search error recording, permission checks, and `codex.v074.*` cleanup status when temporary data is used.
+- Confirm the v0.7.5 search UX feedback handoff is recorded in `docs/v0.7.5-search-ux-trial-feedback.md`, including scope labels, displayed-result counts, selected-filter summaries, feedback status, permission checks, and `codex.v075.*` cleanup status when temporary data is used.
 - Confirm Vercel Production loads the split chunks for group details and profile settings, and that `manifest.webmanifest` plus `sw.js` still return 200.
 - Confirm `docs/company-trial-safety.md` remains available for company-trial safety guidance.
 - Sign in to the same account from two browsers or windows and confirm both devices are listed.
@@ -114,5 +115,6 @@
 - Tag the search filters quality patch as `v0.7.2-beta` after the v0.7.2 migration, type/sender/date filter smoke, query threshold checks, A/B/C permission smoke, and cleanup path pass.
 - Tag the search pagination reliability patch as `v0.7.3-beta` after the v0.7.3 migration, load-more search smoke, stale-response checks, retry behavior, A/B/C permission smoke, and cleanup path pass.
 - Tag the search performance and observability patch as `v0.7.4-beta` after the v0.7.4 migration, search performance smoke, sanitized error-recording check, A/B/C permission smoke, and cleanup path pass.
+- Tag the search UX feedback patch as `v0.7.5-beta` after search scope/count UX, selected-filter summaries, feedback handoff, A/B/C permission smoke, and cleanup path pass.
 - Use `docs/beta-test-plan.md` for tester instructions and issue triage.
 - Collect feedback through GitHub Issue templates before prioritizing the next beta scope.

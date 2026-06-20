@@ -23,8 +23,8 @@
 - v0.4.3-beta 收口已删除 `chat-uploads` 中唯一 `codex-pilot-` 测试附件；复验数量为 0。
 - v0.6.0-beta 生产 smoke 使用 `codex.v060.*@example.com` 临时 Auth 用户；v0.6.1 收口前必须预览并清理。
 - v0.6.0-beta smoke 可能留下 `codex-v060-` 测试附件；必须通过 Storage 控制台删除，不能直接 SQL 删除 `storage.objects`。
-- v0.7.0 到 v0.7.4 生产 smoke 使用 `codex.v070.*@example.com`、`codex.v071.*@example.com`、`codex.v072.*@example.com`、`codex.v073.*@example.com`、`codex.v074.*@example.com` 临时 Auth 用户；清理前必须先预览命中列表。
-- v0.7.0 到 v0.7.4 smoke 可能留下 `codex-v070-`、`codex-v071-`、`codex-v072-`、`codex-v073-`、`codex-v074-` 测试附件；必须通过 Storage 控制台删除，不能直接 SQL 删除 `storage.objects`。
+- v0.7.0 到 v0.7.5 生产 smoke 使用 `codex.v070.*@example.com`、`codex.v071.*@example.com`、`codex.v072.*@example.com`、`codex.v073.*@example.com`、`codex.v074.*@example.com`、`codex.v075.*@example.com` 临时 Auth 用户；清理前必须先预览命中列表。
+- v0.7.0 到 v0.7.5 smoke 可能留下 `codex-v070-`、`codex-v071-`、`codex-v072-`、`codex-v073-`、`codex-v074-`、`codex-v075-` 测试附件；必须通过 Storage 控制台删除，不能直接 SQL 删除 `storage.objects`。
 
 ## 测试前缀
 
@@ -46,6 +46,7 @@
 - `codex.v072.`
 - `codex.v073.`
 - `codex.v074.`
+- `codex.v075.`
 - `codex.pilot.`
 - `codex.push.`
 - `codex.browserpush.`
@@ -65,6 +66,7 @@
 - `codex-v072-`
 - `codex-v073-`
 - `codex-v074-`
+- `codex-v075-`
 - `device-smoke-`
 - `workspace-smoke-`
 
@@ -92,6 +94,7 @@ with test_users as (
      or email like 'codex.v072.%@example.com'
      or email like 'codex.v073.%@example.com'
      or email like 'codex.v074.%@example.com'
+     or email like 'codex.v075.%@example.com'
      or email like 'codex.pilot.%@example.com'
      or email like 'codex.push.%@example.com'
      or email like 'codex.browserpush.%@example.com'
@@ -117,6 +120,7 @@ where objects.name ilike '%device-smoke-%'
    or objects.name ilike '%codex-v072-%'
    or objects.name ilike '%codex-v073-%'
    or objects.name ilike '%codex-v074-%'
+   or objects.name ilike '%codex-v075-%'
    or exists (
      select 1 from test_users
      where objects.owner_id = test_users.id::text
@@ -154,6 +158,7 @@ where users.email like 'codex.v02.%@example.com'
    or users.email like 'codex.v072.%@example.com'
    or users.email like 'codex.v073.%@example.com'
    or users.email like 'codex.v074.%@example.com'
+   or users.email like 'codex.v075.%@example.com'
    or users.email like 'codex.pilot.%@example.com'
    or users.email like 'codex.push.%@example.com'
    or users.email like 'codex.browserpush.%@example.com'
@@ -177,6 +182,7 @@ Storage 清理不要直接删除 `storage.objects`。Supabase 会阻止这类 SQ
 - `codex-v072-`
 - `codex-v073-`
 - `codex-v074-`
+- `codex-v075-`
 - `workspace-smoke-`
 
 ## 安全边界

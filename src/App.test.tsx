@@ -144,6 +144,7 @@ describe('聊天 MVP', () => {
     })
 
     expect(await screen.findByText('搜索结果')).toBeInTheDocument()
+    expect(screen.getByText(/全部会话 · 已显示/)).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '打开搜索结果：上线准备群' }))
 
     expect(await screen.findByLabelText('消息')).toBeInTheDocument()
@@ -176,7 +177,7 @@ describe('聊天 MVP', () => {
       target: { value: '移动端' },
     })
 
-    expect(screen.getByText('1 条结果')).toBeInTheDocument()
+    expect(screen.getByText('当前会话 · 已显示 1 条结果')).toBeInTheDocument()
     expect(
       screen.getByRole('button', {
         name: '当前会话搜索结果：移动端布局已经可以开始评审了。',

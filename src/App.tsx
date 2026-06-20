@@ -90,6 +90,22 @@ const emptySearchPage: SearchPage = {
   hasMore: false,
 }
 
+function searchFilterSummary(
+  filters: SearchFilters,
+  senderOptions: Array<{ id: string; name: string }> = [],
+) {
+  const parts: string[] = []
+  const typeLabel = MESSAGE_TYPE_FILTERS.find((option) => option.value === filters.messageType)?.label
+  const dateLabel = DATE_RANGE_FILTERS.find((option) => option.value === filters.dateRange)?.label
+  const senderLabel = senderOptions.find((sender) => sender.id === filters.senderId)?.name
+
+  if (filters.messageType !== 'all' && typeLabel) parts.push(typeLabel)
+  if (filters.senderId) parts.push(senderLabel ? `发送人：${senderLabel}` : '已选发送人')
+  if (filters.dateRange !== 'all' && dateLabel) parts.push(dateLabel)
+
+  return parts
+}
+
 function App() {
   const chat = useChatApp()
   const [screen, setScreen] = useState<Screen>('login')
@@ -696,6 +712,7 @@ function ConversationList({
           }}
           query={query}
           results={searchResults}
+          scopeLabel="全部会话"
         />
       ) : (
         <div className="conversation-list">
@@ -754,6 +771,7 @@ function SearchResults({
   onRetry,
   query,
   results,
+  scopeLabel,
 }: {
   canRunSearch: boolean
   error: string
@@ -765,12 +783,13 @@ function SearchResults({
   onRetry: () => void
   query: string
   results: SearchResult[]
+  scopeLabel: string
 }) {
   return (
     <section className="search-results" aria-label="搜索结果">
       <div className="request-panel-title">
         <strong>搜索结果</strong>
-        <span>{results.length}</span>
+        <span>{`${scopeLabel} · 已显示 ${results.length} 条`}</span>
       </div>
       {error && (
         <div className="search-error" role="alert">
@@ -823,14 +842,17 @@ function SearchResults({
             </button>
           ))}
           {hasMore && (
-            <button
-              className="search-load-more"
-              disabled={isLoadingMore}
-              onClick={onLoadMore}
-              type="button"
-            >
-              {isLoadingMore ? '正在加载...' : '加载更多结果'}
-            </button>
+            <>
+              <p className="search-scope-note">还有更多结果，可继续加载或缩小筛选范围。</p>
+              <button
+                className="search-load-more"
+                disabled={isLoadingMore}
+                onClick={onLoadMore}
+                type="button"
+              >
+                {isLoadingMore ? '正在加载...' : '加载更多结果'}
+              </button>
+            </>
           )}
         </>
       )}
@@ -853,6 +875,7 @@ function SearchFilterBar({
 }) {
   const hasFilters =
     filters.messageType !== 'all' || filters.senderId || filters.dateRange !== 'all'
+  const summary = searchFilterSummary(filters, senderOptions)
 
   function update(nextFilters: Partial<SearchFilters>) {
     onChange({ ...filters, ...nextFilters })
@@ -918,6 +941,9 @@ function SearchFilterBar({
       </div>
       {query.trim() && !isSearchQueryReady(query) && (
         <p className="search-scope-note">中文 1 个字即可搜索；英文或数字请至少输入 2 个字符。</p>
+      )}
+      {hasFilters && summary.length > 0 && (
+        <p className="search-filter-summary">{`已筛选：${summary.join(' · ')}`}</p>
       )}
     </section>
   )
@@ -1244,7 +1270,11 @@ function ChatView({
           />
           {messageSearchQuery.trim() && (
             <div className="inline-results">
-              <strong>{isMessageSearchLoading ? '正在搜索...' : `${messageSearchResults.length} 条结果`}</strong>
+              <strong>
+                {isMessageSearchLoading
+                  ? '正在搜索...'
+                  : `当前会话 · 已显示 ${messageSearchResults.length} 条结果`}
+              </strong>
               {serverMessageSearchPage.error && (
                 <div className="search-error compact" role="alert">
                   <span>{serverMessageSearchPage.error}</span>
@@ -1291,16 +1321,19 @@ function ChatView({
                 ))
               ) : null}
               {canRunMessageSearch && serverMessageSearchPage.hasMore && (
-                <button
-                  className="search-load-more compact"
-                  disabled={isServerMessageSearchLoadingMore}
-                  onClick={() => {
-                    void loadMoreConversationSearchResults()
-                  }}
-                  type="button"
-                >
-                  {isServerMessageSearchLoadingMore ? '正在加载...' : '加载更多结果'}
-                </button>
+                <>
+                  <p className="search-scope-note">还有更多当前会话结果，可继续加载或缩小筛选范围。</p>
+                  <button
+                    className="search-load-more compact"
+                    disabled={isServerMessageSearchLoadingMore}
+                    onClick={() => {
+                      void loadMoreConversationSearchResults()
+                    }}
+                    type="button"
+                  >
+                    {isServerMessageSearchLoadingMore ? '正在加载...' : '加载更多结果'}
+                  </button>
+                </>
               )}
             </div>
           )}

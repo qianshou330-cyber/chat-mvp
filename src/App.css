@@ -561,6 +561,13 @@
   color: var(--accent-strong);
 }
 
+.search-filter-summary {
+  color: var(--accent-strong);
+  font-size: 12px;
+  font-weight: 800;
+  margin: 0;
+}
+
 .search-result-row,
 .inline-result-row {
   background: var(--surface-soft);
