@@ -35,3 +35,10 @@
 - 搜索、通知、登录设备。
 - owner/admin 可见管理员记录，member/非成员不可见。
 
+## v0.8.0 recovery rehearsal addendum
+
+- Before a production restore, capture the current Supabase project id, migration list, Storage bucket list, Edge Function URL, Database Webhook target, and Vercel Production deployment id.
+- Restore only into a non-production project first. Do not overwrite production until login, messages, Storage signed URLs, Web Push, search, and RLS checks pass.
+- Verify `chat-uploads` remains private and that `profile-avatars` / `profile-avatar-videos` remain public-read but user-scoped for writes.
+- Verify `send-message-push` secrets live only in Supabase Function secrets, not in Vercel frontend variables or GitHub.
+- After restoring, run A/B/C smoke with temporary `codex.v080.*` accounts and clean those accounts plus `codex-v080-*` uploads with `docs/test-data-cleanup-sop.md`.

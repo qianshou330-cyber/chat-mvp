@@ -78,6 +78,7 @@
 - Confirm the v0.7.5 search UX feedback handoff is recorded in `docs/v0.7.5-search-ux-trial-feedback.md`, including scope labels, displayed-result counts, selected-filter summaries, feedback status, permission checks, and `codex.v075.*` cleanup status when temporary data is used.
 - Confirm the v0.7.6 search feedback closure handoff is recorded in `docs/v0.7.6-search-trial-feedback-closure.md`, including preserved search state, empty/completed result states, feedback status, permission checks, and `codex.v076.*` cleanup status when temporary data is used.
 - Confirm the v0.7.7 search production-health handoff is recorded in `docs/v0.7.7-search-trial-health-report.md`, including GitHub Issues feedback status, sanitized app-error summary, production smoke, permission checks, and `codex.v077.*` cleanup status when temporary data is used.
+- Confirm the v0.8.0 production operations handoff is recorded in `docs/v0.8.0-production-ops-handoff.md`, including backup/restore rehearsal notes, Web Push health, sanitized error review, A/B/C permission smoke, and `codex.v080.*` cleanup status when temporary data is used.
 - Confirm Vercel Production loads the split chunks for group details and profile settings, and that `manifest.webmanifest` plus `sw.js` still return 200.
 - Confirm `docs/company-trial-safety.md` remains available for company-trial safety guidance.
 - Sign in to the same account from two browsers or windows and confirm both devices are listed.
@@ -120,5 +121,6 @@
 - Tag the search UX feedback patch as `v0.7.5-beta` after search scope/count UX, selected-filter summaries, feedback handoff, A/B/C permission smoke, and cleanup path pass.
 - Tag the search feedback closure patch as `v0.7.6-beta` after preserved search state, empty/completed result states, feedback handoff, A/B/C permission smoke, and cleanup path pass.
 - Tag the search production-health patch as `v0.7.7-beta` after GitHub Issues feedback status, sanitized app-error summary, A/B/C permission smoke, and cleanup path pass.
+- Tag the production hardening baseline as `v0.8.0-beta` after backup/restore rehearsal notes, Web Push health, sanitized app-error review, A/B/C permission smoke, and cleanup path pass.
 - Use `docs/beta-test-plan.md` for tester instructions and issue triage.
 - Collect feedback through GitHub Issue templates before prioritizing the next beta scope.
