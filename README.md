@@ -4,7 +4,7 @@ Telegram-style mobile PWA MVP for chat, built with React, TypeScript, Vite, Supa
 
 生产 beta 地址：`https://chat-mvp-tau.vercel.app`
 
-当前阶段：`v0.7.6-beta` 搜索体验最终收口与真实试用反馈处理；v0.7 系列用于把公司试用中的长会话历史消息、服务端搜索、筛选、分页、搜索失败记录和搜索体验反馈收口。
+当前阶段：`v0.7.7-beta` 搜索真实试用反馈回归与生产健康收口；v0.7 系列用于把公司试用中的长会话历史消息、服务端搜索、筛选、分页、搜索失败记录和搜索体验反馈收口。
 
 ## 已包含能力
 
@@ -122,6 +122,8 @@ npm run e2e
 `v0.7.5-beta` improves search result scope labels, displayed-result counts, selected-filter summaries, and trial-feedback documentation. See `docs/v0.7.5-search-ux-trial-feedback.md`.
 
 `v0.7.6-beta` closes the v0.7 search UX loop with clearer empty/completed states, preserved search state after returning from a result, and search-feedback closure documentation. See `docs/v0.7.6-search-trial-feedback-closure.md`.
+
+`v0.7.7-beta` records the search production-health check, GitHub Issues feedback status, sanitized app-error summary, and A/B/C smoke cleanup. See `docs/v0.7.7-search-trial-health-report.md`.
 
 ## Deployment
 
