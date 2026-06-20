@@ -1,3 +1,21 @@
+alter table public.messages
+add column if not exists deleted_at timestamptz;
+
+alter table public.messages
+add column if not exists deleted_by uuid references public.profiles(id) on delete set null;
+
+alter table public.messages
+add column if not exists delete_reason text;
+
+alter table public.attachments
+add column if not exists deleted_at timestamptz;
+
+alter table public.attachments
+add column if not exists deleted_by uuid references public.profiles(id) on delete set null;
+
+alter table public.attachments
+add column if not exists delete_reason text;
+
 create index if not exists messages_conversation_created_idx
 on public.messages(conversation_id, created_at desc, id desc);
 
