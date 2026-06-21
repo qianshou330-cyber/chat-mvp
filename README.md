@@ -4,7 +4,7 @@ Telegram-style mobile PWA MVP for chat, built with React, TypeScript, Vite, Supa
 
 生产 beta 地址：`https://chat-mvp-tau.vercel.app`
 
-当前阶段：`v0.8.0-beta` 无真实试用前提下的生产硬化；v0.8 系列用于把当前生产基线的运维交接、安全权限、备份恢复、通知可靠性和管理员巡检固定下来。
+当前阶段：`v0.8.1-beta` 公开公测候选版；目标是在 2026-07-01 前完成 UI 质感、页面内提示、公开注册风险提示、生产 smoke 和 30 人公测上线清单收口。
 
 ## 已包含能力
 
@@ -17,7 +17,8 @@ Telegram-style mobile PWA MVP for chat, built with React, TypeScript, Vite, Supa
 - Web Push/PWA 通知基础设施：浏览器订阅、Supabase 订阅表、Edge Function 和隐私保护通知 payload。
 - v0.3 公司试用基础设施：默认工作区、管理员成员管理、群聊工作区归属和登录设备管理。
 - v0.4 稳定化基础设施：关键错误记录、管理员操作记录和管理员可见的最近记录入口。
-- v0.6 公司试用稳定化：群详情内可复制邀请说明、管理员试用巡检摘要、最近错误/通知/附件失败观察入口、聊天主界面视觉收口，以及 v0.6.2 的首屏 bundle 和 PWA 构建收口。
+- v0.6 公司试用稳定化：群详情内可复制邀请说明、管理员运行状态摘要、最近错误/通知/附件失败观察入口、聊天主界面视觉收口，以及 v0.6.2 的首屏 bundle 和 PWA 构建收口。
+- v0.8.1 公开公测收口：登录页敏感信息提醒、详情页轻量化、页面内提示归位、7 月 1 日上线清单和 `codex.v081.*` 临时数据治理。
 - GitHub Actions CI、Vercel 部署配置、PWA manifest 和 app icon。
 - Figma 和 Lovable 交接文档，位于 `docs/`。
 
@@ -127,6 +128,8 @@ npm run e2e
 
 `v0.8.0-beta` hardens production operations without adding chat features: backup/restore rehearsal checklist, production ops handoff, Web Push health check, permission regression, and temporary smoke cleanup. See `docs/v0.8.0-production-ops-handoff.md`.
 
+`v0.8.1-beta` is the July 1 public beta candidate. It keeps registration open, adds public-beta safety copy, tightens detail-page UI and scoped notices, and uses `docs/v0.8.1-public-beta-launch-checklist.md` as the launch gate.
+
 ## Deployment
 
 Deploy on Vercel and add the public frontend environment variables only. The project is PWA-ready and can be installed from supported mobile browsers.
@@ -135,7 +138,7 @@ Use `docs/deployment-checklist.md` before promoting a Preview deployment to Prod
 
 ## Beta 外测
 
-使用 `docs/beta-test-plan.md` 安排受邀测试者、反馈格式和 smoke test 数据清理。
+使用 `docs/beta-test-plan.md` 安排 2026-07-01 公开公测、反馈格式和 smoke test 数据清理。
 
 使用 `docs/beta-outreach.md` 复制外测邀请文案和测试者检查清单。
 
@@ -160,11 +163,11 @@ Use `docs/deployment-checklist.md` before promoting a Preview deployment to Prod
 
 使用 `docs/5-person-pilot-kickoff.md` 启动 5 人先导试用，登记试用用户、Day 1 必测路径和扩容闸门。
 
-使用 `docs/2026-07-company-trial-plan.md` 执行 2026 年 7 月公司内部试用和 v0.4.x 稳定化计划。
+使用 `docs/v0.8.1-public-beta-launch-checklist.md` 执行 2026-07-01 公开公测上线前、上线当天和上线后 72 小时巡检。
 
 使用 `docs/v0.4.2-beta.md` 查看 v0.4.2 稳定性补丁范围、验收清单和不做事项。
 
-`v0.6.0-beta` 作为 20-30 人公司试用稳定基线使用。管理员可在群详情复制邀请说明给未注册成员，并通过“更多管理 -> 试用巡检”查看最近错误、通知失败、附件失败和管理操作。
+`v0.6.0-beta` 作为 20-30 人公司试用稳定基线使用。管理员可在群详情复制邀请说明给未注册成员，并通过“更多管理 -> 运行状态”查看最近错误、通知失败、附件失败和管理操作。
 
 `v0.6.1-beta` 作为试用前运维收口补丁使用：清理 `codex.v060.*` 自动验收数据、补一次真实 Chrome Web Push smoke、同步公司试用文档，并在 `docs/v0.6.1-production-smoke.md` 固定生产 smoke 记录。
 

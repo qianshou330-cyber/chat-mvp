@@ -240,7 +240,7 @@ export default function GroupInfo({
         </button>
         <div>
           <p className="eyebrow">群聊信息</p>
-          <h1>群详情</h1>
+          <h1>{title}</h1>
         </div>
         {canManageGroup ? (
           <button
@@ -532,12 +532,12 @@ export default function GroupInfo({
         </div>
         </section>
         {canManageGroup && isManagementOpen && (
-          <section className="group-section trial-health-card" aria-label="试用巡检">
+          <section className="group-section trial-health-card" aria-label="运行状态">
             <div className="workspace-card-header">
               <ShieldCheck size={24} />
               <span>
-                <strong>试用巡检</strong>
-                <p>给 20-30 人公司试用时快速查看最近错误、通知和文件状态。</p>
+                <strong>运行状态</strong>
+                <p>管理员用于上线后快速查看错误、通知和文件状态。</p>
               </span>
             </div>
             <div className="trial-health-grid">

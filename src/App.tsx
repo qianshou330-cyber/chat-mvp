@@ -419,7 +419,7 @@ function LoginScreen({
         <p className="notice">
           {authNotice ||
             (isSupabaseConfigured
-              ? '使用邮箱和密码创建账号，之后可随时登录。'
+              ? '公开公测版，请勿发送密码、密钥、客户资料等敏感信息。'
               : '当前是 Demo 模式，配置 Supabase 环境变量后会切换到真实登录。')}
         </p>
       </form>

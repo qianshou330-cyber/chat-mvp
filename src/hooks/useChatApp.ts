@@ -653,7 +653,7 @@ export function useChatApp() {
         setAuthNotice(
           friendlyErrorMessage(
             defaultWorkspaceResult.error.message,
-            '无法加载工作区，请确认 v0.3 migration 已运行。',
+            '群权限配置还没有完成，请联系管理员检查服务配置。',
           ),
         )
       }
@@ -804,7 +804,7 @@ export function useChatApp() {
         setAuthNotice(
           friendlyErrorMessage(
             messagePageError.message,
-            '无法加载分页消息，请确认已运行 v0.7.0 消息分页 migration。',
+            '历史消息服务暂时不可用，请联系管理员检查服务配置。',
           ),
         )
       }
@@ -1538,7 +1538,7 @@ export function useChatApp() {
         target_device_id: currentDeviceId,
       })
       if (revoke.error && !isMissingDeviceSessionSchema(revoke.error.message)) {
-        setAuthNotice(friendlyErrorMessage(revoke.error.message, '无法更新登录设备状态。'))
+        setScopedNotice('profile', friendlyErrorMessage(revoke.error.message, '无法更新登录设备状态。'))
       }
       await supabase.auth.signOut({ scope: 'local' })
     }
@@ -1554,7 +1554,7 @@ export function useChatApp() {
     if (!user) return
 
     if (!supabase) {
-      setAuthNotice('设备列表已刷新。')
+      setScopedNotice('profile', '设备列表已刷新。')
       return
     }
 
@@ -1578,7 +1578,7 @@ export function useChatApp() {
             session.deviceId === currentDeviceId || session.deviceId === 'demo-current-device',
         ),
       }))
-      setAuthNotice('其他设备已退出。')
+      setScopedNotice('profile', '其他设备已退出。')
       recordAdminActivity('other_devices_revoked', user.id, 'success')
       return true
     }
@@ -1586,7 +1586,7 @@ export function useChatApp() {
     const authSignOut = await supabase.auth.signOut({ scope: 'others' })
     if (authSignOut.error) {
       const notice = friendlyErrorMessage(authSignOut.error.message, '无法退出其他设备，请重试。')
-      setAuthNotice(notice)
+      setScopedNotice('profile', notice)
       recordAppError('devices', notice)
       return false
     }
@@ -1597,12 +1597,12 @@ export function useChatApp() {
 
     if (error) {
       const notice = friendlyErrorMessage(error.message, '无法退出其他设备，请重试。')
-      setAuthNotice(notice)
+      setScopedNotice('profile', notice)
       recordAppError('devices', notice)
       return false
     }
 
-    setAuthNotice('其他设备已退出。')
+    setScopedNotice('profile', '其他设备已退出。')
     recordAdminActivity('other_devices_revoked', user.id, 'success')
     await refreshDeviceSessions()
     return true
@@ -1616,7 +1616,7 @@ export function useChatApp() {
         ...previous,
         deviceSessions: previous.deviceSessions.filter((session) => session.deviceId !== deviceId),
       }))
-      setAuthNotice('设备已移除。')
+      setScopedNotice('profile', '设备已移除。')
       return true
     }
 
@@ -1626,12 +1626,12 @@ export function useChatApp() {
 
     if (error) {
       const notice = friendlyErrorMessage(error.message, '无法移除这个设备，请重试。')
-      setAuthNotice(notice)
+      setScopedNotice('profile', notice)
       recordAppError('devices', notice)
       return false
     }
 
-    setAuthNotice('设备已移除。')
+    setScopedNotice('profile', '设备已移除。')
     await refreshDeviceSessions()
     return true
   }
@@ -2435,7 +2435,7 @@ export function useChatApp() {
 
     const request = state.contacts.find((contact) => contact.id === requestId)
     if (!request || request.direction !== 'incoming') {
-      setAuthNotice('没有找到这条好友申请。')
+        setScopedNotice('list', '没有找到这条好友申请。')
       return null
     }
 
@@ -2449,12 +2449,12 @@ export function useChatApp() {
             contact.id === requestId ? { ...contact, status: 'declined' } : contact,
           ),
         }))
-        setAuthNotice('已拒绝好友申请。')
+        setScopedNotice('list', '已拒绝好友申请。')
         return null
       }
 
       if (!requesterProfile) {
-        setAuthNotice('无法读取申请人资料。')
+        setScopedNotice('list', '无法读取申请人资料。')
         return null
       }
 
@@ -2500,7 +2500,7 @@ export function useChatApp() {
         members: upsertMembers(previous.members, conversation.id, conversation.memberIds),
       }))
       setActiveConversationId(conversationId)
-      setAuthNotice(`已同意 ${requesterProfile.displayName} 的好友申请。`)
+      setScopedNotice('list', `已同意 ${requesterProfile.displayName} 的好友申请。`)
       return conversationId
     }
 
@@ -2509,7 +2509,7 @@ export function useChatApp() {
       .single()
 
     if (error) {
-      setAuthNotice(friendlyErrorMessage(error.message, '无法处理好友申请，请重试。'))
+      setScopedNotice('list', friendlyErrorMessage(error.message, '无法处理好友申请，请重试。'))
       return null
     }
 
@@ -2563,12 +2563,12 @@ export function useChatApp() {
 
     if (conversationId && nextStatus === 'accepted') {
       setActiveConversationId(conversationId)
-      setAuthNotice(`已同意 ${profile.displayName} 的好友申请。`)
+      setScopedNotice('list', `已同意 ${profile.displayName} 的好友申请。`)
       void loadSupabaseState(currentUser.id)
       return conversationId
     }
 
-    setAuthNotice('已拒绝好友申请。')
+    setScopedNotice('list', '已拒绝好友申请。')
     return null
   }
 
@@ -2578,12 +2578,12 @@ export function useChatApp() {
     if (!trimmed || !currentUser || !activeWorkspace) return false
 
     if (trimmed === currentUser.email.toLowerCase()) {
-      setAuthNotice('你已经在当前工作区。')
+      setScopedNotice('group', '你已经在当前工作区。')
       return false
     }
 
     if (!isWorkspaceManager(activeWorkspaceRole)) {
-      setAuthNotice('只有 owner 或 admin 可以添加工作区成员。')
+      setScopedNotice('group', '只有 owner 或 admin 可以添加成员。')
       return false
     }
 
@@ -2592,7 +2592,7 @@ export function useChatApp() {
       const targetProfile = state.profiles.find((profile) => profile.id === targetProfileId)
 
       if (!targetProfile) {
-        setAuthNotice('没有找到使用这个邮箱注册的用户。')
+        setScopedNotice('group', '没有找到使用这个邮箱注册的用户。')
         return false
       }
 
@@ -2601,7 +2601,7 @@ export function useChatApp() {
           member.workspaceId === activeWorkspace.id && member.userId === targetProfile.id,
       )
       if (exists) {
-        setAuthNotice('这个用户已经在当前工作区。')
+        setScopedNotice('group', '这个用户已经在当前群权限范围内。')
         return true
       }
 
@@ -2616,7 +2616,7 @@ export function useChatApp() {
         ...previous,
         workspaceMembers: upsertWorkspaceMember(previous.workspaceMembers, workspaceMember),
       }))
-      setAuthNotice(`已将 ${targetProfile.displayName} 加入 ${activeWorkspace.name}。`)
+      setScopedNotice('group', `已将 ${targetProfile.displayName} 加入群权限范围。`)
       recordAdminActivity('member_added', targetProfile.id, 'success', { role })
       return true
     }
@@ -2633,7 +2633,7 @@ export function useChatApp() {
         error.message,
         '无法添加工作区成员，请检查邮箱后重试。请确认对方已经注册。',
       )
-      setAuthNotice(notice)
+      setScopedNotice('group', notice)
       recordAppError('workspace_members', notice, { role })
       recordAdminActivity('member_added', '', 'failure', { role, reason: notice })
       return false
@@ -2661,7 +2661,7 @@ export function useChatApp() {
       profiles: upsertProfile(previous.profiles, profile),
       workspaceMembers: upsertWorkspaceMember(previous.workspaceMembers, workspaceMember),
     }))
-    setAuthNotice(`已将 ${profile.displayName} 加入当前工作区。`)
+    setScopedNotice('group', `已将 ${profile.displayName} 加入群权限范围。`)
     recordAdminActivity('member_added', profile.id, 'success', { role: workspaceMember.role })
     void loadSupabaseState(currentUser.id)
     return true
@@ -2672,12 +2672,12 @@ export function useChatApp() {
     if (!currentUser || !activeWorkspace) return false
 
     if (memberUserId === currentUser.id) {
-      setAuthNotice('不能在这里移除自己。')
+      setScopedNotice('group', '不能在这里移除自己。')
       return false
     }
 
     if (!isWorkspaceManager(activeWorkspaceRole)) {
-      setAuthNotice('只有 owner 或 admin 可以移除工作区成员。')
+      setScopedNotice('group', '只有 owner 或 admin 可以移除成员。')
       return false
     }
 
@@ -2685,12 +2685,12 @@ export function useChatApp() {
       (member) => member.workspaceId === activeWorkspace.id && member.userId === memberUserId,
     )
     if (!targetMember) {
-      setAuthNotice('没有找到这个工作区成员。')
+      setScopedNotice('group', '没有找到这个成员。')
       return false
     }
 
     if (targetMember.role === 'owner') {
-      setAuthNotice('不能移除工作区 owner。')
+      setScopedNotice('group', '不能移除 owner。')
       return false
     }
 
@@ -2711,7 +2711,7 @@ export function useChatApp() {
             : conversation,
         ),
       }))
-      setAuthNotice('成员已移除。')
+      setScopedNotice('group', '成员已移除。')
       recordAdminActivity('member_removed', memberUserId, 'success')
       return true
     }
@@ -2722,7 +2722,7 @@ export function useChatApp() {
 
     if (error) {
       const notice = friendlyErrorMessage(error.message, '无法移除工作区成员，请重试。')
-      setAuthNotice(notice)
+      setScopedNotice('group', notice)
       recordAppError('workspace_members', notice, { targetUserId: memberUserId })
       recordAdminActivity('member_removed', memberUserId, 'failure', { reason: notice })
       return false
@@ -2744,7 +2744,7 @@ export function useChatApp() {
           : conversation,
       ),
     }))
-    setAuthNotice('成员已移除，受影响用户刷新后将无法继续访问该工作区群聊。')
+    setScopedNotice('group', '成员已移除，刷新后对方将无法继续访问相关群聊。')
     recordAdminActivity('member_removed', memberUserId, 'success')
     void loadSupabaseState(currentUser.id)
     return true
@@ -2755,12 +2755,12 @@ export function useChatApp() {
     if (!currentUser || !activeWorkspace) return false
 
     if (!isWorkspaceManager(activeWorkspaceRole)) {
-      setAuthNotice('只有 owner 或 admin 可以调整工作区成员角色。')
+      setScopedNotice('group', '只有 owner 或 admin 可以调整成员角色。')
       return false
     }
 
     if (role === 'owner') {
-      setAuthNotice('当前版本暂不支持转移 owner。')
+      setScopedNotice('group', '当前版本暂不支持转移 owner。')
       return false
     }
 
@@ -2773,7 +2773,7 @@ export function useChatApp() {
             : member,
         ),
       }))
-      setAuthNotice('成员角色已更新。')
+      setScopedNotice('group', '成员角色已更新。')
       recordAdminActivity('member_role_updated', memberUserId, 'success', { role })
       return true
     }
@@ -2785,7 +2785,7 @@ export function useChatApp() {
 
     if (error) {
       const notice = friendlyErrorMessage(error.message, '无法更新成员角色，请重试。')
-      setAuthNotice(notice)
+      setScopedNotice('group', notice)
       recordAppError('workspace_members', notice, { targetUserId: memberUserId, role })
       recordAdminActivity('member_role_updated', memberUserId, 'failure', {
         role,
@@ -2802,7 +2802,7 @@ export function useChatApp() {
           : member,
       ),
     }))
-    setAuthNotice('成员角色已更新。')
+    setScopedNotice('group', '成员角色已更新。')
     recordAdminActivity('member_role_updated', memberUserId, 'success', { role })
     void loadSupabaseState(currentUser.id)
     return true
@@ -2816,12 +2816,12 @@ export function useChatApp() {
 
     const currentMember = findConversationMember(state.members, conversationId, currentUser.id)
     if (!isGroupManagerRole(currentMember?.role)) {
-      setAuthNotice('只有群 owner 或 admin 可以添加群成员。')
+      setScopedNotice('group', '只有群 owner 或 admin 可以添加群成员。')
       return false
     }
 
     if (conversation.memberIds.includes(memberUserId)) {
-      setAuthNotice('这个成员已经在群聊中。')
+      setScopedNotice('group', '这个成员已经在群聊中。')
       return true
     }
 
@@ -2832,7 +2832,7 @@ export function useChatApp() {
           member.workspaceId === conversation.workspaceId && member.userId === memberUserId,
       )
     ) {
-      setAuthNotice('只能添加当前工作区成员进群。')
+      setScopedNotice('group', '只能添加当前群权限范围内的成员。')
       return false
     }
 
@@ -2858,7 +2858,7 @@ export function useChatApp() {
         ),
         members: upsertConversationMember(previous.members, member),
       }))
-      setAuthNotice(`已将 ${targetProfile.displayName} 加入群聊。`)
+      setScopedNotice('group', `已将 ${targetProfile.displayName} 加入群聊。`)
       recordAdminActivity('group_member_added', memberUserId, 'success', { conversationId })
       return true
     }
@@ -2870,7 +2870,7 @@ export function useChatApp() {
 
     if (error) {
       const notice = friendlyErrorMessage(error.message, '无法添加群成员，请稍后重试。')
-      setAuthNotice(notice)
+      setScopedNotice('group', notice)
       recordAppError('workspace_members', notice, { conversationId, targetUserId: memberUserId })
       return false
     }
@@ -2892,7 +2892,7 @@ export function useChatApp() {
       ),
       members: upsertConversationMember(previous.members, member),
     }))
-    setAuthNotice(`已将 ${targetProfile.displayName} 加入群聊。`)
+    setScopedNotice('group', `已将 ${targetProfile.displayName} 加入群聊。`)
     void loadSupabaseState(currentUser.id)
     return true
   }
@@ -2905,12 +2905,12 @@ export function useChatApp() {
 
     const currentMember = findConversationMember(state.members, conversationId, currentUser.id)
     if (!isGroupManagerRole(currentMember?.role)) {
-      setAuthNotice('只有群 owner 或 admin 可以添加群成员。')
+      setScopedNotice('group', '只有群 owner 或 admin 可以添加群成员。')
       return false
     }
 
     if (trimmed === currentUser.email.toLowerCase()) {
-      setAuthNotice('你已经在这个群聊中。')
+      setScopedNotice('group', '你已经在这个群聊中。')
       return false
     }
 
@@ -2919,12 +2919,12 @@ export function useChatApp() {
       const targetProfile = state.profiles.find((profile) => profile.id === targetProfileId)
 
       if (!targetProfile) {
-        setAuthNotice('对方需先注册，才能被添加到群聊。')
+        setScopedNotice('group', '对方需先注册，才能被添加到群聊。')
         return false
       }
 
       if (conversation.memberIds.includes(targetProfile.id)) {
-        setAuthNotice('对方已经在群聊中。')
+        setScopedNotice('group', '对方已经在群聊中。')
         return true
       }
 
@@ -2965,7 +2965,7 @@ export function useChatApp() {
           ? upsertWorkspaceMember(previous.workspaceMembers, workspaceMember)
           : previous.workspaceMembers,
       }))
-      setAuthNotice(`已将 ${targetProfile.displayName} 加入群聊。`)
+      setScopedNotice('group', `已将 ${targetProfile.displayName} 加入群聊。`)
       recordAdminActivity('group_member_added', targetProfile.id, 'success', { conversationId })
       return true
     }
@@ -2979,7 +2979,7 @@ export function useChatApp() {
 
     if (error) {
       const notice = friendlyErrorMessage(error.message, '无法添加群成员，请确认对方已经注册后重试。')
-      setAuthNotice(notice)
+      setScopedNotice('group', notice)
       recordAppError('workspace_members', notice, { conversationId })
       return false
     }
@@ -3031,7 +3031,7 @@ export function useChatApp() {
         ? upsertWorkspaceMember(previous.workspaceMembers, workspaceMember)
         : previous.workspaceMembers,
     }))
-    setAuthNotice(`已将 ${profile.displayName} 加入群聊。`)
+    setScopedNotice('group', `已将 ${profile.displayName} 加入群聊。`)
     void loadSupabaseState(currentUser.id)
     return true
   }
@@ -3044,12 +3044,12 @@ export function useChatApp() {
 
     const currentMember = findConversationMember(state.members, conversationId, currentUser.id)
     if (!isGroupManagerRole(currentMember?.role)) {
-      setAuthNotice('只有群 owner 或 admin 可以移除群成员。')
+      setScopedNotice('group', '只有群 owner 或 admin 可以移除群成员。')
       return false
     }
 
     if (targetMember.role !== 'member') {
-      setAuthNotice('只能移除普通群成员。')
+      setScopedNotice('group', '只能移除普通群成员。')
       return false
     }
 
@@ -3070,7 +3070,7 @@ export function useChatApp() {
             !(member.conversationId === conversationId && member.userId === memberUserId),
         ),
       }))
-      setAuthNotice('群成员已移除。')
+      setScopedNotice('group', '群成员已移除。')
       recordAdminActivity('group_member_removed', memberUserId, 'success', { conversationId })
       return true
     }
@@ -3082,7 +3082,7 @@ export function useChatApp() {
 
     if (error) {
       const notice = friendlyErrorMessage(error.message, '无法移除群成员，请稍后重试。')
-      setAuthNotice(notice)
+      setScopedNotice('group', notice)
       recordAppError('workspace_members', notice, { conversationId, targetUserId: memberUserId })
       return false
     }
@@ -3102,7 +3102,7 @@ export function useChatApp() {
         (member) => !(member.conversationId === conversationId && member.userId === memberUserId),
       ),
     }))
-    setAuthNotice('群成员已移除，刷新后对方将不能继续访问该群聊。')
+    setScopedNotice('group', '群成员已移除，刷新后对方将不能继续访问该群聊。')
     void loadSupabaseState(currentUser.id)
     return true
   }
@@ -3121,12 +3121,12 @@ export function useChatApp() {
     if (!currentUser || !conversation || conversation.type !== 'group' || !targetMember) return false
 
     if (currentMember?.role !== 'owner') {
-      setAuthNotice('只有群 owner 可以调整群管理员。')
+      setScopedNotice('group', '只有群 owner 可以调整群管理员。')
       return false
     }
 
     if (targetMember.role === 'owner') {
-      setAuthNotice('不能调整群 owner 的角色。')
+      setScopedNotice('group', '不能调整群 owner 的角色。')
       return false
     }
 
@@ -3139,7 +3139,7 @@ export function useChatApp() {
             : member,
         ),
       }))
-      setAuthNotice('群成员角色已更新。')
+      setScopedNotice('group', '群成员角色已更新。')
       recordAdminActivity('group_member_role_updated', memberUserId, 'success', {
         conversationId,
         role,
@@ -3155,7 +3155,7 @@ export function useChatApp() {
 
     if (error) {
       const notice = friendlyErrorMessage(error.message, '无法更新群成员角色，请稍后重试。')
-      setAuthNotice(notice)
+      setScopedNotice('group', notice)
       recordAppError('workspace_members', notice, { conversationId, targetUserId: memberUserId, role })
       return false
     }
@@ -3168,7 +3168,7 @@ export function useChatApp() {
           : member,
       ),
     }))
-    setAuthNotice('群成员角色已更新。')
+    setScopedNotice('group', '群成员角色已更新。')
     void loadSupabaseState(currentUser.id)
     return true
   }
@@ -3181,7 +3181,7 @@ export function useChatApp() {
 
     const currentMember = findConversationMember(state.members, conversationId, currentUser.id)
     if (!isGroupManagerRole(currentMember?.role)) {
-      setAuthNotice('只有群 owner 或 admin 可以修改群名称。')
+      setScopedNotice('group', '只有群 owner 或 admin 可以修改群名称。')
       return false
     }
 
@@ -3192,7 +3192,7 @@ export function useChatApp() {
           item.id === conversationId ? { ...item, title: trimmed } : item,
         ),
       }))
-      setAuthNotice('群名称已更新。')
+      setScopedNotice('group', '群名称已更新。')
       recordAdminActivity('group_renamed', currentUser.id, 'success', { conversationId })
       return true
     }
@@ -3204,7 +3204,7 @@ export function useChatApp() {
 
     if (error) {
       const notice = friendlyErrorMessage(error.message, '无法修改群名称，请稍后重试。')
-      setAuthNotice(notice)
+      setScopedNotice('group', notice)
       recordAppError('workspace_members', notice, { conversationId })
       return false
     }
@@ -3215,7 +3215,7 @@ export function useChatApp() {
         item.id === conversationId ? { ...item, title: trimmed } : item,
       ),
     }))
-    setAuthNotice('群名称已更新。')
+    setScopedNotice('group', '群名称已更新。')
     void loadSupabaseState(currentUser.id)
     return true
   }
@@ -3227,7 +3227,7 @@ export function useChatApp() {
     if (!currentUser || !conversation || !message) return false
 
     if (!canDeleteGroupMessage(conversation, state.members, message, currentUser.id)) {
-      setAuthNotice('你没有权限删除这条群消息，或撤回时间已超过 2 分钟。')
+      setScopedNotice('chat', '你没有权限删除这条群消息，或撤回时间已超过 2 分钟。')
       return false
     }
 
@@ -3235,7 +3235,7 @@ export function useChatApp() {
 
     if (!supabase) {
       setState((previous) => markMessageDeleted(previous, conversationId, messageId, currentUser.id, reason))
-      setAuthNotice('消息已删除。')
+      setScopedNotice('chat', '消息已删除。')
       recordAdminActivity('message_deleted', message.senderId, 'success', {
         conversationId,
         messageId,
@@ -3251,13 +3251,13 @@ export function useChatApp() {
 
     if (error) {
       const notice = friendlyErrorMessage(error.message, '无法删除这条消息，请稍后重试。')
-      setAuthNotice(notice)
+      setScopedNotice('chat', notice)
       recordAppError('messages', notice, { conversationId, messageId })
       return false
     }
 
     setState((previous) => markMessageDeleted(previous, conversationId, messageId, currentUser.id, reason))
-    setAuthNotice('消息已删除。')
+    setScopedNotice('chat', '消息已删除。')
     void loadSupabaseState(currentUser.id)
     return true
   }
@@ -3270,7 +3270,7 @@ export function useChatApp() {
 
     const currentMember = findConversationMember(state.members, conversationId, currentUser.id)
     if (!isGroupManagerRole(currentMember?.role)) {
-      setAuthNotice('只有群 owner 或 admin 可以修改群公告。')
+      setScopedNotice('group', '只有群 owner 或 admin 可以修改群公告。')
       return false
     }
 
@@ -3281,7 +3281,7 @@ export function useChatApp() {
           item.id === conversationId ? { ...item, announcement: normalized } : item,
         ),
       }))
-      setAuthNotice(normalized ? '群公告已更新。' : '群公告已清空。')
+      setScopedNotice('group', normalized ? '群公告已更新。' : '群公告已清空。')
       recordAdminActivity('group_announcement_updated', currentUser.id, 'success', { conversationId })
       return true
     }
@@ -3293,7 +3293,7 @@ export function useChatApp() {
 
     if (error) {
       const notice = friendlyErrorMessage(error.message, '无法更新群公告，请稍后重试。')
-      setAuthNotice(notice)
+      setScopedNotice('group', notice)
       recordAppError('workspace_members', notice, { conversationId })
       return false
     }
@@ -3304,7 +3304,7 @@ export function useChatApp() {
         item.id === conversationId ? { ...item, announcement: normalized } : item,
       ),
     }))
-    setAuthNotice(normalized ? '群公告已更新。' : '群公告已清空。')
+    setScopedNotice('group', normalized ? '群公告已更新。' : '群公告已清空。')
     void loadSupabaseState(currentUser.id)
     return true
   }
@@ -3319,7 +3319,7 @@ export function useChatApp() {
 
     const currentMember = findConversationMember(state.members, conversationId, currentUser.id)
     if (!isGroupManagerRole(currentMember?.role)) {
-      setAuthNotice('只有群 owner 或 admin 可以置顶消息。')
+      setScopedNotice('chat', '只有群 owner 或 admin 可以置顶消息。')
       return false
     }
 
@@ -3330,7 +3330,7 @@ export function useChatApp() {
           item.id === conversationId ? { ...item, pinnedMessageId: messageId } : item,
         ),
       }))
-      setAuthNotice('消息已置顶。')
+      setScopedNotice('chat', '消息已置顶。')
       recordAdminActivity('message_pinned', currentUser.id, 'success', { conversationId, messageId })
       return true
     }
@@ -3342,7 +3342,7 @@ export function useChatApp() {
 
     if (error) {
       const notice = friendlyErrorMessage(error.message, '无法置顶消息，请稍后重试。')
-      setAuthNotice(notice)
+      setScopedNotice('chat', notice)
       recordAppError('messages', notice, { conversationId, messageId })
       return false
     }
@@ -3353,7 +3353,7 @@ export function useChatApp() {
         item.id === conversationId ? { ...item, pinnedMessageId: messageId } : item,
       ),
     }))
-    setAuthNotice('消息已置顶。')
+    setScopedNotice('chat', '消息已置顶。')
     void loadSupabaseState(currentUser.id)
     return true
   }
@@ -3365,7 +3365,7 @@ export function useChatApp() {
 
     const currentMember = findConversationMember(state.members, conversationId, currentUser.id)
     if (!isGroupManagerRole(currentMember?.role)) {
-      setAuthNotice('只有群 owner 或 admin 可以取消置顶。')
+      setScopedNotice('chat', '只有群 owner 或 admin 可以取消置顶。')
       return false
     }
 
@@ -3376,7 +3376,7 @@ export function useChatApp() {
           item.id === conversationId ? { ...item, pinnedMessageId: undefined } : item,
         ),
       }))
-      setAuthNotice('已取消置顶。')
+      setScopedNotice('chat', '已取消置顶。')
       recordAdminActivity('message_unpinned', currentUser.id, 'success', { conversationId })
       return true
     }
@@ -3387,7 +3387,7 @@ export function useChatApp() {
 
     if (error) {
       const notice = friendlyErrorMessage(error.message, '无法取消置顶，请稍后重试。')
-      setAuthNotice(notice)
+      setScopedNotice('chat', notice)
       recordAppError('messages', notice, { conversationId })
       return false
     }
@@ -3398,7 +3398,7 @@ export function useChatApp() {
         item.id === conversationId ? { ...item, pinnedMessageId: undefined } : item,
       ),
     }))
-    setAuthNotice('已取消置顶。')
+    setScopedNotice('chat', '已取消置顶。')
     void loadSupabaseState(currentUser.id)
     return true
   }
@@ -3415,13 +3415,13 @@ export function useChatApp() {
 
     const currentMember = findConversationMember(state.members, conversationId, currentUser.id)
     if (!isGroupManagerRole(currentMember?.role)) {
-      setAuthNotice('只有群 owner 或 admin 可以隐藏群文件。')
+      setScopedNotice('group', '只有群 owner 或 admin 可以隐藏群文件。')
       return false
     }
 
     if (!supabase) {
       setState((previous) => markAttachmentHidden(previous, conversationId, attachmentId, currentUser.id))
-      setAuthNotice('群文件已隐藏。')
+      setScopedNotice('group', '群文件已隐藏。')
       recordAdminActivity('attachment_hidden', message.senderId, 'success', {
         conversationId,
         messageId: message.id,
@@ -3437,13 +3437,13 @@ export function useChatApp() {
 
     if (error) {
       const notice = friendlyErrorMessage(error.message, '无法隐藏这个文件，请稍后重试。')
-      setAuthNotice(notice)
+      setScopedNotice('group', notice)
       recordAppError('attachments', notice, { conversationId, attachmentId })
       return false
     }
 
     setState((previous) => markAttachmentHidden(previous, conversationId, attachmentId, currentUser.id))
-    setAuthNotice('群文件已隐藏。')
+    setScopedNotice('group', '群文件已隐藏。')
     void loadSupabaseState(currentUser.id)
     return true
   }

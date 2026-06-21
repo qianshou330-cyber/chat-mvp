@@ -271,7 +271,7 @@ describe('聊天 MVP', () => {
     expect(screen.queryByRole('region', { name: '工作区管理' })).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '更多管理' }))
 
-    expect(screen.getByRole('region', { name: '试用巡检' })).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: '运行状态' })).toBeInTheDocument()
     expect(screen.getByText('最近错误')).toBeInTheDocument()
     expect(screen.getByText('通知失败')).toBeInTheDocument()
     expect(screen.getByRole('region', { name: '群管理记录' })).toBeInTheDocument()

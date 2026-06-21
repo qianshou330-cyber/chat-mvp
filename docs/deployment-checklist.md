@@ -40,6 +40,7 @@
 
 ## Smoke Test
 - Register or sign in with email and password.
+- Confirm the login/register page says this is a public beta and asks testers not to send sensitive information.
 - Create a profile.
 - Upload a static avatar and an MP4/WebM video avatar; confirm the profile screen shows processing/upload progress and chat lists still show the static poster.
 - Add a registered user by email and open a direct chat.
@@ -60,7 +61,7 @@
 - Confirm the profile page uses the lightweight settings layout: avatar action menu, editable nickname/bio rows, readonly email row, collapsed login devices, and bottom sign-out row.
 - Confirm group details show grouped sections for “群公告与权限”, “群成员”, “群文件”, and owner/admin-only “群管理记录”.
 - Confirm owner/admin can copy the group invite instructions for not-yet-registered members from group details.
-- Confirm owner/admin can open “试用巡检” and see recent error, notification failure, attachment failure, and management activity counts.
+- Confirm owner/admin can open “运行状态” and see recent error, notification failure, attachment failure, and management activity counts.
 - Confirm the v0.6.1 handoff smoke is recorded in `docs/v0.6.1-production-smoke.md`, including Web Push coverage, cleanup status, and any skipped items.
 - Confirm the v0.6.2 performance handoff is recorded in `docs/v0.6.2-performance-handoff.md`, including before/after bundle sizes and PWA service worker warning status.
 - Confirm the v0.6.3 maintainability handoff is recorded in `docs/v0.6.3-maintainability-handoff.md`, including helper extraction scope and the long-conversation render-window behavior.
@@ -79,6 +80,7 @@
 - Confirm the v0.7.6 search feedback closure handoff is recorded in `docs/v0.7.6-search-trial-feedback-closure.md`, including preserved search state, empty/completed result states, feedback status, permission checks, and `codex.v076.*` cleanup status when temporary data is used.
 - Confirm the v0.7.7 search production-health handoff is recorded in `docs/v0.7.7-search-trial-health-report.md`, including GitHub Issues feedback status, sanitized app-error summary, production smoke, permission checks, and `codex.v077.*` cleanup status when temporary data is used.
 - Confirm the v0.8.0 production operations handoff is recorded in `docs/v0.8.0-production-ops-handoff.md`, including backup/restore rehearsal notes, Web Push health, sanitized error review, A/B/C permission smoke, and `codex.v080.*` cleanup status when temporary data is used.
+- Confirm `docs/v0.8.1-public-beta-launch-checklist.md` is ready for the July 1 public beta, including open-registration risk, Web Push smoke, A/B/C permission smoke, UI viewport checks, and `codex.v081.*` cleanup status when temporary data is used.
 - Confirm Vercel Production loads the split chunks for group details and profile settings, and that `manifest.webmanifest` plus `sw.js` still return 200.
 - Confirm `docs/company-trial-safety.md` remains available for company-trial safety guidance.
 - Sign in to the same account from two browsers or windows and confirm both devices are listed.
@@ -122,5 +124,6 @@
 - Tag the search feedback closure patch as `v0.7.6-beta` after preserved search state, empty/completed result states, feedback handoff, A/B/C permission smoke, and cleanup path pass.
 - Tag the search production-health patch as `v0.7.7-beta` after GitHub Issues feedback status, sanitized app-error summary, A/B/C permission smoke, and cleanup path pass.
 - Tag the production hardening baseline as `v0.8.0-beta` after backup/restore rehearsal notes, Web Push health, sanitized app-error review, A/B/C permission smoke, and cleanup path pass.
+- Tag the public-beta launch candidate as `v0.8.1-beta` after scoped notices, detail-page UI polish, public-beta safety copy, Chrome Web Push smoke, A/B/C permission smoke, viewport screenshots, and cleanup path pass.
 - Use `docs/beta-test-plan.md` for tester instructions and issue triage.
 - Collect feedback through GitHub Issue templates before prioritizing the next beta scope.

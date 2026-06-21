@@ -1975,20 +1975,29 @@ mark {
 }
 
 .detail-screen {
-  background: #f4f7fb;
+  background: #f6f8fb;
   overflow: auto;
 }
 
 .detail-screen .topbar {
   background: rgba(255, 255, 255, 0.94);
   backdrop-filter: blur(14px);
+  border-bottom: 1px solid #edf2f7;
   position: sticky;
   top: 0;
   z-index: 5;
 }
 
+.detail-screen .topbar > div {
+  min-width: 0;
+}
+
 .detail-screen .topbar h1 {
   font-size: 21px;
+  max-width: calc(100vw - 146px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .detail-screen .eyebrow {
@@ -2003,9 +2012,9 @@ mark {
 .detail-screen .profile-hero {
   background: var(--surface);
   border: 0;
-  border-radius: 18px;
+  border-radius: 20px;
   margin: 10px 12px 8px;
-  padding: 18px 16px 16px;
+  padding: 16px 16px 15px;
 }
 
 .detail-avatar-wrap {
@@ -2017,8 +2026,8 @@ mark {
 }
 
 .detail-screen .avatar.large {
-  height: 84px;
-  width: 84px;
+  height: 78px;
+  width: 78px;
 }
 
 .detail-title-stack {
@@ -2080,8 +2089,8 @@ mark {
 
 .detail-screen .group-quick-action {
   align-items: center;
-  background: #f6f9fc;
-  border: 0;
+  background: #f8fbfd;
+  border: 1px solid #e6eef6;
   border-radius: 999px;
   color: var(--accent-strong);
   display: inline-flex;
@@ -2114,7 +2123,8 @@ mark {
 
 .detail-screen .settings-list > .group-section {
   background: var(--surface);
-  border-radius: 16px;
+  border: 1px solid #edf2f7;
+  border-radius: 18px;
   gap: 0;
   overflow: hidden;
   padding: 12px 0;
@@ -2184,7 +2194,8 @@ mark {
 }
 
 .detail-screen .invite-copy-card {
-  background: #f6f9fc;
+  background: #f8fbfd;
+  border: 1px solid #edf2f7;
   border-radius: 12px;
   display: grid;
   gap: 8px;
@@ -2235,7 +2246,8 @@ mark {
 }
 
 .detail-screen .trial-health-grid span {
-  background: #f6f9fc;
+  background: #f8fbfd;
+  border: 1px solid #edf2f7;
   border-radius: 12px;
   display: grid;
   gap: 2px;
@@ -2312,12 +2324,15 @@ mark {
 }
 
 .profile-detail-screen .profile-hero {
-  gap: 10px;
+  background: transparent;
+  gap: 8px;
+  margin: 8px 12px 4px;
+  padding: 18px 16px 12px;
 }
 
 .profile-detail-screen .profile-avatar-trigger .avatar.large {
-  height: 84px;
-  width: 84px;
+  height: 78px;
+  width: 78px;
 }
 
 .profile-detail-screen .profile-identity-summary strong {
@@ -2333,8 +2348,8 @@ mark {
 .profile-detail-screen .notification-card,
 .profile-detail-screen .profile-sign-out-row {
   background: var(--surface);
-  border: 0;
-  border-radius: 16px;
+  border: 1px solid #edf2f7;
+  border-radius: 18px;
   overflow: hidden;
 }
 

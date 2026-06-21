@@ -33,14 +33,14 @@ test.describe('Chat MVP company-trial smoke', () => {
     await expect(page.getByRole('textbox', { name: '消息' })).toBeVisible()
     await page.getByRole('button', { name: /上线准备群/ }).click()
 
-    await expect(page.getByRole('heading', { name: '群详情' })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: '上线准备群' })).toBeVisible()
     await expect(page.getByRole('region', { name: '群公告与权限' })).toBeVisible()
     await expect(page.getByRole('region', { name: '群成员', exact: true })).toBeVisible()
     await expect(page.getByRole('region', { name: '群文件' })).toBeVisible()
     await expect(page.getByText('全体禁言')).toBeVisible()
 
     await page.getByRole('button', { name: '更多群管理' }).click()
-    await expect(page.getByRole('region', { name: '试用巡检' })).toBeVisible()
+    await expect(page.getByRole('region', { name: '运行状态' })).toBeVisible()
     await expect(page.getByRole('region', { name: '群管理记录' })).toBeVisible()
   })
 
